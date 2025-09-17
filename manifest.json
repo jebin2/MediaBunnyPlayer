@@ -1,0 +1,21 @@
+{
+    "name": "MediaBunny PWA Player",
+    "short_name": "Media Player",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#0f0f23",
+    "theme_color": "#1a1a35",
+    "description": "A high-performance PWA media player powered by mediabunny.",
+    "icons": [
+        {
+            "src": "icons/icon-192x192.svg",
+            "sizes": "192x192",
+            "type": "image/svg+xml"
+        },
+        {
+            "src": "icons/icon-512x512.svg",
+            "sizes": "512x512",
+            "type": "image/svg+xml"
+        }
+    ]
+}

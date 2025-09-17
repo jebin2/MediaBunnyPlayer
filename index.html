@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>MediaBunny Player</title>
+
+	<!-- Link to the Manifest for PWA capabilities -->
+	<link rel="manifest" href="manifest.json">
+
+	<!-- Link to the external stylesheet -->
+	<link rel="stylesheet" href="style.css">
+
+	<!-- Set the theme color for the browser UI -->
+	<meta name="theme-color" content="#1a1a35">
+</head>
+
+<body>
+	<div class="app-container">
+		<div class="header">
+			<div class="logo"><svg width="24" height="24" viewBox="0 0 24 24">
+					<path fill="#4f46e5" d="M4 4h16v16H4z" />
+				</svg>MediaBunny Player</div>
+			<div class="controls-header">
+				<button class="btn" id="openFileBtn">Open File</button>
+				<button class="btn" id="togglePlaylistBtn">Playlist</button>
+			</div>
+		</div>
+
+		<div class="player-area" id="playerArea">
+			<div class="drop-zone" id="dropZone">
+				<div class="drop-zone-content">
+					<svg class="drop-icon" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2">
+						<path stroke-linecap="round" stroke-linejoin="round"
+							d="M22 40l10-10l10 10m-10-10v28m22-14c2.21 0 4-1.79 4-4s-1.79-4-4-4c-.54 0-1.04.13-1.49.37C51.88 24.71 48.69 22 44.85 22c-4.67 0-8.45 3.78-8.45 8.45 0 .51.06 1.01.17 1.49-.69-.6-1.58-.94-2.57-.94-2.21 0-4 1.79-4 4s1.79 4 4 4h20z" />
+					</svg>
+					<h2>Drop media files here</h2>
+					<p>High-performance PWA Media Player</p>
+					<button class="btn btn-primary" id="chooseFileBtn">Choose Files</button>
+				</div>
+			</div>
+
+			<div class="video-container" id="videoContainer">
+				<canvas class="video-canvas" id="videoCanvas"></canvas>
+				<div class="video-controls" id="videoControls">
+					<div class="progress-container" id="progressContainer">
+						<div class="progress-bar" id="progressBar"></div>
+						<div class="progress-handle" id="progressHandle"></div>
+					</div>
+					<div class="controls-bottom">
+						<div class="controls-left">
+							<button class="play-btn" id="playBtn">▶</button>
+							<div class="time-display" id="timeDisplay">00:00 / 00:00</div>
+						</div>
+						<div class="controls-right">
+							<div class="volume-container">
+								<button class="btn" id="muteBtn">🔊</button>
+								<input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.01"
+									value="0.7">
+							</div>
+							<button class="fullscreen-btn" id="fullscreenBtn">⛶</button>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="sidebar" id="sidebar">
+				<h3>Playlist</h3>
+				<div id="playlistContent"></div>
+			</div>
+		</div>
+
+		<div class="loading hidden" id="loading">
+			<div class="spinner"></div>
+		</div>
+	</div>
+
+	<input type="file" id="fileInput" multiple accept="video/*,audio/*">
+
+	<!-- Link to the external JavaScript module -->
+	<script type="module" src="script.js"></script>
+</body>
+
+</html>
