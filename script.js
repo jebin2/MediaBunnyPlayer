@@ -544,8 +544,9 @@ document.addEventListener('DOMContentLoaded', () => {
 		}, {
 			once: true
 		});
+	} else {
+		updatePlaylistUI()
 	}
-
 	if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
 		navigator.serviceWorker.register('service-worker.js')
 			.then(() => console.log('ServiceWorker registered.'))

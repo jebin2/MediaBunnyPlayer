@@ -8,14 +8,25 @@
 	<link rel="manifest" href="manifest.json">
 	<link rel="stylesheet" href="style.css">
 	<meta name="theme-color" content="#1a1a35">
+	<link rel="icon" type="image/x-icon" href="favicon.ico">
 </head>
 
 <body>
 	<div class="app-container">
 		<div class="header">
-			<div class="logo"><svg width="24" height="24" viewBox="0 0 24 24">
-					<path fill="#4f46e5" d="M4 4h16v16H4z" />
-				</svg>MediaBunny Player</div>
+			<div class="logo" style="text-align: center;">
+				<img src="favicon.ico" alt="Logo" style="width: 40px; height: 40px; vertical-align: middle;" />
+
+				<div style="display: inline-block; text-align: left; margin-left: 8px;">
+					<div style="font-size: 1.5em; font-weight: bold;">
+						Media Player
+					</div>
+					<div style="font-size: 0.85em; color: gray; margin-top: 2px;">
+						Powered by <strong>MediaBunny</strong>
+					</div>
+				</div>
+			</div>
+
 			<div class="controls-header">
 				<button class="btn" id="openFileBtn">Open File(s)</button>
 				<button class="btn" id="openFolderBtn">Open Folder</button>
@@ -29,7 +40,6 @@
 				<div class="drop-zone-content">
 					<img style="width: 50%;" src="upload.svg" />
 					<h2>Drop media files here</h2>
-					<p>Powered by MediaBunny</p>
 					<button class="btn btn-primary" id="chooseFileBtn">Choose Files</button>
 				</div>
 			</div>

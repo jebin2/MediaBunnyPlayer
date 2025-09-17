@@ -8,7 +8,7 @@ const urlsToCache = [
     '/icons/icon-192x192.svg',
     '/icons/icon-512x512.svg',
     '/favicon.ico',
-    '/cloud-up-arrow-svgrepo-com.svg'
+    '/upload.svg'
 ];
 
 // Install the service worker and cache the app shell
