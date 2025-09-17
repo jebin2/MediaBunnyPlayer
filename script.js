@@ -358,7 +358,7 @@ const renderTree = (nodes, currentPath = '') => {
             const isActive = currentPlayingFile && currentPlayingFile.name === node.file.name && currentPlayingFile.size === node.file.size;
             html += `<li class="playlist-file ${isActive ? 'active' : ''}" data-path="${nodePath}" title="${node.name}">
                         <!-- Added title attribute -->
-                        <span class="playlist-file-name" title="${node.name}">${node.name}</span>
+                        <span class="playlist-file-name playlist-file-video" title="${node.name}">${node.name}</span>
                         <span class="remove-item" data-path="${nodePath}">&times;</span>
                     </li>`;
         }

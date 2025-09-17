@@ -365,11 +365,6 @@ body {
 	justify-content: space-between;
 }
 
-.playlist-folder > details > summary::before {
-	content: '📁';
-	margin-right: 8px;
-}
-
 /* This is now the <li> element */
 .playlist-file {
 	cursor: pointer;
@@ -396,13 +391,25 @@ body {
 }
 
 .playlist-folder-name::before {
-	/* content: '📁'; */
+	content: '📁';
 	margin-right: 8px;
+}
+
+/* Video files */
+.playlist-file-video::before {
+  content: '🎬';
+  margin-right: 8px;
+}
+
+/* Audio files */
+.playlist-file.audio::before {
+  content: '🎵';
+  margin-right: 8px;
 }
 
 /* This is the file name itself */
 .playlist-file-name {
-	padding-left: 20px;
+	/* padding-left: 20px; */
 	flex-grow: 1;
 	pointer-events: none; /* Keep this so clicks are on the parent LI */
 	/* Add the 3 key properties for ellipsis */
