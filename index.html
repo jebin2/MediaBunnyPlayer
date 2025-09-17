@@ -56,6 +56,29 @@
 							<div class="time-display" id="timeDisplay">00:00 / 00:00</div>
 						</div>
 						<div class="controls-right">
+							<div class="track-controls">
+								<button class="btn track-btn" id="audioTrackBtn">Audio</button>
+								<button class="btn track-btn" id="subtitleTrackBtn">Subtitles</button>
+							</div>
+
+							<!-- Add these dropdown menus after the video-controls div: -->
+							<div class="track-menu hidden" id="audioTrackMenu">
+								<div class="track-menu-content">
+									<h4>Audio Tracks</h4>
+									<ul id="audioTrackList"></ul>
+								</div>
+							</div>
+
+							<div class="track-menu hidden" id="subtitleTrackMenu">
+								<div class="track-menu-content">
+									<h4>Subtitle Tracks</h4>
+									<ul id="subtitleTrackList">
+										<li class="track-item" data-track-id="none">
+											<span>None</span>
+										</li>
+									</ul>
+								</div>
+							</div>
 							<div class="volume-container">
 								<button class="btn" id="muteBtn">🔊</button>
 								<input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.01"

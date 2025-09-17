@@ -477,3 +477,76 @@ body {
 	font-weight: 600;
 	color: var(--black);
 }
+.track-controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.track-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+}
+
+.track-menu {
+    position: absolute;
+    bottom: 100%;
+    background: var(--white);
+    border: var(--border-style);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-style);
+    min-width: 200px;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1001;
+}
+
+.track-menu-content {
+    padding: 1rem;
+}
+
+.track-menu-content h4 {
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--black);
+}
+
+.track-menu ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.track-item {
+    padding: 0.5rem;
+    cursor: pointer;
+    border-radius: var(--border-radius);
+    margin-bottom: 0.25rem;
+    transition: background-color var(--transition-speed) ease;
+    font-size: 0.85rem;
+}
+
+.track-item:hover {
+    background: var(--accent-color);
+    color: var(--white);
+}
+
+.track-item.active {
+    background: var(--primary-color);
+    color: var(--white);
+}
+
+.subtitle-overlay {
+    position: absolute;
+    bottom: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+    color: white;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-size: 1.1rem;
+    text-align: center;
+    max-width: 80%;
+    word-wrap: break-word;
+    z-index: 500;
+}

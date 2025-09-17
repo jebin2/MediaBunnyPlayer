@@ -42,6 +42,11 @@ let videoFrameIterator, audioBufferIterator, nextFrame = null;
 const queuedAudioNodes = new Set();
 let asyncId = 0;
 let hideControlsTimeout;
+let availableAudioTracks = [];
+let availableSubtitleTracks = [];
+let currentAudioTrack = null;
+let currentSubtitleTrack = null;
+let subtitleRenderer = null;
 
 // --- Core Player Logic ---
 const getPlaybackTime = () => playing ? audioContext.currentTime - audioContextStartTime + playbackTimeAtStart : playbackTimeAtStart;
@@ -85,6 +90,10 @@ const renderLoop = () => {
 				updateNextFrame();
 			}
 		}
+
+		// Update subtitles
+		updateSubtitles(currentTime);
+
 		if (!isSeeking) updateProgressBarUI(currentTime);
 	}
 	requestAnimationFrame(renderLoop);
@@ -161,16 +170,21 @@ const stopAndClear = async () => {
 	nextFrame = null;
 	videoSink = null;
 	audioSink = null;
+	subtitleRenderer = null;
+	removeSubtitleOverlay();
+	availableAudioTracks = [];
+	availableSubtitleTracks = [];
+	currentAudioTrack = null;
+	currentSubtitleTrack = null;
 	await audioContext?.close();
 	audioContext = null;
-}
+};
 
 const loadMedia = async (resource) => {
 	showLoading(true);
 	try {
 		await stopAndClear();
 
-		// Step 1: Determine the source type (BlobSource for files, UrlSource for URLs)
 		let source;
 		let resourceName;
 
@@ -180,7 +194,6 @@ const loadMedia = async (resource) => {
 		} else if (typeof resource === 'string') {
 			source = new UrlSource(resource);
 			resourceName = resource.split('/').pop() || 'video_from_url.mp4';
-			// Add the URL to the playlist if it's not already there
 			if (!playlist.some(item => item.file === resource)) {
 				playlist.push({
 					type: 'file',
@@ -192,34 +205,51 @@ const loadMedia = async (resource) => {
 			throw new Error('Invalid media resource provided.');
 		}
 
-		currentPlayingFile = resource; // <-- CRITICAL FIX 1: Store the actual resource.
+		currentPlayingFile = resource;
 
 		const input = new Input({
 			source,
 			formats: ALL_FORMATS
 		});
+
 		playbackTimeAtStart = 0;
 		totalDuration = await input.computeDuration();
+
+		// Get all tracks
 		const videoTrack = await input.getPrimaryVideoTrack();
-		const audioTrack = await input.getPrimaryAudioTrack();
-		if (!videoTrack && !audioTrack) throw new Error('No valid audio or video tracks found.');
+		availableAudioTracks = await input.getAudioTracks();
+		// Corrected code
+		const allTracks = await input.getTracks();
+		availableSubtitleTracks = allTracks.filter(track => track.type === 'subtitle');
+
+		// Set current tracks
+		currentAudioTrack = availableAudioTracks.length > 0 ? availableAudioTracks[0] : null;
+		currentSubtitleTrack = null; // Start with no subtitles
+
+		if (!videoTrack && !currentAudioTrack) {
+			throw new Error('No valid audio or video tracks found.');
+		}
+
 		const AudioContext = window.AudioContext || window.webkitAudioContext;
 		audioContext = new AudioContext({
-			sampleRate: audioTrack?.sampleRate
+			sampleRate: currentAudioTrack?.sampleRate
 		});
 		gainNode = audioContext.createGain();
 		gainNode.connect(audioContext.destination);
 		setVolume(volumeSlider.value);
-		videoSink = videoTrack && await videoTrack.canDecode() ? new CanvasSink(videoTrack, {
-			poolSize: 2,
-			fit: 'contain'
-		}) : null;
-		audioSink = audioTrack && await audioTrack.canDecode() ? new AudioBufferSink(audioTrack) : null;
+
+		videoSink = videoTrack && await videoTrack.canDecode() ?
+			new CanvasSink(videoTrack, { poolSize: 2, fit: 'contain' }) : null;
+		audioSink = currentAudioTrack && await currentAudioTrack.canDecode() ?
+			new AudioBufferSink(currentAudioTrack) : null;
+
 		if (videoSink) {
 			canvas.width = videoTrack.displayWidth;
 			canvas.height = videoTrack.displayHeight;
 		}
 
+		// Update track UI
+		updateTrackMenus();
 		updatePlaylistUI();
 		fileLoaded = true;
 		showPlayerUI();
@@ -234,6 +264,106 @@ const loadMedia = async (resource) => {
 	} finally {
 		showLoading(false);
 	}
+};
+
+// Add these new functions:
+const updateTrackMenus = () => {
+	// Update audio track menu
+	const audioTrackList = $('audioTrackList');
+	audioTrackList.innerHTML = '';
+
+	availableAudioTracks.forEach((track, index) => {
+		const li = document.createElement('li');
+		li.className = `track-item ${track === currentAudioTrack ? 'active' : ''}`;
+		li.dataset.trackId = index;
+		li.innerHTML = `<span>${track.language || `Audio ${index + 1}`}</span>`;
+		li.onclick = () => switchAudioTrack(index);
+		audioTrackList.appendChild(li);
+	});
+
+	// Update subtitle track menu
+	const subtitleTrackList = $('subtitleTrackList');
+	// Clear existing subtitle tracks (keep the "None" option)
+	const noneOption = subtitleTrackList.querySelector('[data-track-id="none"]');
+	subtitleTrackList.innerHTML = '';
+	subtitleTrackList.appendChild(noneOption);
+
+	// Update "None" option active state
+	noneOption.className = `track-item ${!currentSubtitleTrack ? 'active' : ''}`;
+
+	availableSubtitleTracks.forEach((track, index) => {
+		const li = document.createElement('li');
+		li.className = `track-item ${track === currentSubtitleTrack ? 'active' : ''}`;
+		li.dataset.trackId = index;
+		li.innerHTML = `<span>${track.language || `Subtitle ${index + 1}`}</span>`;
+		li.onclick = () => switchSubtitleTrack(index);
+		subtitleTrackList.appendChild(li);
+	});
+};
+
+const switchAudioTrack = async (trackIndex) => {
+	if (trackIndex >= availableAudioTracks.length) return;
+
+	const wasPlaying = playing;
+	if (wasPlaying) pause();
+
+	currentAudioTrack = availableAudioTracks[trackIndex];
+
+	// Recreate audio sink with new track
+	audioSink = currentAudioTrack && await currentAudioTrack.canDecode() ?
+		new AudioBufferSink(currentAudioTrack) : null;
+
+	updateTrackMenus();
+	hideTrackMenus();
+
+	if (wasPlaying && playbackTimeAtStart < totalDuration) {
+		await play();
+	}
+};
+
+const switchSubtitleTrack = async (trackIndex) => {
+	// Clear current subtitle display
+	removeSubtitleOverlay();
+
+	if (trackIndex === 'none' || trackIndex >= availableSubtitleTracks.length) {
+		currentSubtitleTrack = null;
+		subtitleRenderer = null;
+	} else {
+		currentSubtitleTrack = availableSubtitleTracks[trackIndex];
+		if (await currentSubtitleTrack.canDecode()) {
+			const { SubtitleRenderer } = await import('https://cdn.skypack.dev/mediabunny@latest');
+			subtitleRenderer = new SubtitleRenderer(currentSubtitleTrack);
+		}
+	}
+
+	updateTrackMenus();
+	hideTrackMenus();
+};
+
+const removeSubtitleOverlay = () => {
+	const existingOverlay = document.querySelector('.subtitle-overlay');
+	if (existingOverlay) {
+		existingOverlay.remove();
+	}
+};
+
+const updateSubtitles = (currentTime) => {
+	removeSubtitleOverlay();
+
+	if (!subtitleRenderer) return;
+
+	const subtitle = subtitleRenderer.getSubtitleAt(currentTime);
+	if (subtitle && subtitle.text) {
+		const overlay = document.createElement('div');
+		overlay.className = 'subtitle-overlay';
+		overlay.textContent = subtitle.text;
+		videoContainer.appendChild(overlay);
+	}
+};
+
+const hideTrackMenus = () => {
+	$('audioTrackMenu').classList.add('hidden');
+	$('subtitleTrackMenu').classList.add('hidden');
 };
 const playNext = () => {
 	/* Logic to find and play the next file in the tree can be added here */
@@ -434,6 +564,36 @@ const setupEventListeners = () => {
 		volumeSlider.value = volumeSlider.value > 0 ? 0 : 0.7;
 		setVolume(volumeSlider.value);
 	};
+	// Track menu event listeners
+	$('audioTrackBtn').onclick = (e) => {
+		e.stopPropagation();
+		const menu = $('audioTrackMenu');
+		menu.classList.toggle('hidden');
+		$('subtitleTrackMenu').classList.add('hidden');
+	};
+
+	$('subtitleTrackBtn').onclick = (e) => {
+		e.stopPropagation();
+		const menu = $('subtitleTrackMenu');
+		menu.classList.toggle('hidden');
+		$('audioTrackMenu').classList.add('hidden');
+	};
+
+	// Handle "None" option for subtitles
+	$('subtitleTrackList').onclick = (e) => {
+		if (e.target.closest('[data-track-id="none"]')) {
+			switchSubtitleTrack('none');
+		}
+	};
+
+	// Close track menus when clicking elsewhere
+	document.onclick = () => {
+		hideTrackMenus();
+	};
+
+	// Prevent menu from closing when clicking inside
+	$('audioTrackMenu').onclick = (e) => e.stopPropagation();
+	$('subtitleTrackMenu').onclick = (e) => e.stopPropagation();
 	volumeSlider.oninput = (e) => setVolume(e.target.value);
 	fullscreenBtn.onclick = () => document.fullscreenElement ? document.exitFullscreen() : videoContainer.requestFullscreen();
 	progressContainer.onpointerdown = (e) => {
@@ -524,7 +684,7 @@ const setupEventListeners = () => {
 				break;
 		}
 	};
-	
+
 	// --- Control visibility event listeners ---
 	videoContainer.onclick = togglePlay;
 	videoControls.onclick = (e) => e.stopPropagation();
