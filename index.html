@@ -17,6 +17,7 @@
 			<div class="controls-header">
 				<button class="btn" id="openFileBtn">Open File(s)</button>
 				<button class="btn" id="openFolderBtn">Open Folder</button>
+				<button class="btn" id="clearPlaylistBtn">Clear Playlist</button> <!-- Added Button -->
 				<button class="btn" id="togglePlaylistBtn">Playlist</button>
 			</div>
 		</div>
@@ -30,7 +31,6 @@
 					<button class="btn btn-primary" id="chooseFileBtn">Choose Files</button>
 				</div>
 			</div>
-
 			<div class="video-container" id="videoContainer">
 				<canvas class="video-canvas" id="videoCanvas"></canvas>
 				<div class="video-controls" id="videoControls">
@@ -53,24 +53,18 @@
 					</div>
 				</div>
 			</div>
-
 			<div class="sidebar" id="sidebar">
 				<h3>Playlist</h3>
 				<div id="playlistContent"></div>
 			</div>
 		</div>
-
 		<div class="loading hidden" id="loading">
 			<div class="spinner"></div>
 		</div>
 	</div>
 
-	<!-- Input for individual files -->
 	<input type="file" id="fileInput" multiple accept="video/*,audio/*">
-
-	<!-- New, hidden input for selecting a directory -->
 	<input type="file" id="folderInput" webkitdirectory multiple>
-
 	<script type="module" src="script.js"></script>
 </body>
 </html>

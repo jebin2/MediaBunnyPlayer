@@ -208,7 +208,7 @@ const playNext = () => {
 	/* Logic to find and play the next file in the tree can be added here */
 };
 
-// --- UI and Helper Functions (Unchanged) ---
+// --- UI and Helper Functions ---
 const formatTime = s => s ? `${Math.floor(s / 60).toString().padStart(2, '0')}:${Math.floor(s % 60).toString().padStart(2, '0')}` : '00:00';
 const showLoading = show => loading.classList.toggle('hidden', !show);
 const showError = msg => {
@@ -233,21 +233,22 @@ const updateProgressBarUI = (time) => {
 	progressHandle.style.left = `${percent}%`;
 };
 
-// --- Playlist and Folder Logic (Unchanged) ---
+// --- NEW AND MODIFIED PLAYLIST LOGIC ---
+
+// MODIFIED: Now appends files to the playlist
 const handleFiles = (files) => {
 	if (files.length === 0) return;
 	const fileEntries = Array.from(files).map(file => ({
-		type: 'file',
-		name: file.name,
-		file
+		file,
+		path: file.name
 	}));
-	playlist = buildTreeFromPaths(fileEntries.map(f => ({
-		file: f.file,
-		path: f.name
-	})));
+	const newTree = buildTreeFromPaths(fileEntries);
+	playlist = mergeTrees(playlist, newTree);
 	updatePlaylistUI();
-	if (playlist.length > 0) loadMedia(fileEntries[0].file);
+	if (!fileLoaded && fileEntries.length > 0) loadMedia(fileEntries[0].file);
 };
+
+// MODIFIED: Now appends folders to the playlist
 const handleFolderSelection = (event) => {
 	const files = event.target.files;
 	if (!files.length) return;
@@ -257,15 +258,58 @@ const handleFolderSelection = (event) => {
 		path: file.webkitRelativePath
 	}));
 	if (fileEntries.length > 0) {
-		playlist = buildTreeFromPaths(fileEntries);
+		const newTree = buildTreeFromPaths(fileEntries);
+		playlist = mergeTrees(playlist, newTree);
 		updatePlaylistUI();
-		loadMedia(fileEntries[0].file);
+		if (!fileLoaded) loadMedia(fileEntries[0].file);
 	} else {
 		showError("No video files found in the selected directory.");
 	}
 	showLoading(false);
 	event.target.value = '';
 };
+
+// NEW: Merges two tree structures, preventing duplicates
+const mergeTrees = (mainTree, newTree) => {
+	newTree.forEach(newItem => {
+		const existingItem = mainTree.find(item => item.name === newItem.name && item.type === newItem.type);
+		if (existingItem && existingItem.type === 'folder') {
+			existingItem.children = mergeTrees(existingItem.children, newItem.children);
+		} else if (!existingItem) {
+			mainTree.push(newItem);
+		}
+	});
+	return mainTree;
+};
+
+// NEW: Recursively removes an item from the tree by its path
+const removeItemFromPath = (nodes, path) => {
+	const pathParts = path.split('/');
+	const itemName = pathParts[0];
+
+	for (let i = nodes.length - 1; i >= 0; i--) {
+		if (nodes[i].name === itemName) {
+			if (pathParts.length === 1) {
+				// If this is the item, remove it
+				nodes.splice(i, 1);
+			} else {
+				// If it's a parent, recurse into its children
+				removeItemFromPath(nodes[i].children, pathParts.slice(1).join('/'));
+			}
+			return;
+		}
+	}
+};
+
+// NEW: Clears the entire playlist and resets the player
+const clearPlaylist = () => {
+	stopAndClear();
+	playlist = [];
+	currentPlayingFile = null;
+	updatePlaylistUI();
+	showDropZoneUI();
+};
+
 const buildTreeFromPaths = (files) => {
 	const tree = [];
 	files.forEach(fileInfo => {
@@ -294,19 +338,34 @@ const buildTreeFromPaths = (files) => {
 	});
 	return tree;
 };
-const renderTree = (nodes) => {
+
+// MODIFIED: Renders the tree with remove buttons and data-paths
+const renderTree = (nodes, currentPath = '') => {
 	let html = '<ul class="playlist-tree">';
 	nodes.forEach(node => {
+		const nodePath = currentPath ? `${currentPath}/${node.name}` : node.name;
 		if (node.type === 'folder') {
-			html += `<li class="playlist-folder"><details open><summary class="folder-name">${node.name}</summary>${renderTree(node.children)}</details></li>`;
+			html += `<li class="playlist-folder">
+                        <details open>
+                            <summary>
+                                <span class="folder-name">${node.name}</span>
+                                <span class="remove-item" data-path="${nodePath}">&times;</span>
+                            </summary>
+                            ${renderTree(node.children, nodePath)}
+                        </details>
+                    </li>`;
 		} else {
 			const isActive = currentPlayingFile && currentPlayingFile.name === node.file.name && currentPlayingFile.size === node.file.size;
-			html += `<li class="playlist-file ${isActive ? 'active' : ''}" data-file-name="${node.name}">${node.name}</li>`;
+			html += `<li>
+                        <span class="playlist-file ${isActive ? 'active' : ''}" data-path="${nodePath}">${node.name}</span>
+                        <span class="remove-item" data-path="${nodePath}">&times;</span>
+                    </li>`;
 		}
 	});
 	html += '</ul>';
 	return html;
 };
+
 const updatePlaylistUI = () => {
 	if (playlist.length === 0) {
 		playlistContent.innerHTML = '<p style="padding:1rem; opacity:0.7;">No files in playlist.</p>';
@@ -330,18 +389,15 @@ const showControlsTemporarily = () => {
 	}, 2500);
 };
 
-// --- THE FIX IS HERE ---
-// This function is now fully corrected for case-sensitivity.
+// --- Event Listeners Setup ---
 const setupEventListeners = () => {
-	// These button clicks should work now
 	$('openFileBtn').onclick = () => $('fileInput').click();
 	$('openFolderBtn').onclick = () => $('folderInput').click();
+	$('clearPlaylistBtn').onclick = clearPlaylist; // Added listener
 	$('chooseFileBtn').onclick = () => $('fileInput').click();
 	$('togglePlaylistBtn').onclick = () => playerArea.classList.toggle('playlist-visible');
-
 	$('fileInput').onchange = (e) => handleFiles(e.target.files);
 	$('folderInput').onchange = handleFolderSelection;
-
 	playBtn.onclick = togglePlay;
 	muteBtn.onclick = () => {
 		volumeSlider.value = volumeSlider.value > 0 ? 0 : 0.7;
@@ -349,20 +405,16 @@ const setupEventListeners = () => {
 	};
 	volumeSlider.oninput = (e) => setVolume(e.target.value);
 	fullscreenBtn.onclick = () => document.fullscreenElement ? document.exitFullscreen() : videoContainer.requestFullscreen();
-
 	progressContainer.onpointerdown = (e) => {
 		isSeeking = true;
 		showControlsTemporarily();
 	};
-
-	// THIS BLOCK WAS THE PRIMARY CULPRIT AND IS NOW FIXED
 	document.onpointermove = (e) => {
 		if (!isSeeking) return;
 		const rect = progressContainer.getBoundingClientRect();
 		const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
 		updateProgressBarUI(percent * totalDuration);
 	};
-
 	document.onpointerup = (e) => {
 		if (!isSeeking) return;
 		isSeeking = false;
@@ -370,10 +422,8 @@ const setupEventListeners = () => {
 		const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
 		seekToTime(percent * totalDuration);
 	};
-
 	const ddEvents = ['dragover', 'drop'];
 	ddEvents.forEach(name => document.body.addEventListener(name, p => p.preventDefault()));
-
 	dropZone.ondragover = () => dropZone.classList.add('dragover');
 	dropZone.ondragleave = () => dropZone.classList.remove('dragover');
 	dropZone.ondrop = (e) => {
@@ -381,21 +431,55 @@ const setupEventListeners = () => {
 		handleFiles(e.dataTransfer.files);
 	};
 
+	// MODIFIED: Click handler now manages playing files AND removing items
 	playlistContent.onclick = (e) => {
-		const fileElement = e.target.closest('.playlist-file');
+		const target = e.target;
+
+		// Handle removing an item
+		if (target.classList.contains('remove-item')) {
+			const pathToRemove = target.dataset.path;
+
+			// Check if we are removing the currently playing file
+			const isPlayingFile = currentPlayingFile && (currentPlayingFile.webkitRelativePath || currentPlayingFile.name) === pathToRemove;
+
+			removeItemFromPath(playlist, pathToRemove);
+			updatePlaylistUI();
+
+			if (isPlayingFile) {
+				stopAndClear();
+				currentPlayingFile = null;
+				showDropZoneUI();
+			}
+			return; // Stop further execution
+		}
+
+		// Handle playing a file
+		const fileElement = target.closest('.playlist-file');
 		if (fileElement) {
-			const fileName = fileElement.dataset.fileName;
-			const findFileInTree = (nodes) => {
+			const path = fileElement.dataset.path;
+			const findFileInTree = (nodes, targetPath) => {
 				for (const node of nodes) {
-					if (node.type === 'file' && node.name === fileName) return node.file;
+					const currentPath = node.file ? (node.file.webkitRelativePath || node.file.name) : '';
+					if (node.type === 'file' && currentPath === targetPath) return node.file;
 					if (node.type === 'folder') {
-						const found = findFileInTree(node.children);
+						const found = findFileInTree(node.children, targetPath);
 						if (found) return found;
 					}
 				}
 				return null;
 			};
-			const fileToPlay = findFileInTree(playlist);
+
+			// We need a way to find a file by its full path, not just name
+			const findFileByPath = (nodes, path) => {
+				const pathParts = path.split('/');
+				const itemName = pathParts[0];
+				const node = nodes.find(n => n.name === itemName);
+				if (!node) return null;
+				if (pathParts.length === 1 && node.type === 'file') return node.file;
+				if (node.type === 'folder') return findFileByPath(node.children, pathParts.slice(1).join('/'));
+				return null;
+			}
+			const fileToPlay = findFileByPath(playlist, path);
 			if (fileToPlay) loadMedia(fileToPlay);
 		}
 	};
@@ -441,6 +525,7 @@ const setupEventListeners = () => {
 	videoContainer.onpointermove = showControlsTemporarily;
 };
 
+// --- Initial Load ---
 document.addEventListener('DOMContentLoaded', () => {
 	setupEventListeners();
 	renderLoop();
