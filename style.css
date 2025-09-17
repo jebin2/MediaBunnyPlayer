@@ -347,18 +347,22 @@ body {
 }
 
 .playlist-tree li {
-	padding: 5px 0;
-	/* Use Flexbox to align item name and remove button */
+	/* This is the base for both folder and file li elements */
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
+	padding: 5px 0;
+}
+
+.playlist-folder > details {
+	flex-grow: 1; /* Allow details/summary to take up space */
 }
 
 .playlist-folder > details > summary {
 	cursor: pointer;
 	font-weight: bold;
-	/* Let summary take up available space */
-	flex-grow: 1;
+	display: flex;
+	justify-content: space-between;
 }
 
 .playlist-folder > details > summary::before {
@@ -366,11 +370,13 @@ body {
 	margin-right: 8px;
 }
 
+/* This is now the <li> element */
 .playlist-file {
 	cursor: pointer;
-	padding-left: 20px;
-	/* Let file name take up available space */
-	flex-grow: 1;
+}
+
+.playlist-file:hover {
+	background-color: rgba(255, 255, 255, 0.1);
 }
 
 .playlist-file.active {
@@ -378,19 +384,22 @@ body {
 	font-weight: bold;
 }
 
-.playlist-file:hover {
-	background-color: rgba(255, 255, 255, 0.1);
+/* This is the file name itself */
+.playlist-file-name {
+	padding-left: 20px;
+	flex-grow: 1;
+	/* Prevent clicks on the name from interfering with the li's listener */
+	pointer-events: none; 
 }
 
-/* New style for the remove button */
 .remove-item {
 	cursor: pointer;
 	font-size: 1.2rem;
 	padding: 0 10px;
-	color: #9ca3af; /* gray */
+	color: #9ca3af;
 	transition: color 0.2s ease-in-out;
 }
 
 .remove-item:hover {
-	color: #ef4444; /* red */
+	color: #ef4444;
 }

@@ -42,7 +42,7 @@ const queuedAudioNodes = new Set();
 let asyncId = 0;
 let hideControlsTimeout;
 
-// --- Core Player Logic (Unchanged) ---
+// --- Core Player Logic ---
 const getPlaybackTime = () => playing ? audioContext.currentTime - audioContextStartTime + playbackTimeAtStart : playbackTimeAtStart;
 const startVideoIterator = async () => {
 	if (!videoSink) return;
@@ -148,6 +148,8 @@ const seekToTime = async (seconds) => {
 		await play();
 	}
 };
+
+// --- MODIFIED FUNCTION WITH THE CRITICAL FIX ---
 const stopAndClear = async () => {
 	if (playing) pause();
 	fileLoaded = false;
@@ -158,7 +160,9 @@ const stopAndClear = async () => {
 	videoSink = null;
 	audioSink = null;
 	await audioContext?.close();
+	audioContext = null; // THIS IS THE FIX: Reset the context variable
 }
+
 const loadMedia = async (file) => {
 	showLoading(true);
 	try {
@@ -207,8 +211,6 @@ const loadMedia = async (file) => {
 const playNext = () => {
 	/* Logic to find and play the next file in the tree can be added here */
 };
-
-// --- UI and Helper Functions ---
 const formatTime = s => s ? `${Math.floor(s / 60).toString().padStart(2, '0')}:${Math.floor(s % 60).toString().padStart(2, '0')}` : '00:00';
 const showLoading = show => loading.classList.toggle('hidden', !show);
 const showError = msg => {
@@ -232,10 +234,21 @@ const updateProgressBarUI = (time) => {
 	progressBar.style.width = `${percent}%`;
 	progressHandle.style.left = `${percent}%`;
 };
+const findFileByPath = (nodes, path) => {
+	const pathParts = path.split('/');
+	const itemName = pathParts[0];
+	const node = nodes.find(n => n.name === itemName);
+	if (!node) return null;
+	if (pathParts.length === 1 && node.type === 'file') {
+		return node.file;
+	}
+	if (node.type === 'folder') {
+		return findFileByPath(node.children, pathParts.slice(1).join('/'));
+	}
+	return null;
+};
 
-// --- NEW AND MODIFIED PLAYLIST LOGIC ---
-
-// MODIFIED: Now appends files to the playlist
+// --- Playlist and Folder Logic ---
 const handleFiles = (files) => {
 	if (files.length === 0) return;
 	const fileEntries = Array.from(files).map(file => ({
@@ -247,8 +260,6 @@ const handleFiles = (files) => {
 	updatePlaylistUI();
 	if (!fileLoaded && fileEntries.length > 0) loadMedia(fileEntries[0].file);
 };
-
-// MODIFIED: Now appends folders to the playlist
 const handleFolderSelection = (event) => {
 	const files = event.target.files;
 	if (!files.length) return;
@@ -268,8 +279,6 @@ const handleFolderSelection = (event) => {
 	showLoading(false);
 	event.target.value = '';
 };
-
-// NEW: Merges two tree structures, preventing duplicates
 const mergeTrees = (mainTree, newTree) => {
 	newTree.forEach(newItem => {
 		const existingItem = mainTree.find(item => item.name === newItem.name && item.type === newItem.type);
@@ -281,27 +290,20 @@ const mergeTrees = (mainTree, newTree) => {
 	});
 	return mainTree;
 };
-
-// NEW: Recursively removes an item from the tree by its path
 const removeItemFromPath = (nodes, path) => {
 	const pathParts = path.split('/');
 	const itemName = pathParts[0];
-
 	for (let i = nodes.length - 1; i >= 0; i--) {
 		if (nodes[i].name === itemName) {
 			if (pathParts.length === 1) {
-				// If this is the item, remove it
 				nodes.splice(i, 1);
 			} else {
-				// If it's a parent, recurse into its children
 				removeItemFromPath(nodes[i].children, pathParts.slice(1).join('/'));
 			}
 			return;
 		}
 	}
 };
-
-// NEW: Clears the entire playlist and resets the player
 const clearPlaylist = () => {
 	stopAndClear();
 	playlist = [];
@@ -309,7 +311,6 @@ const clearPlaylist = () => {
 	updatePlaylistUI();
 	showDropZoneUI();
 };
-
 const buildTreeFromPaths = (files) => {
 	const tree = [];
 	files.forEach(fileInfo => {
@@ -338,34 +339,20 @@ const buildTreeFromPaths = (files) => {
 	});
 	return tree;
 };
-
-// MODIFIED: Renders the tree with remove buttons and data-paths
 const renderTree = (nodes, currentPath = '') => {
 	let html = '<ul class="playlist-tree">';
 	nodes.forEach(node => {
 		const nodePath = currentPath ? `${currentPath}/${node.name}` : node.name;
 		if (node.type === 'folder') {
-			html += `<li class="playlist-folder">
-                        <details open>
-                            <summary>
-                                <span class="folder-name">${node.name}</span>
-                                <span class="remove-item" data-path="${nodePath}">&times;</span>
-                            </summary>
-                            ${renderTree(node.children, nodePath)}
-                        </details>
-                    </li>`;
+			html += `<li class="playlist-folder"><details open><summary><span>${node.name}</span><span class="remove-item" data-path="${nodePath}">&times;</span></summary>${renderTree(node.children, nodePath)}</details></li>`;
 		} else {
 			const isActive = currentPlayingFile && currentPlayingFile.name === node.file.name && currentPlayingFile.size === node.file.size;
-			html += `<li>
-                        <span class="playlist-file ${isActive ? 'active' : ''}" data-path="${nodePath}">${node.name}</span>
-                        <span class="remove-item" data-path="${nodePath}">&times;</span>
-                    </li>`;
+			html += `<li class="playlist-file ${isActive ? 'active' : ''}" data-path="${nodePath}"><span class="playlist-file-name">${node.name}</span><span class="remove-item" data-path="${nodePath}">&times;</span></li>`;
 		}
 	});
 	html += '</ul>';
 	return html;
 };
-
 const updatePlaylistUI = () => {
 	if (playlist.length === 0) {
 		playlistContent.innerHTML = '<p style="padding:1rem; opacity:0.7;">No files in playlist.</p>';
@@ -393,7 +380,7 @@ const showControlsTemporarily = () => {
 const setupEventListeners = () => {
 	$('openFileBtn').onclick = () => $('fileInput').click();
 	$('openFolderBtn').onclick = () => $('folderInput').click();
-	$('clearPlaylistBtn').onclick = clearPlaylist; // Added listener
+	$('clearPlaylistBtn').onclick = clearPlaylist;
 	$('chooseFileBtn').onclick = () => $('fileInput').click();
 	$('togglePlaylistBtn').onclick = () => playerArea.classList.toggle('playlist-visible');
 	$('fileInput').onchange = (e) => handleFiles(e.target.files);
@@ -430,60 +417,33 @@ const setupEventListeners = () => {
 		dropZone.classList.remove('dragover');
 		handleFiles(e.dataTransfer.files);
 	};
-
-	// MODIFIED: Click handler now manages playing files AND removing items
 	playlistContent.onclick = (e) => {
 		const target = e.target;
-
-		// Handle removing an item
-		if (target.classList.contains('remove-item')) {
-			const pathToRemove = target.dataset.path;
-
-			// Check if we are removing the currently playing file
-			const isPlayingFile = currentPlayingFile && (currentPlayingFile.webkitRelativePath || currentPlayingFile.name) === pathToRemove;
-
+		const removeButton = target.closest('.remove-item');
+		if (removeButton) {
+			const pathToRemove = removeButton.dataset.path;
+			const fileToRemove = findFileByPath(playlist, pathToRemove);
+			const isPlayingFile = fileToRemove && currentPlayingFile && (fileToRemove.name === currentPlayingFile.name && fileToRemove.size === currentPlayingFile.size);
 			removeItemFromPath(playlist, pathToRemove);
 			updatePlaylistUI();
-
 			if (isPlayingFile) {
 				stopAndClear();
 				currentPlayingFile = null;
 				showDropZoneUI();
 			}
-			return; // Stop further execution
+			return;
 		}
-
-		// Handle playing a file
 		const fileElement = target.closest('.playlist-file');
 		if (fileElement) {
 			const path = fileElement.dataset.path;
-			const findFileInTree = (nodes, targetPath) => {
-				for (const node of nodes) {
-					const currentPath = node.file ? (node.file.webkitRelativePath || node.file.name) : '';
-					if (node.type === 'file' && currentPath === targetPath) return node.file;
-					if (node.type === 'folder') {
-						const found = findFileInTree(node.children, targetPath);
-						if (found) return found;
-					}
-				}
-				return null;
-			};
-
-			// We need a way to find a file by its full path, not just name
-			const findFileByPath = (nodes, path) => {
-				const pathParts = path.split('/');
-				const itemName = pathParts[0];
-				const node = nodes.find(n => n.name === itemName);
-				if (!node) return null;
-				if (pathParts.length === 1 && node.type === 'file') return node.file;
-				if (node.type === 'folder') return findFileByPath(node.children, pathParts.slice(1).join('/'));
-				return null;
-			}
 			const fileToPlay = findFileByPath(playlist, path);
-			if (fileToPlay) loadMedia(fileToPlay);
+			if (fileToPlay) {
+				loadMedia(fileToPlay);
+			} else {
+				console.error("Could not find file in playlist for path:", path);
+			}
 		}
 	};
-
 	document.onkeydown = (e) => {
 		if (e.target.tagName === 'INPUT' || !fileLoaded) return;
 		switch (e.code) {
