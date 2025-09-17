@@ -340,18 +340,31 @@ const buildTreeFromPaths = (files) => {
 	return tree;
 };
 const renderTree = (nodes, currentPath = '') => {
-	let html = '<ul class="playlist-tree">';
-	nodes.forEach(node => {
-		const nodePath = currentPath ? `${currentPath}/${node.name}` : node.name;
-		if (node.type === 'folder') {
-			html += `<li class="playlist-folder"><details open><summary><span>${node.name}</span><span class="remove-item" data-path="${nodePath}">&times;</span></summary>${renderTree(node.children, nodePath)}</details></li>`;
-		} else {
-			const isActive = currentPlayingFile && currentPlayingFile.name === node.file.name && currentPlayingFile.size === node.file.size;
-			html += `<li class="playlist-file ${isActive ? 'active' : ''}" data-path="${nodePath}"><span class="playlist-file-name">${node.name}</span><span class="remove-item" data-path="${nodePath}">&times;</span></li>`;
-		}
-	});
-	html += '</ul>';
-	return html;
+    let html = '<ul class="playlist-tree">';
+    nodes.forEach(node => {
+        const nodePath = currentPath ? `${currentPath}/${node.name}` : node.name;
+        if (node.type === 'folder') {
+            html += `<li class="playlist-folder">
+                        <details open>
+                            <summary>
+                                <!-- Added title attribute and a class for styling -->
+                                <span class="playlist-folder-name" title="${node.name}">${node.name}</span>
+                                <span class="remove-item" data-path="${nodePath}">&times;</span>
+                            </summary>
+                            ${renderTree(node.children, nodePath)}
+                        </details>
+                    </li>`;
+        } else {
+            const isActive = currentPlayingFile && currentPlayingFile.name === node.file.name && currentPlayingFile.size === node.file.size;
+            html += `<li class="playlist-file ${isActive ? 'active' : ''}" data-path="${nodePath}" title="${node.name}">
+                        <!-- Added title attribute -->
+                        <span class="playlist-file-name" title="${node.name}">${node.name}</span>
+                        <span class="remove-item" data-path="${nodePath}">&times;</span>
+                    </li>`;
+        }
+    });
+    html += '</ul>';
+    return html;
 };
 const updatePlaylistUI = () => {
 	if (playlist.length === 0) {

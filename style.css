@@ -347,7 +347,7 @@ body {
 }
 
 .playlist-tree li {
-	/* This is the base for both folder and file li elements */
+	width: 240px;
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
@@ -373,6 +373,8 @@ body {
 /* This is now the <li> element */
 .playlist-file {
 	cursor: pointer;
+	/* Add this to ensure flexbox behaves correctly with ellipsis */
+	min-width: 0;
 }
 
 .playlist-file:hover {
@@ -384,12 +386,29 @@ body {
 	font-weight: bold;
 }
 
+/* This is the folder name inside the <summary> tag */
+.playlist-folder-name {
+	font-weight: bold;
+	/* Add the 3 key properties for ellipsis */
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.playlist-folder-name::before {
+	/* content: '📁'; */
+	margin-right: 8px;
+}
+
 /* This is the file name itself */
 .playlist-file-name {
 	padding-left: 20px;
 	flex-grow: 1;
-	/* Prevent clicks on the name from interfering with the li's listener */
-	pointer-events: none; 
+	pointer-events: none; /* Keep this so clicks are on the parent LI */
+	/* Add the 3 key properties for ellipsis */
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .remove-item {
