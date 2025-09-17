@@ -202,7 +202,6 @@ body {
 	border-top: var(--border-style);
 }
 
-.video-container:hover .video-controls,
 .video-controls.show {
 	opacity: 1;
 	pointer-events: auto;

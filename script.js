@@ -138,6 +138,9 @@ const pause = () => {
 	queuedAudioNodes.clear();
 	playBtn.textContent = '▶';
 	videoContainer.classList.remove('hide-cursor');
+	// Explicitly show controls and cancel any hide timer when paused
+	clearTimeout(hideControlsTimeout);
+	videoControls.classList.add('show');
 };
 const togglePlay = () => playing ? pause() : play();
 const seekToTime = async (seconds) => {
@@ -408,15 +411,15 @@ const setVolume = val => {
 	muteBtn.textContent = val > 0 ? '🔊' : '🔇';
 };
 const showControlsTemporarily = () => {
-	if (!videoSink) return;
+	clearTimeout(hideControlsTimeout);
 	videoControls.classList.add('show');
 	videoContainer.classList.remove('hide-cursor');
-	clearTimeout(hideControlsTimeout);
 	hideControlsTimeout = setTimeout(() => {
-		if (!playing || isSeeking) return;
-		videoControls.classList.remove('show');
-		videoContainer.classList.add('hide-cursor');
-	}, 2500);
+		if (playing && !isSeeking) {
+			videoControls.classList.remove('show');
+			videoContainer.classList.add('hide-cursor');
+		}
+	}, 3000);
 };
 const setupEventListeners = () => {
 	$('openFileBtn').onclick = () => $('fileInput').click();
@@ -521,9 +524,18 @@ const setupEventListeners = () => {
 				break;
 		}
 	};
+	
+	// --- Control visibility event listeners ---
 	videoContainer.onclick = togglePlay;
 	videoControls.onclick = (e) => e.stopPropagation();
 	videoContainer.onpointermove = showControlsTemporarily;
+
+	// Hide controls when the mouse leaves the video container (if playing)
+	videoContainer.onmouseleave = () => {
+		if (playing && !isSeeking) {
+			videoControls.classList.remove('show');
+		}
+	};
 };
 
 // --- Initial Load ---
