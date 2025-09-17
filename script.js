@@ -170,35 +170,27 @@ const loadMedia = async (resource) => {
 		// Step 1: Determine the source type (BlobSource for files, UrlSource for URLs)
 		let source;
 		let resourceName;
-		let is_video_url = false
 
 		if (resource instanceof File) {
 			source = new BlobSource(resource);
 			resourceName = resource.name;
-			currentPlayingFile = resource; // It's a real file
 		} else if (typeof resource === 'string') {
 			source = new UrlSource(resource);
 			resourceName = resource.split('/').pop() || 'video_from_url.mp4';
-			// Create a "fake" file object for playlist management
-			currentPlayingFile = {
-				name: resourceName,
-				size: -1,
-				type: 'video/mp4'
-			};
 			// Add the URL to the playlist if it's not already there
-			if (!playlist.some(item => item.name === resourceName)) {
+			if (!playlist.some(item => item.file === resource)) {
 				playlist.push({
 					type: 'file',
 					name: resourceName,
-					file: currentPlayingFile
+					file: resource
 				});
 			}
-			is_video_url = true
 		} else {
 			throw new Error('Invalid media resource provided.');
 		}
 
-		// Step 2: Create the Input using the determined source
+		currentPlayingFile = resource; // <-- CRITICAL FIX 1: Store the actual resource.
+
 		const input = new Input({
 			source,
 			formats: ALL_FORMATS
@@ -230,9 +222,8 @@ const loadMedia = async (resource) => {
 		showPlayerUI();
 		await startVideoIterator();
 		updateProgressBarUI(0);
-		if (!is_video_url) {
-			await play();
-		}
+		await play();
+
 	} catch (error) {
 		showError(`Failed to load media: ${error.message}`);
 		console.error('Error loading media:', error);
@@ -386,7 +377,15 @@ const renderTree = (nodes, currentPath = '') => {
                         </details>
                     </li>`;
 		} else {
-			const isActive = currentPlayingFile && currentPlayingFile.name === node.file.name && currentPlayingFile.size === node.file.size;
+			let isActive = false;
+			const resource = node.file; // This is now a File or a string
+			if (currentPlayingFile) {
+				if (resource instanceof File && currentPlayingFile instanceof File) {
+					isActive = currentPlayingFile.name === resource.name && currentPlayingFile.size === resource.size;
+				} else if (typeof resource === 'string' && typeof currentPlayingFile === 'string') {
+					isActive = currentPlayingFile === resource;
+				}
+			}
 			html += `<li class="playlist-file ${isActive ? 'active' : ''}" data-path="${nodePath}" title="${node.name}">
                         <!-- Added title attribute -->
                         <span class="playlist-file-name playlist-filevideo" title="${node.name}">${node.name}</span>
@@ -537,8 +536,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	if (videoUrl) {
 		const decodedUrl = decodeURIComponent(videoUrl);
-		// Directly call the new, more powerful loadMedia function
-		loadMedia(decodedUrl);
+		const urlPlayOverlay = $('urlPlayOverlay');
+		urlPlayOverlay.classList.remove('hidden');
+		urlPlayOverlay.addEventListener('click', () => {
+			urlPlayOverlay.classList.add('hidden');
+			loadMedia(decodedUrl);
+		}, {
+			once: true
+		});
 	}
 
 	if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {

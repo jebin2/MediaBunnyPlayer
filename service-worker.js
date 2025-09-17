@@ -7,6 +7,7 @@ const urlsToCache = [
     '/manifest.json',
     '/icons/icon-192x192.svg',
     '/icons/icon-512x512.svg',
+    '/favicon.ico',
     '/cloud-up-arrow-svgrepo-com.svg'
 ];
 

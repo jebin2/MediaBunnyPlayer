@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,6 +9,7 @@
 	<link rel="stylesheet" href="style.css">
 	<meta name="theme-color" content="#1a1a35">
 </head>
+
 <body>
 	<div class="app-container">
 		<div class="header">
@@ -25,7 +27,7 @@
 		<div class="player-area" id="playerArea">
 			<div class="drop-zone" id="dropZone">
 				<div class="drop-zone-content">
-					<img style="width: 50%;" src="cloud-up-arrow-svgrepo-com.svg"/>
+					<img style="width: 50%;" src="cloud-up-arrow-svgrepo-com.svg" />
 					<h2>Drop media files here</h2>
 					<p>High-performance PWA Media Player</p>
 					<button class="btn btn-primary" id="chooseFileBtn">Choose Files</button>
@@ -46,12 +48,17 @@
 						<div class="controls-right">
 							<div class="volume-container">
 								<button class="btn" id="muteBtn">🔊</button>
-								<input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.01" value="0.7">
+								<input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.01"
+									value="0.7">
 							</div>
 							<button class="fullscreen-btn" id="fullscreenBtn">⛶</button>
 						</div>
 					</div>
 				</div>
+			</div>
+			<div class="url-play-overlay hidden" id="urlPlayOverlay">
+				<div class="play-button-overlay">▶</div>
+				<p>Click to play video</p>
 			</div>
 			<div class="sidebar" id="sidebar">
 				<div id="playlistContent"></div>
@@ -66,4 +73,5 @@
 	<input type="file" id="folderInput" webkitdirectory multiple>
 	<script type="module" src="script.js"></script>
 </body>
+
 </html>
