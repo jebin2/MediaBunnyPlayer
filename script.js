@@ -2,6 +2,7 @@ import {
 	Input,
 	ALL_FORMATS,
 	BlobSource,
+	UrlSource,
 	AudioBufferSink,
 	CanvasSink
 } from 'https://cdn.skypack.dev/mediabunny@latest';
@@ -148,8 +149,6 @@ const seekToTime = async (seconds) => {
 		await play();
 	}
 };
-
-// --- MODIFIED FUNCTION WITH THE CRITICAL FIX ---
 const stopAndClear = async () => {
 	if (playing) pause();
 	fileLoaded = false;
@@ -160,14 +159,46 @@ const stopAndClear = async () => {
 	videoSink = null;
 	audioSink = null;
 	await audioContext?.close();
-	audioContext = null; // THIS IS THE FIX: Reset the context variable
+	audioContext = null;
 }
 
-const loadMedia = async (file) => {
+const loadMedia = async (resource) => {
 	showLoading(true);
 	try {
 		await stopAndClear();
-		const source = new BlobSource(file);
+
+		// Step 1: Determine the source type (BlobSource for files, UrlSource for URLs)
+		let source;
+		let resourceName;
+		let is_video_url = false
+
+		if (resource instanceof File) {
+			source = new BlobSource(resource);
+			resourceName = resource.name;
+			currentPlayingFile = resource; // It's a real file
+		} else if (typeof resource === 'string') {
+			source = new UrlSource(resource);
+			resourceName = resource.split('/').pop() || 'video_from_url.mp4';
+			// Create a "fake" file object for playlist management
+			currentPlayingFile = {
+				name: resourceName,
+				size: -1,
+				type: 'video/mp4'
+			};
+			// Add the URL to the playlist if it's not already there
+			if (!playlist.some(item => item.name === resourceName)) {
+				playlist.push({
+					type: 'file',
+					name: resourceName,
+					file: currentPlayingFile
+				});
+			}
+			is_video_url = true
+		} else {
+			throw new Error('Invalid media resource provided.');
+		}
+
+		// Step 2: Create the Input using the determined source
 		const input = new Input({
 			source,
 			formats: ALL_FORMATS
@@ -193,13 +224,15 @@ const loadMedia = async (file) => {
 			canvas.width = videoTrack.displayWidth;
 			canvas.height = videoTrack.displayHeight;
 		}
-		currentPlayingFile = file;
+
 		updatePlaylistUI();
 		fileLoaded = true;
 		showPlayerUI();
 		await startVideoIterator();
 		updateProgressBarUI(0);
-		await play();
+		if (!is_video_url) {
+			await play();
+		}
 	} catch (error) {
 		showError(`Failed to load media: ${error.message}`);
 		console.error('Error loading media:', error);
@@ -247,8 +280,6 @@ const findFileByPath = (nodes, path) => {
 	}
 	return null;
 };
-
-// --- Playlist and Folder Logic ---
 const handleFiles = (files) => {
 	if (files.length === 0) return;
 	const fileEntries = Array.from(files).map(file => ({
@@ -340,11 +371,11 @@ const buildTreeFromPaths = (files) => {
 	return tree;
 };
 const renderTree = (nodes, currentPath = '') => {
-    let html = '<ul class="playlist-tree">';
-    nodes.forEach(node => {
-        const nodePath = currentPath ? `${currentPath}/${node.name}` : node.name;
-        if (node.type === 'folder') {
-            html += `<li class="playlist-folder">
+	let html = '<ul class="playlist-tree">';
+	nodes.forEach(node => {
+		const nodePath = currentPath ? `${currentPath}/${node.name}` : node.name;
+		if (node.type === 'folder') {
+			html += `<li class="playlist-folder">
                         <details open>
                             <summary>
                                 <!-- Added title attribute and a class for styling -->
@@ -354,17 +385,17 @@ const renderTree = (nodes, currentPath = '') => {
                             ${renderTree(node.children, nodePath)}
                         </details>
                     </li>`;
-        } else {
-            const isActive = currentPlayingFile && currentPlayingFile.name === node.file.name && currentPlayingFile.size === node.file.size;
-            html += `<li class="playlist-file ${isActive ? 'active' : ''}" data-path="${nodePath}" title="${node.name}">
+		} else {
+			const isActive = currentPlayingFile && currentPlayingFile.name === node.file.name && currentPlayingFile.size === node.file.size;
+			html += `<li class="playlist-file ${isActive ? 'active' : ''}" data-path="${nodePath}" title="${node.name}">
                         <!-- Added title attribute -->
-                        <span class="playlist-file-name playlist-file-video" title="${node.name}">${node.name}</span>
+                        <span class="playlist-file-name playlist-filevideo" title="${node.name}">${node.name}</span>
                         <span class="remove-item" data-path="${nodePath}">&times;</span>
                     </li>`;
-        }
-    });
-    html += '</ul>';
-    return html;
+		}
+	});
+	html += '</ul>';
+	return html;
 };
 const updatePlaylistUI = () => {
 	if (playlist.length === 0) {
@@ -388,8 +419,6 @@ const showControlsTemporarily = () => {
 		videoContainer.classList.add('hide-cursor');
 	}, 2500);
 };
-
-// --- Event Listeners Setup ---
 const setupEventListeners = () => {
 	$('openFileBtn').onclick = () => $('fileInput').click();
 	$('openFolderBtn').onclick = () => $('folderInput').click();
@@ -502,6 +531,16 @@ const setupEventListeners = () => {
 document.addEventListener('DOMContentLoaded', () => {
 	setupEventListeners();
 	renderLoop();
+
+	const urlParams = new URLSearchParams(window.location.search);
+	const videoUrl = urlParams.get('video_url');
+
+	if (videoUrl) {
+		const decodedUrl = decodeURIComponent(videoUrl);
+		// Directly call the new, more powerful loadMedia function
+		loadMedia(decodedUrl);
+	}
+
 	if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
 		navigator.serviceWorker.register('service-worker.js')
 			.then(() => console.log('ServiceWorker registered.'))
