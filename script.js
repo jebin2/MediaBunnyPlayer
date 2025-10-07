@@ -5,7 +5,8 @@ import {
 	UrlSource,
 	AudioBufferSink,
 	CanvasSink
-} from 'https://cdn.skypack.dev/mediabunny@latest';
+//} from 'https://cdn.skypack.dev/mediabunny@latest';
+} form 'https://cdn.jsdelivr.net/npm/mediabunny@1.23.0/+esm';
 
 const $ = document.getElementById.bind(document);
 const playerArea = $('playerArea'),
