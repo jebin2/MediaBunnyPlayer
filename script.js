@@ -260,10 +260,10 @@ const checkPlaybackState = () => {
 
 	// 2. Handle end-of-track and autoplay
 	if (currentTime >= totalDuration && totalDuration > 0 && !isLooping) {
+		pause();
 		if (isAutoplayEnabled) {
 			playNext();
 		} else {
-			pause();
 			playbackTimeAtStart = totalDuration;
 			scheduleProgressUpdate(totalDuration);
 		}
@@ -440,6 +440,7 @@ const seekToTime = async (seconds) => {
 };
 
 const toggleLoop = () => {
+	loopBtn.classList.toggle('hover_highlight');
 	if (isLooping) {
 		isLooping = false;
 		loopBtn.textContent = 'Loop';
@@ -1331,11 +1332,14 @@ const setPlaybackSpeed = (newSpeed) => {
 const cropBtnClick = () => {
 	isCropping = !isCropping;
 	cropCanvas.classList.toggle('hidden', !isCropping);
-
+	cropBtn.classList.toggle('hover_highlight');
 	if (!isCropping) {
 		// When cropping is turned off, clear the canvas and reset the crop data
 		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
 		cropRect = null;
+		cropBtn.textContent = 'Crop';
+	} else{
+		cropBtn.textContent = 'Cropping...';
 	}
 }; 
 

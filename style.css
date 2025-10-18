@@ -187,7 +187,7 @@ input:checked+.slider:before {
 	box-shadow: 0 0 4px rgba(0, 255, 255, 0.2);
 }
 
-.btn:hover {
+.btn:hover, .hover_highlight {
 	background: var(--accent-neon);
 	color: var(--bg-dark);
 	box-shadow: var(--glow-effect);
