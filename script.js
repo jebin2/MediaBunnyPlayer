@@ -238,26 +238,26 @@ const updateNextFrame = async () => {
 };
 
 const checkPlaybackState = () => {
-    if (!playing || !fileLoaded) return;
+	if (!playing || !fileLoaded) return;
 
-    const currentTime = getPlaybackTime();
+	const currentTime = getPlaybackTime();
 
-    // 1. Handle looping
-    if (isLooping && currentTime >= loopEndTime) {
-        seekToTime(loopStartTime);
-        return; // Important: return here to prevent the next check from running immediately
-    }
+	// 1. Handle looping
+	if (isLooping && currentTime >= loopEndTime) {
+		seekToTime(loopStartTime);
+		return; // Important: return here to prevent the next check from running immediately
+	}
 
-    // 2. Handle end-of-track and autoplay
-    if (currentTime >= totalDuration && totalDuration > 0 && !isLooping) {
-        if (isAutoplayEnabled) {
-            playNext();
-        } else {
-            pause();
-            playbackTimeAtStart = totalDuration;
-            scheduleProgressUpdate(totalDuration);
-        }
-    }
+	// 2. Handle end-of-track and autoplay
+	if (currentTime >= totalDuration && totalDuration > 0 && !isLooping) {
+		if (isAutoplayEnabled) {
+			playNext();
+		} else {
+			pause();
+			playbackTimeAtStart = totalDuration;
+			scheduleProgressUpdate(totalDuration);
+		}
+	}
 };
 
 const renderLoop = () => {
@@ -367,8 +367,8 @@ const play = async () => {
 	audioContextStartTime = audioContext.currentTime;
 	playing = true;
 
-    // Add these two lines to start the interval
-    if (playbackLogicInterval) clearInterval(playbackLogicInterval);
+	// Add these two lines to start the interval
+	if (playbackLogicInterval) clearInterval(playbackLogicInterval);
 	playbackLogicInterval = setInterval(checkPlaybackState, 100); // Check 10 times a second
 
 	if (audioSink) {
@@ -391,9 +391,9 @@ const pause = () => {
 	playing = false;
 	asyncId++;
 
-    // Add these two lines to stop the interval
-    clearInterval(playbackLogicInterval);
-    playbackLogicInterval = null;
+	// Add these two lines to stop the interval
+	clearInterval(playbackLogicInterval);
+	playbackLogicInterval = null;
 
 	audioBufferIterator?.return().catch(() => { });
 	audioBufferIterator = null;
@@ -826,26 +826,26 @@ const playNext = () => {
 };
 
 const playPrevious = () => {
-    if (!currentPlayingFile || playlist.length <= 1) return;
+	if (!currentPlayingFile || playlist.length <= 1) return;
 
-    const flatten = (nodes) => {
-        let flat = [];
-        nodes.forEach(node => {
-            if (node.type === 'file') flat.push(node);
-            if (node.type === 'folder') flat = flat.concat(flatten(node.children));
-        });
-        return flat;
-    };
+	const flatten = (nodes) => {
+		let flat = [];
+		nodes.forEach(node => {
+			if (node.type === 'file') flat.push(node);
+			if (node.type === 'folder') flat = flat.concat(flatten(node.children));
+		});
+		return flat;
+	};
 
-    const flatList = flatten(playlist);
-    const currentIndex = flatList.findIndex(item => item.file === currentPlayingFile);
+	const flatList = flatten(playlist);
+	const currentIndex = flatList.findIndex(item => item.file === currentPlayingFile);
 
-    if (currentIndex > 0) {
-        loadMedia(flatList[currentIndex - 1].file);
-    } else {
-        // Loop back to the last track
-        loadMedia(flatList[flatList.length - 1].file);
-    }
+	if (currentIndex > 0) {
+		loadMedia(flatList[currentIndex - 1].file);
+	} else {
+		// Loop back to the last track
+		loadMedia(flatList[flatList.length - 1].file);
+	}
 };
 
 const parseTime = (timeStr) => {
@@ -1570,14 +1570,14 @@ const setupEventListeners = () => {
 
 	cancelUrlBtn.onclick = hideUrlModal;
 
-    // Hide the modal if the user clicks on the background
+	// Hide the modal if the user clicks on the background
 	urlModal.onclick = (e) => {
 		if (e.target === urlModal) {
 			hideUrlModal();
 		}
 	};
 
-    // Handle loading the URL
+	// Handle loading the URL
 	loadUrlBtn.onclick = () => {
 		const url = urlInput.value.trim();
 		if (url) {
@@ -1589,16 +1589,16 @@ const setupEventListeners = () => {
 		}
 	};
 
-    // Add keyboard shortcuts for the modal
-    urlInput.onkeydown = (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault(); // Prevent form submission
-            loadUrlBtn.click();
-        } else if (e.key === 'Escape') {
-            hideUrlModal();
-        }
-    };
-    // --- End of URL Modal Logic ---
+	// Add keyboard shortcuts for the modal
+	urlInput.onkeydown = (e) => {
+		if (e.key === 'Enter') {
+			e.preventDefault(); // Prevent form submission
+			loadUrlBtn.click();
+		} else if (e.key === 'Escape') {
+			hideUrlModal();
+		}
+	};
+	// --- End of URL Modal Logic ---
 };
 
 document.addEventListener('DOMContentLoaded', () => {
