@@ -700,3 +700,29 @@ body {
     gap: 15px;
     justify-content: center;
 }
+/* === STYLES FOR NEW PLAYBACK SPEED CONTROL === */
+
+.playback-speed-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-right: 10px;
+}
+
+.speed-input {
+    width: 50px;
+    background-color: transparent;
+    border: 1px solid #4a4a6a;
+    border-radius: 4px;
+    padding: 5px;
+    text-align: center;
+    font-weight: bold;
+    -moz-appearance: textfield; /* Hide arrows in Firefox */
+}
+
+/* Hide arrows in Chrome, Safari, Edge */
+.speed-input::-webkit-outer-spin-button,
+.speed-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}

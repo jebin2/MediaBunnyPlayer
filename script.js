@@ -50,6 +50,8 @@ const closeScreenshotBtn = $('closeScreenshotBtn');
 const copyScreenshotBtn = $('copyScreenshotBtn');
 const downloadScreenshotBtn = $('downloadScreenshotBtn');
 let currentScreenshotBlob = null; // To hold the image data for copy/download
+const playbackSpeedInput = $('playbackSpeedInput');
+let currentPlaybackRate = 1.0;
 const ctx = canvas.getContext('2d', {
 	alpha: false,
 	desynchronized: true
@@ -191,7 +193,14 @@ const handleConversion = async (source, fileName) => {
 };
 
 // --- Core Player Logic ---
-const getPlaybackTime = () => playing ? audioContext.currentTime - audioContextStartTime + playbackTimeAtStart : playbackTimeAtStart;
+const getPlaybackTime = () => {
+    if (!playing) {
+        return playbackTimeAtStart;
+    }
+    // The elapsed real time is multiplied by the playback rate to get the media time
+    const elapsedTime = audioContext.currentTime - audioContextStartTime;
+    return playbackTimeAtStart + (elapsedTime * currentPlaybackRate);
+};
 
 const startVideoIterator = async () => {
 	if (!videoSink) return;
@@ -305,13 +314,14 @@ const runAudioIterator = async () => {
 			const node = audioContext.createBufferSource();
 			node.buffer = buffer;
 			node.connect(gainNode);
+        	node.playbackRate.value = currentPlaybackRate;
 
-			const absolutePlayTime = audioContextStartTime + (timestamp - playbackTimeAtStart);
+			const absolutePlayTime = audioContextStartTime + ((timestamp - playbackTimeAtStart) / currentPlaybackRate);
 
 			if (absolutePlayTime >= audioContext.currentTime) {
 				node.start(absolutePlayTime);
 			} else {
-				const offset = audioContext.currentTime - absolutePlayTime;
+            	const offset = (audioContext.currentTime - absolutePlayTime) * currentPlaybackRate;
 				if (offset < buffer.duration) {
 					node.start(audioContext.currentTime, offset);
 				}
@@ -349,7 +359,8 @@ const play = async () => {
 		await audioBufferIterator?.return();
 		if (currentAsyncId !== asyncId) return;
 
-		audioBufferIterator = audioSink.buffers(getPlaybackTime());
+		const iteratorStartTime = getPlaybackTime();
+		audioBufferIterator = audioSink.buffers(iteratorStartTime);
 		runAudioIterator();
 	}
 
@@ -500,6 +511,8 @@ const stopAndClear = async () => {
 	fileLoaded = false;
 	isLooping = false; // === Reset looping state
     loopBtn.textContent = 'Loop'; // === Reset button text
+    currentPlaybackRate = 1.0;
+    playbackSpeedInput.value = '1';
 	asyncId++;
 
 	try {
@@ -1069,6 +1082,51 @@ const showControlsTemporarily = () => {
 	}
 };
 
+// === REVISED HIGH-PERFORMANCE FUNCTION ===
+const setPlaybackSpeed = (newSpeed) => {
+    // If paused, just set the rate. It will be picked up when play is pressed.
+    if (!playing) {
+        currentPlaybackRate = newSpeed;
+        return;
+    }
+    
+    // If playing but the speed is unchanged, do nothing.
+    if (newSpeed === currentPlaybackRate) {
+        return;
+    }
+
+    // --- Start the live update process ---
+
+    // 1. Get the current media time BEFORE changing the rate.
+    const currentTime = getPlaybackTime();
+
+    // 2. Stop and clear the current audio pipeline.
+    asyncId++; // Invalidate any ongoing audio fetching loops
+    audioBufferIterator?.return().catch(() => {}); // Gracefully stop the iterator
+    queuedAudioNodes.forEach(node => {
+        try { node.stop(); } catch (e) {}
+    });
+    queuedAudioNodes.clear();
+
+    // 3. Apply the new speed.
+    currentPlaybackRate = newSpeed;
+
+    // 4. Recalibrate the timing anchors for a seamless transition.
+    playbackTimeAtStart = currentTime;
+    audioContextStartTime = audioContext.currentTime;
+
+    // 5. Restart the audio pipeline from the current time.
+    if (audioSink) {
+        audioBufferIterator = audioSink.buffers(currentTime);
+        runAudioIterator();
+    }
+
+    // 6. === THIS IS THE NEW, CRUCIAL STEP ===
+    // Restart the video pipeline from the current time as well.
+    // This forces it to discard any buffered frames and immediately seek to the correct one.
+    startVideoIterator();
+};
+
 const setupEventListeners = () => {
 	$('addFileBtn').onclick = () => $('fileInput').click();
 	$('addFolderBtn').onclick = () => $('folderInput').click();
@@ -1361,6 +1419,13 @@ const setupEventListeners = () => {
             console.error("Copy failed:", err);
             showError("Copy failed. Your browser may not support this feature.");
         });
+    };
+    playbackSpeedInput.oninput = () => {
+        const speed = parseFloat(playbackSpeedInput.value);
+		if (isNaN(speed)) speed = 1;
+        if (!isNaN(speed) && speed >= 0.25 && speed <= 4) {
+        	setPlaybackSpeed(speed);
+        }
     };
 };
 
