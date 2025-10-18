@@ -52,6 +52,8 @@ const downloadScreenshotBtn = $('downloadScreenshotBtn');
 let currentScreenshotBlob = null; // To hold the image data for copy/download
 const playbackSpeedInput = $('playbackSpeedInput');
 let currentPlaybackRate = 1.0;
+const autoplayToggle = $('autoplayToggle');
+let isAutoplayEnabled = true; // Default to ON
 const ctx = canvas.getContext('2d', {
 	alpha: false,
 	desynchronized: true
@@ -256,11 +258,16 @@ const renderLoop = () => {
 		}
 
 		if (playing) {
-			if (currentTime >= totalDuration && totalDuration > 0 && !isLooping) {
+			if (currentTime >= totalDuration && totalDuration > 0 && !isLooping && isAutoplayEnabled) {
 				pause();
 				playbackTimeAtStart = totalDuration;
 				updateProgressBarUI(totalDuration);
 				playNext();
+			} else if (currentTime >= totalDuration && totalDuration > 0 && !isLooping && !isAutoplayEnabled) {
+				// If autoplay is off, just pause at the end
+				pause();
+				playbackTimeAtStart = totalDuration;
+				updateProgressBarUI(totalDuration);
 			} else if (nextFrame && nextFrame.timestamp <= currentTime) {
 				ctx.drawImage(nextFrame.canvas, 0, 0, canvas.width, canvas.height);
 				nextFrame = null;
@@ -1426,6 +1433,9 @@ const setupEventListeners = () => {
         if (!isNaN(speed) && speed >= 0.25 && speed <= 4) {
         	setPlaybackSpeed(speed);
         }
+    };
+    autoplayToggle.onchange = () => {
+        isAutoplayEnabled = autoplayToggle.checked;
     };
 };
 
