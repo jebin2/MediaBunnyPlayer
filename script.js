@@ -4,9 +4,16 @@ import {
 	BlobSource,
 	UrlSource,
 	AudioBufferSink,
-	CanvasSink
+	CanvasSink,
+	// --- ADDED FOR CONVERSION ---
+	Conversion,
+	Output,
+	Mp4OutputFormat,
+	StreamTarget
+	// --- END ADDED ---
 	//} from 'https://cdn.skypack.dev/mediabunny@latest';
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.23.0/+esm';
+
 
 // Define source URL for dynamic imports to keep versions consistent
 const MEDIABUNNY_URL = 'https://cdn.jsdelivr.net/npm/mediabunny@1.23.0/+esm';
@@ -68,39 +75,124 @@ const ensureSubtitleRenderer = async () => {
 	return SubtitleRendererConstructor;
 };
 
+// --- Helper functions for conversion status messages ---
+const showStatusMessage = (msg) => {
+	const statusEl = $('statusMessage');
+	if (statusEl) {
+		statusEl.textContent = msg;
+		statusEl.style.display = 'block';
+	}
+	showLoading(true); // Also show the main spinner
+};
+
+const hideStatusMessage = () => {
+	const statusEl = $('statusMessage');
+	if (statusEl) {
+		statusEl.textContent = '';
+		statusEl.style.display = 'none';
+	}
+	showLoading(false);
+};
+
+// --- Conversion handling function ---
+const handleConversion = async (source, fileName) => {
+	showStatusMessage('Unsupported format. Converting to MP4...');
+	let conversionInput;
+	try {
+		// Create a new input instance specifically for the conversion process
+		conversionInput = new Input({
+			source,
+			formats: ALL_FORMATS
+		});
+
+		// Setup the output to write to an in-memory blob
+		const chunks = [];
+		const writableStream = new WritableStream({
+			write(chunk) {
+				chunks.push(chunk.data);
+			}
+		});
+
+		const output = new Output({
+			format: new Mp4OutputFormat({ fastStart: 'in-memory' }),
+			target: new StreamTarget(writableStream),
+		});
+
+		// Initialize the conversion
+		const conversion = await Conversion.init({ input: conversionInput, output });
+
+		if (!conversion.isValid) {
+			console.error('Conversion is not valid. Discarded tracks:', conversion.discardedTracks);
+            // --- IMPROVED ERROR ---
+			let reason = 'the file contains no convertible tracks.';
+			if (conversion.discardedTracks.length > 0) {
+				const firstReason = conversion.discardedTracks[0].reason;
+				if (firstReason === 'undecodable_source_codec') {
+					reason = 'its video or audio codec is not supported by this browser for conversion.';
+				} else {
+					reason = `of an internal error (${firstReason}).`;
+				}
+			}
+			throw new Error(`Could not prepare conversion because ${reason}`);
+		}
+
+        // Show conversion progress
+        conversion.onProgress = (progress) => {
+            showStatusMessage(`Converting to MP4... (${Math.round(progress * 100)}%)`);
+        };
+
+		await conversion.execute();
+		showStatusMessage('Conversion complete. Loading video...');
+
+		// Create a new File object from the resulting data
+		const blob = new Blob(chunks, { type: 'video/mp4' });
+		const convertedFile = new File(
+			[blob],
+			(fileName.split('.').slice(0, -1).join('.') || 'converted') + '.mp4', { type: 'video/mp4' }
+		);
+
+		// Load the newly created file, marking it as a conversion result
+		await loadMedia(convertedFile, true);
+
+	} catch (error) {
+        // --- IMPROVED ERROR ---
+		showError(`Conversion Failed: This file format appears to be incompatible with the in-browser converter. (${error.message})`);
+		console.error('Conversion error:', error);
+		showDropZoneUI();
+	} finally {
+		if (conversionInput) conversionInput.dispose();
+		hideStatusMessage();
+	}
+};
+
 // --- Core Player Logic ---
 const getPlaybackTime = () => playing ? audioContext.currentTime - audioContextStartTime + playbackTimeAtStart : playbackTimeAtStart;
 
-// Optimization: Simplified video iterator logic and added error handling
 const startVideoIterator = async () => {
 	if (!videoSink) return;
-	const currentAsyncId = ++asyncId;
+	// This function should not cancel other processes like the audio loop.
+	// It uses the *current* asyncId to ensure its own operations are valid.
+	const currentAsyncId = asyncId;
 
 	try {
 		await videoFrameIterator?.return();
-		// Seek to current time
 		videoFrameIterator = videoSink.canvases(getPlaybackTime());
 
-		// Get the immediate frame for instant seek feedback
 		const firstResult = await videoFrameIterator.next();
-		if (currentAsyncId !== asyncId) return; // Cancelled
+		if (currentAsyncId !== asyncId) return;
 
 		const firstFrame = firstResult.value ?? null;
-
 		if (firstFrame) {
-			ctx.drawImage(firstFrame.canvas, 0, 0);
-			// Prepare the next frame for the render loop
+			ctx.drawImage(firstFrame.canvas, 0, 0, canvas.width, canvas.height);
 			updateNextFrame();
 		} else {
 			nextFrame = null;
 		}
 	} catch (e) {
-		if (currentAsyncId !== asyncId) return;
-		console.error("Error starting video iteration:", e);
+		if (currentAsyncId === asyncId) console.error("Error starting video iteration:", e);
 	}
 };
 
-// Optimization: Removed while loop, relying on renderLoop for timing. Added error handling.
 const updateNextFrame = async () => {
 	if (!videoFrameIterator) return;
 	const currentAsyncId = asyncId;
@@ -112,8 +204,7 @@ const updateNextFrame = async () => {
 		}
 		nextFrame = result.value;
 	} catch (e) {
-		if (currentAsyncId !== asyncId) return;
-		console.error("Error decoding video frame:", e);
+		if (currentAsyncId === asyncId) console.error("Error decoding video frame:", e);
 		nextFrame = null;
 	}
 };
@@ -125,53 +216,38 @@ const renderLoop = () => {
 			if (currentTime >= totalDuration && totalDuration > 0) {
 				pause();
 				playbackTimeAtStart = totalDuration;
-				// Ensure UI updates to end
 				updateProgressBarUI(totalDuration);
 				playNext();
 			} else if (nextFrame && nextFrame.timestamp <= currentTime) {
-				// Frame is due, draw it
-				ctx.drawImage(nextFrame.canvas, 0, 0);
-
-				// Optimization: WrappedCanvas is managed by pool, 
-				// but if poolSize is low, might need manual closing if not using pool.
-				// With poolSize: 2 in config, it's handled automatically when reused.
-
+				ctx.drawImage(nextFrame.canvas, 0, 0, canvas.width, canvas.height);
 				nextFrame = null;
-				// Fetch next frame asynchronously
 				updateNextFrame();
 			}
 		}
-
-		// Update subtitles
 		updateSubtitles(currentTime);
-
 		if (!isSeeking) updateProgressBarUI(currentTime);
 	}
 	requestAnimationFrame(renderLoop);
 };
 
-// Optimization: Added error handling for audio stream
 const runAudioIterator = async () => {
 	if (!audioSink || !audioBufferIterator) return;
 	const currentAsyncId = asyncId;
 
 	try {
 		for await (const { buffer, timestamp } of audioBufferIterator) {
-			if (currentAsyncId !== asyncId) break; // Stop if seeked/paused
+			if (currentAsyncId !== asyncId) break;
 
 			const node = audioContext.createBufferSource();
 			node.buffer = buffer;
 			node.connect(gainNode);
 
-			// Calculate when this specific buffer should play relative to audioContext
 			const absolutePlayTime = audioContextStartTime + (timestamp - playbackTimeAtStart);
 
 			if (absolutePlayTime >= audioContext.currentTime) {
 				node.start(absolutePlayTime);
 			} else {
-				// If we are late, play immediately with offset
 				const offset = audioContext.currentTime - absolutePlayTime;
-				// Ensure offset doesn't exceed buffer duration
 				if (offset < buffer.duration) {
 					node.start(audioContext.currentTime, offset);
 				}
@@ -180,18 +256,14 @@ const runAudioIterator = async () => {
 			queuedAudioNodes.add(node);
 			node.onended = () => queuedAudioNodes.delete(node);
 
-			// Simple throttling to prevent decoding too far ahead
 			if (timestamp - getPlaybackTime() >= 1.5) {
-				// Wait until playback catches up a bit
 				while (playing && currentAsyncId === asyncId && (timestamp - getPlaybackTime() >= 0.5)) {
 					await new Promise(r => setTimeout(r, 100));
 				}
 			}
 		}
 	} catch (e) {
-		if (currentAsyncId !== asyncId) return;
-		console.error("Error during audio iteration:", e);
-		showError("Audio playback error.");
+		if (currentAsyncId === asyncId) console.error("Error during audio iteration:", e);
 	}
 };
 
@@ -199,7 +271,6 @@ const play = async () => {
 	if (playing || !audioContext) return;
 	if (audioContext.state === 'suspended') await audioContext.resume();
 
-	// Handle replay case
 	if (totalDuration > 0 && Math.abs(getPlaybackTime() - totalDuration) < 0.1) {
 		playbackTimeAtStart = 0;
 		await seekToTime(0);
@@ -211,10 +282,10 @@ const play = async () => {
 	if (audioSink) {
 		const currentAsyncId = asyncId;
 		await audioBufferIterator?.return();
-		if (currentAsyncId !== asyncId) return; // Interrupted
+		if (currentAsyncId !== asyncId) return;
 
 		audioBufferIterator = audioSink.buffers(getPlaybackTime());
-		runAudioIterator(); // Run without awaiting to not block UI
+		runAudioIterator();
 	}
 
 	playBtn.textContent = '⏸';
@@ -225,13 +296,13 @@ const pause = () => {
 	if (!playing) return;
 	playbackTimeAtStart = getPlaybackTime();
 	playing = false;
-	asyncId++; // Invalidates running iterators
+	asyncId++;
 
-	audioBufferIterator?.return().catch(() => { });
+	audioBufferIterator?.return().catch(() => {});
 	audioBufferIterator = null;
 
 	queuedAudioNodes.forEach(node => {
-		try { node.stop(); } catch (e) { }
+		try { node.stop(); } catch (e) {}
 	});
 	queuedAudioNodes.clear();
 
@@ -247,10 +318,9 @@ const seekToTime = async (seconds) => {
 	const wasPlaying = playing;
 	if (wasPlaying) pause();
 
-	// Clamp time
 	seconds = Math.max(0, Math.min(seconds, totalDuration));
 	playbackTimeAtStart = seconds;
-	updateProgressBarUI(seconds); // Immediate UI update
+	updateProgressBarUI(seconds);
 
 	await startVideoIterator();
 
@@ -264,14 +334,8 @@ const stopAndClear = async () => {
 	fileLoaded = false;
 	asyncId++;
 
-	// Cleanup sinks and iterators
-	try { await videoFrameIterator?.return(); } catch (e) { }
-	try { await audioBufferIterator?.return(); } catch (e) { }
-
-	if (nextFrame && nextFrame.canvas) {
-		// Explicitly close if it's an OffscreenCanvas/VideoFrame wrapper, 
-		// though CanvasSink with pool handles this mostly.
-	}
+	try { await videoFrameIterator?.return(); } catch (e) {}
+	try { await audioBufferIterator?.return(); } catch (e) {}
 
 	nextFrame = null;
 	videoSink = null;
@@ -284,18 +348,16 @@ const stopAndClear = async () => {
 	currentAudioTrack = null;
 	currentSubtitleTrack = null;
 
-	// Clear canvas
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-	// Don't close audioContext entirely, just suspend or leave it
-	// Closing necessitates recreating it for the next file, which some browsers dislike if not user-initiated.
 	if (audioContext && audioContext.state === 'running') {
 		await audioContext.suspend();
 	}
 };
 
-const loadMedia = async (resource) => {
+const loadMedia = async (resource, isConversionAttempt = false) => {
 	showLoading(true);
+	let input;
 	try {
 		await stopAndClear();
 
@@ -309,82 +371,80 @@ const loadMedia = async (resource) => {
 			source = new UrlSource(resource);
 			resourceName = resource.split('/').pop() || 'video_from_url.mp4';
 			if (!playlist.some(item => item.file === resource)) {
-				playlist.push({
-					type: 'file',
-					name: resourceName,
-					file: resource
-				});
+				playlist.push({ type: 'file', name: resourceName, file: resource });
 			}
 		} else {
 			throw new Error('Invalid media resource provided.');
 		}
 
+		input = new Input({ source, formats: ALL_FORMATS });
+
+		const videoTrack = await input.getPrimaryVideoTrack();
+		const audioTracks = await input.getAudioTracks();
+		const firstAudioTrack = audioTracks.length > 0 ? audioTracks[0] : null;
+
+		const isVideoDecodable = videoTrack ? await videoTrack.canDecode() : false;
+		const isAudioDecodable = firstAudioTrack ? await firstAudioTrack.canDecode() : false;
+
+		const isPlayable = (videoTrack && isVideoDecodable) || (!videoTrack && firstAudioTrack && isAudioDecodable);
+
+		if (!isPlayable && !isConversionAttempt) {
+			console.log("Media not directly playable, attempting conversion.");
+			await handleConversion(source, resourceName);
+			return; 
+		}
+
+		if (!isPlayable && isConversionAttempt) {
+			throw new Error('Converted file is not playable. Its codecs may be unsupported by this browser.');
+		}
+		
 		currentPlayingFile = resource;
-
-		// Use 'using' if supported for auto-cleanup, otherwise manual
-		const input = new Input({
-			source,
-			formats: ALL_FORMATS
-		});
-
 		totalDuration = await input.computeDuration();
 		playbackTimeAtStart = 0;
 
-		// Get tracks
-		const videoTrack = await input.getPrimaryVideoTrack();
-		availableAudioTracks = await input.getAudioTracks();
+		availableAudioTracks = audioTracks;
 		const allTracks = await input.getTracks();
 		availableSubtitleTracks = allTracks.filter(track => track.type === 'subtitle');
 
-		// Set current tracks
 		currentAudioTrack = availableAudioTracks.length > 0 ? availableAudioTracks[0] : null;
 		currentSubtitleTrack = null;
 
 		if (!videoTrack && !currentAudioTrack) {
-			throw new Error('No valid audio or video tracks found (undecodable or missing).');
+			throw new Error('No valid audio or video tracks found.');
 		}
 
-		// Setup Audio Context
 		if (!audioContext) {
-			const AudioContext = window.AudioContext || window.webkitAudioContext;
-			audioContext = new AudioContext();
+			audioContext = new(window.AudioContext || window.webkitAudioContext)();
 		}
-
-		// Some browsers require resuming context after creation
-		if (audioContext.state === 'suspended') {
-			await audioContext.resume();
-		}
+		if (audioContext.state === 'suspended') await audioContext.resume();
 
 		gainNode = audioContext.createGain();
 		gainNode.connect(audioContext.destination);
 		setVolume(volumeSlider.value);
 
-		// Initialize Sinks
-		if (videoTrack && await videoTrack.canDecode()) {
-			videoSink = new CanvasSink(videoTrack, { poolSize: 2, fit: 'contain' });
-			// Update canvas size to match video aspect ratio
+		if (videoTrack) {
+			videoSink = new CanvasSink(videoTrack, { poolSize: 2 });
 			canvas.width = videoTrack.displayWidth || videoTrack.codedWidth || 1280;
 			canvas.height = videoTrack.displayHeight || videoTrack.codedHeight || 720;
 		}
 
-		if (currentAudioTrack && await currentAudioTrack.canDecode()) {
+		if (currentAudioTrack) {
 			audioSink = new AudioBufferSink(currentAudioTrack);
 		}
 
-		// Update UI
 		updateTrackMenus();
 		updatePlaylistUI();
 		fileLoaded = true;
 		showPlayerUI();
 		updateProgressBarUI(0);
 
-		// Buffer first frame and start
 		await startVideoIterator();
 		await play();
 
 	} catch (error) {
 		showError(`Failed to load media: ${error.message}`);
 		console.error('Error loading media:', error);
+		if (input) input.dispose();
 		currentPlayingFile = null;
 		showDropZoneUI();
 	} finally {
@@ -392,40 +452,35 @@ const loadMedia = async (resource) => {
 	}
 };
 
+
 const updateTrackMenus = () => {
-	// Update audio track menu
 	const audioTrackList = $('audioTrackList');
 	audioTrackList.innerHTML = '';
 
 	availableAudioTracks.forEach((track, index) => {
 		const li = document.createElement('li');
 		li.className = `track-item ${track === currentAudioTrack ? 'active' : ''}`;
-
-		// Optimization: Use languageCode and check for 'und'
 		const langCode = track.languageCode;
 		const label = (langCode && langCode !== 'und') ? langCode : `Audio ${index + 1}`;
-
 		li.innerHTML = `<span>${label}</span>`;
 		li.onclick = () => switchAudioTrack(index);
 		audioTrackList.appendChild(li);
 	});
 
-	// Update subtitle track menu
 	const subtitleTrackList = $('subtitleTrackList');
-	const noneOption = subtitleTrackList.querySelector('[data-track-id="none"]');
+	const noneOption = document.createElement('li');
+	noneOption.className = `track-item ${!currentSubtitleTrack ? 'active' : ''}`;
+	noneOption.innerHTML = `<span>Off</span>`;
+	noneOption.onclick = () => switchSubtitleTrack('none');
 	subtitleTrackList.innerHTML = '';
 	subtitleTrackList.appendChild(noneOption);
 
-	noneOption.className = `track-item ${!currentSubtitleTrack ? 'active' : ''}`;
 
 	availableSubtitleTracks.forEach((track, index) => {
 		const li = document.createElement('li');
 		li.className = `track-item ${track === currentSubtitleTrack ? 'active' : ''}`;
-
-		// Optimization: Use languageCode and check for 'und'
 		const langCode = track.languageCode;
 		const label = (langCode && langCode !== 'und') ? langCode : `Subtitle ${index + 1}`;
-
 		li.innerHTML = `<span>${label}</span>`;
 		li.onclick = () => switchSubtitleTrack(index);
 		subtitleTrackList.appendChild(li);
@@ -470,8 +525,6 @@ const switchSubtitleTrack = async (trackIndex) => {
 		subtitleRenderer = null;
 	} else if (availableSubtitleTracks[trackIndex] && availableSubtitleTracks[trackIndex] !== currentSubtitleTrack) {
 		currentSubtitleTrack = availableSubtitleTracks[trackIndex];
-
-		// Optimization: Use cached constructor
 		try {
 			const Renderer = await ensureSubtitleRenderer();
 			subtitleRenderer = new Renderer(currentSubtitleTrack);
@@ -489,27 +542,18 @@ const switchSubtitleTrack = async (trackIndex) => {
 
 const removeSubtitleOverlay = () => {
 	const existingOverlay = document.querySelector('.subtitle-overlay');
-	if (existingOverlay) {
-		existingOverlay.remove();
-	}
+	if (existingOverlay) existingOverlay.remove();
 };
 
 const updateSubtitles = (currentTime) => {
-	// Simple optimization: don't manipulate DOM if text hasn't changed
-	// Requires storing last rendered text, implemented simply here just by removing/adding
 	removeSubtitleOverlay();
-
 	if (!subtitleRenderer) return;
 
-	// Need try-catch here as internal parsing might fail on bad files
 	try {
 		const subtitle = subtitleRenderer.getSubtitleAt(currentTime);
 		if (subtitle && subtitle.text) {
 			const overlay = document.createElement('div');
 			overlay.className = 'subtitle-overlay';
-			// Use innerText for security vs innerHTML if text contains tags, 
-			// depends on WebVTT parsing implementation of MediaBunny. 
-			// Assuming textContent is safe based on library.
 			overlay.textContent = subtitle.text;
 			videoContainer.appendChild(overlay);
 		}
@@ -526,7 +570,6 @@ const hideTrackMenus = () => {
 const playNext = () => {
 	if (!currentPlayingFile || playlist.length <= 1) return;
 
-	// Flatten tree to find current index
 	const flatten = (nodes) => {
 		let flat = [];
 		nodes.forEach(node => {
@@ -538,7 +581,6 @@ const playNext = () => {
 
 	const flatList = flatten(playlist);
 
-	// Simple comparison to find current file in list
 	let currentIndex = -1;
 	for (let i = 0; i < flatList.length; i++) {
 		const item = flatList[i];
@@ -570,13 +612,11 @@ const formatTime = s => {
 const showLoading = show => loading.classList.toggle('hidden', !show);
 
 const showError = msg => {
-	// Avoid stacking multiple error messages
 	if (document.querySelector('.error-message')) return;
 
 	const el = document.createElement('div');
 	el.className = 'error-message';
 	el.textContent = msg;
-	// Basic styling injection just in case CSS isn't there
 	el.style.cssText = "position:fixed; top:20px; right:20px; background:rgba(200,0,0,0.8); color:white; padding:10px; border-radius:4px; z-index:1000;";
 	document.body.appendChild(el);
 	setTimeout(() => el.remove(), 4000);
@@ -595,7 +635,6 @@ const showDropZoneUI = () => {
 };
 
 const updateProgressBarUI = (time) => {
-	// Clamp time for UI
 	const displayTime = Math.max(0, Math.min(time, totalDuration));
 	timeDisplay.textContent = `${formatTime(displayTime)} / ${formatTime(totalDuration)}`;
 	const percent = totalDuration > 0 ? (displayTime / totalDuration) * 100 : 0;
@@ -612,11 +651,7 @@ const findFileByPath = (nodes, path) => {
 	const node = nodes.find(n => n.name === itemName);
 
 	if (!node) return null;
-
-	if (pathParts.length === 1 && node.type === 'file') {
-		return node.file;
-	}
-
+	if (pathParts.length === 1 && node.type === 'file') return node.file;
 	if (node.type === 'folder' && pathParts.length > 1) {
 		return findFileByPath(node.children, pathParts.slice(1).join('/'));
 	}
@@ -626,11 +661,10 @@ const findFileByPath = (nodes, path) => {
 const handleFiles = (files) => {
 	if (files.length === 0) return;
 
-	// Filter for likely video/audio types
 	const validFiles = Array.from(files).filter(file =>
 		file.type.startsWith('video/') ||
 		file.type.startsWith('audio/') ||
-		file.name.match(/\.(mp4|webm|mkv|mov|mp3|wav|aac|flac|ogg)$/i)
+		file.name.match(/\.(mp4|webm|mkv|mov|mp3|wav|aac|flac|ogg|avi|flv|wmv)$/i)
 	);
 
 	if (validFiles.length === 0) {
@@ -638,11 +672,7 @@ const handleFiles = (files) => {
 		return;
 	}
 
-	const fileEntries = validFiles.map(file => ({
-		file,
-		path: file.name
-	}));
-
+	const fileEntries = validFiles.map(file => ({ file, path: file.name	}));
 	const newTree = buildTreeFromPaths(fileEntries);
 	playlist = mergeTrees(playlist, newTree);
 	updatePlaylistUI();
@@ -661,12 +691,9 @@ const handleFolderSelection = (event) => {
 		.filter(file =>
 			file.type.startsWith('video/') ||
 			file.type.startsWith('audio/') ||
-			file.name.match(/\.(mp4|webm|mkv|mov|mp3|wav|aac|flac|ogg)$/i)
+			file.name.match(/\.(mp4|webm|mkv|mov|mp3|wav|aac|flac|ogg|avi|flv|wmv)$/i)
 		)
-		.map(file => ({
-			file,
-			path: file.webkitRelativePath || file.name
-		}));
+		.map(file => ({ file, path: file.webkitRelativePath || file.name }));
 
 	if (fileEntries.length > 0) {
 		const newTree = buildTreeFromPaths(fileEntries);
@@ -677,7 +704,7 @@ const handleFolderSelection = (event) => {
 		showError("No supported media files found in directory.");
 	}
 	showLoading(false);
-	event.target.value = ''; // Reset input
+	event.target.value = '';
 };
 
 const mergeTrees = (mainTree, newTree) => {
@@ -688,7 +715,6 @@ const mergeTrees = (mainTree, newTree) => {
 		} else if (!existingItem) {
 			mainTree.push(newItem);
 		}
-		// If file with same name exists, we currently skip it. 
 	});
 	return mainTree;
 };
@@ -702,10 +728,9 @@ const removeItemFromPath = (nodes, path) => {
 		if (nodes[i].name === itemName) {
 			if (pathParts.length === 1) {
 				nodes.splice(i, 1);
-				return true; // Item found and removed
+				return true;
 			} else if (nodes[i].type === 'folder') {
 				const removed = removeItemFromPath(nodes[i].children, pathParts.slice(1).join('/'));
-				// Remove empty folders
 				if (removed && nodes[i].children.length === 0) {
 					nodes.splice(i, 1);
 				}
@@ -730,23 +755,13 @@ const buildTreeFromPaths = (files) => {
 
 		pathParts.forEach((part, i) => {
 			if (i === pathParts.length - 1) {
-				// It's a file
 				if (!currentLevel.some(item => item.type === 'file' && item.name === part)) {
-					currentLevel.push({
-						type: 'file',
-						name: part,
-						file: fileInfo.file
-					});
+					currentLevel.push({ type: 'file', name: part, file: fileInfo.file });
 				}
 			} else {
-				// It's a folder
 				let existingNode = currentLevel.find(item => item.type === 'folder' && item.name === part);
 				if (!existingNode) {
-					existingNode = {
-						type: 'folder',
-						name: part,
-						children: []
-					};
+					existingNode = { type: 'folder', name: part, children: [] };
 					currentLevel.push(existingNode);
 				}
 				currentLevel = existingNode.children;
@@ -756,7 +771,6 @@ const buildTreeFromPaths = (files) => {
 	return tree;
 };
 
-// Escaping HTML to prevent injection via filenames
 const escapeHTML = str => str.replace(/[&<>'"]/g,
 	tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag]));
 
@@ -781,7 +795,7 @@ const renderTree = (nodes, currentPath = '') => {
 			let isActive = false;
 			if (currentPlayingFile) {
 				if (node.file instanceof File && currentPlayingFile instanceof File) {
-					isActive = currentPlayingFile === node.file; // Assuming object reference holds
+					isActive = currentPlayingFile === node.file;
 				} else if (typeof node.file === 'string' && typeof currentPlayingFile === 'string') {
 					isActive = currentPlayingFile === node.file;
 				}
@@ -799,7 +813,7 @@ const renderTree = (nodes, currentPath = '') => {
 const updatePlaylistUI = () => {
 	if (playlist.length === 0) {
 		playlistContent.innerHTML = '<p style="padding:1rem; opacity:0.7; text-align:center;">No files.</p>';
-		showDropZoneUI(); // Ensure dropzone is shown if playlist empty
+		showDropZoneUI();
 		return;
 	}
 	playlistContent.innerHTML = renderTree(playlist);
@@ -807,10 +821,7 @@ const updatePlaylistUI = () => {
 
 const setVolume = val => {
 	const vol = parseFloat(val);
-	if (gainNode) {
-		// Use exponential taper for better perceived volume control
-		gainNode.gain.value = vol * vol;
-	}
+	if (gainNode) gainNode.gain.value = vol * vol;
 	muteBtn.textContent = vol > 0 ? '🔊' : '🔇';
 };
 
@@ -821,10 +832,10 @@ const showControlsTemporarily = () => {
 
 	if (playing) {
 		hideControlsTimeout = setTimeout(() => {
-			if (playing && !isSeeking && !videoControls.matches(':hover')) {
+			if (playing && !isSeeking && !videoControls.matches(':hover') && !document.querySelector('.control-group:hover')) {
 				videoControls.classList.remove('show');
 				videoContainer.classList.add('hide-cursor');
-				hideTrackMenus(); // Also hide menus
+				hideTrackMenus();
 			}
 		}, 3000);
 	}
@@ -837,7 +848,6 @@ const setupEventListeners = () => {
 	$('chooseFileBtn').onclick = () => $('fileInput').click();
 	$('togglePlaylistBtn').onclick = () => playerArea.classList.toggle('playlist-visible');
 
-	// Reset values to allow selecting same file again
 	$('fileInput').onclick = (e) => e.target.value = null;
 	$('fileInput').onchange = (e) => handleFiles(e.target.files);
 
@@ -857,7 +867,6 @@ const setupEventListeners = () => {
 		setVolume(volumeSlider.value);
 	};
 
-	// Track menu event listeners
 	$('audioTrackBtn').onclick = (e) => {
 		e.stopPropagation();
 		const menu = $('audioTrackMenu');
@@ -874,11 +883,8 @@ const setupEventListeners = () => {
 		if (isHidden) menu.classList.remove('hidden');
 	};
 
-	// Close track menus when clicking elsewhere
 	document.addEventListener('click', (e) => {
-		if (!e.target.closest('.control-group')) {
-			hideTrackMenus();
-		}
+		if (!e.target.closest('.control-group')) hideTrackMenus();
 	});
 
 	volumeSlider.onclick = (e) => e.stopPropagation();
@@ -886,51 +892,39 @@ const setupEventListeners = () => {
 
 	fullscreenBtn.onclick = (e) => {
 		e.stopPropagation();
-		if (document.fullscreenElement) {
-			document.exitFullscreen();
-		} else if (videoContainer.requestFullscreen) {
-			videoContainer.requestFullscreen();
-		}
+		if (document.fullscreenElement) document.exitFullscreen();
+		else if (videoContainer.requestFullscreen) videoContainer.requestFullscreen();
 	};
 
-	// Seeking logic
 	const handleSeekLine = (e) => {
 		const rect = progressContainer.getBoundingClientRect();
-		// Clamp between 0 and 1
 		const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
 		return percent * totalDuration;
 	};
 
 	progressContainer.onpointerdown = (e) => {
 		if (!fileLoaded) return;
-		e.preventDefault(); // Prevent text selection
+		e.preventDefault();
 		isSeeking = true;
 		progressContainer.setPointerCapture(e.pointerId);
-		const seekTime = handleSeekLine(e);
-		updateProgressBarUI(seekTime);
+		updateProgressBarUI(handleSeekLine(e));
 	};
 
 	progressContainer.onpointermove = (e) => {
 		if (!isSeeking) {
-			showControlsTemporarily(); // Show controls on hover
+			showControlsTemporarily();
 			return;
 		}
-		const seekTime = handleSeekLine(e);
-		updateProgressBarUI(seekTime);
-
-		// Optional: Live seeking (might be performance intensive)
-		// videoSink.getCanvas(seekTime).then(f => f && ctx.drawImage(f.canvas, 0, 0));
+		updateProgressBarUI(handleSeekLine(e));
 	};
 
 	progressContainer.onpointerup = (e) => {
 		if (!isSeeking) return;
 		isSeeking = false;
 		progressContainer.releasePointerCapture(e.pointerId);
-		const seekTime = handleSeekLine(e);
-		seekToTime(seekTime);
+		seekToTime(handleSeekLine(e));
 	};
 
-	// Drag and Drop
 	const ddEvents = ['dragenter', 'dragover', 'dragleave', 'drop'];
 	ddEvents.forEach(name => document.body.addEventListener(name, p => p.preventDefault()));
 
@@ -944,7 +938,6 @@ const setupEventListeners = () => {
 		handleFiles(e.dataTransfer.files);
 	};
 
-	// Playlist Interactions
 	playlistContent.onclick = (e) => {
 		const removeButton = e.target.closest('.remove-item');
 		if (removeButton) {
@@ -954,11 +947,9 @@ const setupEventListeners = () => {
 
 			let isPlayingFile = false;
 			if (fileToRemove && currentPlayingFile) {
-				if (fileToRemove instanceof File && currentPlayingFile instanceof File) {
-					isPlayingFile = fileToRemove === currentPlayingFile;
-				} else {
-					isPlayingFile = fileToRemove === currentPlayingFile;
-				}
+				isPlayingFile = (fileToRemove instanceof File && currentPlayingFile instanceof File) ?
+					fileToRemove === currentPlayingFile :
+					fileToRemove === currentPlayingFile;
 			}
 
 			removeItemFromPath(playlist, pathToRemove);
@@ -973,68 +964,53 @@ const setupEventListeners = () => {
 		}
 
 		const fileElement = e.target.closest('.playlist-file');
-		if (fileElement) {
-			// Handle filename click to play
-			if (e.target.classList.contains('playlist-file-name') || e.target === fileElement) {
-				const path = fileElement.dataset.path;
-				const fileToPlay = findFileByPath(playlist, path);
-				if (fileToPlay && fileToPlay !== currentPlayingFile) {
-					loadMedia(fileToPlay);
-				}
+		if (fileElement && (e.target.classList.contains('playlist-file-name') || e.target === fileElement)) {
+			const path = fileElement.dataset.path;
+			const fileToPlay = findFileByPath(playlist, path);
+			if (fileToPlay && fileToPlay !== currentPlayingFile) {
+				loadMedia(fileToPlay);
 			}
 		}
 	};
 
-	// Keyboard Shortcuts
 	document.onkeydown = (e) => {
-		if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-		if (!fileLoaded) return;
-
-		switch (e.code) {
-			case 'Space':
-			case 'KeyK':
-				e.preventDefault();
-				togglePlay();
-				showControlsTemporarily();
-				break;
-			case 'KeyF':
-				e.preventDefault();
-				fullscreenBtn.click();
-				break;
-			case 'KeyM':
-				e.preventDefault();
-				muteBtn.click();
-				showControlsTemporarily();
-				break;
-			case 'ArrowLeft':
-				e.preventDefault();
-				seekToTime(getPlaybackTime() - 5);
-				showControlsTemporarily();
-				break;
-			case 'ArrowRight':
-				e.preventDefault();
-				seekToTime(getPlaybackTime() + 5);
-				showControlsTemporarily();
-				break;
-			case 'ArrowUp':
-				e.preventDefault();
+		if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || !fileLoaded) return;
+		const actions = {
+			'Space': () => togglePlay(),
+			'KeyK': () => togglePlay(),
+			'KeyF': () => fullscreenBtn.click(),
+			'KeyM': () => muteBtn.click(),
+			'ArrowLeft': () => seekToTime(getPlaybackTime() - 5),
+			'ArrowRight': () => seekToTime(getPlaybackTime() + 5),
+			'ArrowUp': () => {
 				volumeSlider.value = Math.min(1, parseFloat(volumeSlider.value) + 0.1);
 				setVolume(volumeSlider.value);
-				showControlsTemporarily();
-				break;
-			case 'ArrowDown':
-				e.preventDefault();
+			},
+			'ArrowDown': () => {
 				volumeSlider.value = Math.max(0, parseFloat(volumeSlider.value) - 0.1);
 				setVolume(volumeSlider.value);
-				showControlsTemporarily();
-				break;
+			}
+		};
+		if (actions[e.code]) {
+			e.preventDefault();
+			actions[e.code]();
+			showControlsTemporarily();
 		}
 	};
 
-	// --- Control visibility ---
-	// Click on canvas toggles play
-	canvas.onclick = (e) => {
-		// User interaction required to resume AudioContext if suspended
+	document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && playing && fileLoaded) {
+            const now = getPlaybackTime();
+            const videoTime = nextFrame ? nextFrame.timestamp : now;
+
+            if (now - videoTime > 0.25) {
+                console.log(`Resyncing video from ${videoTime.toFixed(2)}s to ${now.toFixed(2)}s.`);
+                startVideoIterator();
+            }
+        }
+    });
+
+	canvas.onclick = () => {
 		if (audioContext && audioContext.state === 'suspended') audioContext.resume();
 		togglePlay();
 	};
@@ -1048,7 +1024,6 @@ const setupEventListeners = () => {
 	};
 };
 
-// --- Initial Load ---
 document.addEventListener('DOMContentLoaded', () => {
 	setupEventListeners();
 	renderLoop();
@@ -1075,10 +1050,10 @@ document.addEventListener('DOMContentLoaded', () => {
 		}
 	}
 
-	updatePlaylistUI(); // Initialize empty state
+	updatePlaylistUI();
 
 	if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
 		navigator.serviceWorker.register('service-worker.js')
-			.catch(err => console.log('ServiceWorker registration failed (expected if file missing):', err));
+			.catch(err => console.log('ServiceWorker registration failed:', err));
 	}
 });
