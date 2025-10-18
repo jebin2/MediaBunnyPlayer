@@ -73,6 +73,8 @@ let subtitleRenderer = null;
 let isLooping = false;
 let loopStartTime = 0;
 let loopEndTime = 0;
+const prevBtn = $('prevBtn');
+const nextBtn = $('nextBtn');
 
 // === PERFORMANCE OPTIMIZATION: Cache DOM elements for playlist ===
 let playlistElementCache = new Map(); // Maps path -> DOM element
@@ -386,7 +388,6 @@ const pause = () => {
 	clearTimeout(hideControlsTimeout);
 	videoControls.classList.add('show');
 };
-
 const togglePlay = () => playing ? pause() : play();
 
 const seekToTime = async (seconds) => {
@@ -799,6 +800,29 @@ const playNext = () => {
 	if (currentIndex !== -1 && currentIndex < flatList.length - 1) {
 		loadMedia(flatList[currentIndex + 1].file);
 	}
+};
+
+const playPrevious = () => {
+    if (!currentPlayingFile || playlist.length <= 1) return;
+
+    const flatten = (nodes) => {
+        let flat = [];
+        nodes.forEach(node => {
+            if (node.type === 'file') flat.push(node);
+            if (node.type === 'folder') flat = flat.concat(flatten(node.children));
+        });
+        return flat;
+    };
+
+    const flatList = flatten(playlist);
+    const currentIndex = flatList.findIndex(item => item.file === currentPlayingFile);
+
+    if (currentIndex > 0) {
+        loadMedia(flatList[currentIndex - 1].file);
+    } else {
+        // Loop back to the last track
+        loadMedia(flatList[flatList.length - 1].file);
+    }
 };
 
 const parseTime = (timeStr) => {
@@ -1225,7 +1249,15 @@ const setupEventListeners = () => {
 		e.stopPropagation();
 		togglePlay();
 	};
+	prevBtn.onclick = (e) => {
+		e.stopPropagation();
+		playPrevious();
+	};
 
+	nextBtn.onclick = (e) => {
+		e.stopPropagation();
+		playNext();
+	};
 	muteBtn.onclick = (e) => {
 		e.stopPropagation();
 		if (parseFloat(volumeSlider.value) > 0) {
