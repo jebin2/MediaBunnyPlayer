@@ -635,3 +635,14 @@ body {
 .time-input::placeholder {
 	color: #aaa;
 }
+.clip-action-btn {
+    background: none;
+    border: 1px solid #4a4a6a;
+    color: #ccc;
+    cursor: pointer;
+    padding: 2px 5px;
+    border-radius: 3px;
+    /* === NEW/ADJUSTED STYLES === */
+    font-size: 1em; /* Adjust size of the icon */
+    line-height: 1; /* Helps with vertical alignment */
+}

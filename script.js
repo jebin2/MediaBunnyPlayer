@@ -399,6 +399,7 @@ const toggleLoop = () => {
 
 const handleCutAction = async () => {
     if (!fileLoaded) return;
+	if (playing) pause();
 
     const start = parseTime(startTimeInput.value);
     const end = parseTime(endTimeInput.value);
@@ -407,7 +408,7 @@ const handleCutAction = async () => {
         showError("Invalid start or end time for cutting.");
         return;
     }
-
+    hideTrackMenus(); // Close the menu after cutting
     showStatusMessage('Cutting clip...');
     let input;
     try {
@@ -437,14 +438,17 @@ const handleCutAction = async () => {
         const originalName = (currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
         const clipName = `${originalName}_${formatTime(start)}-${formatTime(end)}.mp4`.replace(/:/g, '_');
 
+		const cutClipFile = new File([output.target.buffer], clipName, {
+			type: 'video/mp4'
+		});
+
         playlist.push({
             type: 'file',
             name: clipName,
-            file: blob,
+            file: cutClipFile,
             isCutClip: true
         });
         updatePlaylistUI();
-        hideTrackMenus(); // Close the menu after cutting
         showStatusMessage('Clip added to playlist!');
         setTimeout(hideStatusMessage, 2000);
 
@@ -498,9 +502,9 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 		let source;
 		let resourceName;
 
-		if (resource instanceof File) {
+		if (resource instanceof Blob) {
 			source = new BlobSource(resource);
-			resourceName = resource.name;
+    		resourceName = resource.name;
 		} else if (typeof resource === 'string') {
 			source = new UrlSource(resource);
 			resourceName = resource.split('/').pop() || 'video_from_url.mp4';
@@ -728,34 +732,15 @@ const playNext = () => {
 	};
 
 	const flatList = flatten(playlist);
+	
+	// Find the current index using a direct reference check. This works for
+	// File objects, Blobs, and URL strings. It's the most reliable way.
+	const currentIndex = flatList.findIndex(item => item.file === currentPlayingFile);
 
-	let currentIndex = -1;
-	for (let i = 0; i < flatList.length; i++) {
-		const item = flatList[i];
-		// === NEW: Handle cut clips (which are Blobs) ===
-		if (item.isCutClip) continue;
-
-		if (currentPlayingFile instanceof File && item.file instanceof File) {
-			if (currentPlayingFile.name === item.file.name && currentPlayingFile.size === item.file.size) {
-				currentIndex = i;
-				break;
-			}
-		} else if (typeof currentPlayingFile === 'string' && typeof item.file === 'string') {
-			if (currentPlayingFile === item.file) {
-				currentIndex = i;
-				break;
-			}
-		}
-	}
-
-	if (currentIndex !== -1) {
-		// Find the next playable item
-		for (let i = currentIndex + 1; i < flatList.length; i++) {
-			if (!flatList[i].isCutClip) {
-				loadMedia(flatList[i].file);
-				return;
-			}
-		}
+	// If the item was found and it's not the last one in the list...
+	if (currentIndex !== -1 && currentIndex < flatList.length - 1) {
+		// ...play the very next item.
+		loadMedia(flatList[currentIndex + 1].file);
 	}
 };
 
@@ -995,21 +980,14 @@ const renderTree = (nodes, currentPath = '') => {
                         </details>
                     </li>`;
 		} else {
-			let isActive = false;
-			if (currentPlayingFile) {
-				if (node.file instanceof File && currentPlayingFile instanceof File) {
-					isActive = currentPlayingFile === node.file;
-				} else if (typeof node.file === 'string' && typeof currentPlayingFile === 'string') {
-					isActive = currentPlayingFile === node.file;
-				}
-			}
+			const isActive = (currentPlayingFile === node.file);
 			// === NEW: Handle rendering for cut clips
 			if (node.isCutClip) {
-				html += `<li class="playlist-file cut-clip active" data-path="${safePath}" title="${safeName}">
+				html += `<li class="playlist-file cut-clip ${isActive ? 'active' : ''}" data-path="${safePath}" title="${safeName}">
                             <span class="playlist-file-name">${safeName}</span>
                             <div class="clip-actions">
-                                <button class="clip-action-btn" data-action="download" data-path="${safePath}">DL</button>
-                                <button class="clip-action-btn" data-action="copy" data-path="${safePath}">Copy</button>
+                                <button class="clip-action-btn" data-action="download" data-path="${safePath}">📥</button>
+                                <button class="clip-action-btn" data-action="copy" data-path="${safePath}">📋</button>
                             </div>
                             <span class="remove-item" data-path="${safePath}">&times;</span>
                         </li>`;
@@ -1054,87 +1032,6 @@ const showControlsTemporarily = () => {
 				hideTrackMenus();
 			}
 		}, 3000);
-	}
-};
-
-// === NEW: Trim/Loop action handler ===
-const handleTrimAction = async () => {
-	if (!fileLoaded) return;
-
-	const start = parseTime(startTimeInput.value);
-	const end = parseTime(endTimeInput.value);
-
-	if (isNaN(start) || isNaN(end) || start >= end || start < 0 || end > totalDuration) {
-		showError("Invalid start or end time.");
-		return;
-	}
-
-	const mode = trimModeSelect.value;
-	if (mode === 'loop') {
-		isLooping = true;
-		loopStartTime = start;
-		loopEndTime = end;
-		if (getPlaybackTime() < start || getPlaybackTime() > end) {
-			seekToTime(start);
-		}
-	} else { // mode === 'cut'
-		showStatusMessage('Cutting clip...');
-		let input;
-		try {
-			// Re-create source and input to perform the cut operation
-			const source = (currentPlayingFile instanceof File) ?
-				new BlobSource(currentPlayingFile) :
-				new UrlSource(currentPlayingFile);
-
-			input = new Input({
-				source,
-				formats: ALL_FORMATS
-			});
-
-			const output = new Output({
-				format: new Mp4OutputFormat({
-					fastStart: 'in-memory'
-				}),
-				target: new BufferTarget(),
-			});
-
-			const conversion = await Conversion.init({
-				input,
-				output,
-				trim: {
-					start,
-					end
-				},
-			});
-
-			if (!conversion.isValid) {
-				throw new Error('Could not create a valid conversion for cutting.');
-			}
-			await conversion.execute();
-
-			const blob = new Blob([output.target.buffer], {
-				type: 'video/mp4'
-			});
-			const originalName = (currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
-			const clipName = `${originalName}_${formatTime(start)}-${formatTime(end)}.mp4`.replace(/:/g, '_');
-
-			playlist.push({
-				type: 'file',
-				name: clipName,
-				file: blob, // Store the blob directly
-				isCutClip: true
-			});
-			updatePlaylistUI();
-			showStatusMessage('Clip added to playlist!');
-			setTimeout(hideStatusMessage, 2000);
-
-		} catch (error) {
-			console.error("Error during cutting:", error);
-			showError("Failed to cut the clip.");
-			hideStatusMessage();
-		} finally {
-			if (input) input.dispose();
-		}
 	}
 };
 
@@ -1315,11 +1212,11 @@ const setupEventListeners = () => {
 		}
 
 		const fileElement = e.target.closest('.playlist-file');
-		if (fileElement && !fileElement.classList.contains('cut-clip') && (e.target.classList.contains('playlist-file-name') || e.target === fileElement)) {
+		if (fileElement && (e.target.classList.contains('playlist-file-name') || e.target === fileElement)) {
 			const path = fileElement.dataset.path;
 			const fileToPlay = findFileByPath(playlist, path);
 			if (fileToPlay && fileToPlay !== currentPlayingFile) {
-				loadMedia(fileToPlay);
+				loadMedia(fileToPlay); // This will now work for Blobs (cut clips) too
 			}
 		}
 	};
