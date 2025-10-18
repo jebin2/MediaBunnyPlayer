@@ -279,6 +279,42 @@ const renderLoop = () => {
 	}
 	requestAnimationFrame(renderLoop);
 };
+// --- NEW, OPTIMIZED FUNCTION ---
+const setActivePlaylistItem = (newFile) => {
+    // Find and remove the old active class, if it exists
+    const oldActive = playlistContent.querySelector('.playlist-file.active');
+    if (oldActive) {
+        oldActive.classList.remove('active');
+    }
+
+    // Find the path of the new file
+    let newPath = null;
+    // This is a bit tricky, we need to find the item in our tree to get its path
+    const findPath = (nodes, currentPath = '') => {
+        for (const node of nodes) {
+            const nodePath = currentPath ? `${currentPath}/${node.name}` : node.name;
+            if (node.type === 'file' && node.file === newFile) {
+                newPath = nodePath;
+                return;
+            }
+            if (node.type === 'folder') {
+                findPath(node.children, nodePath);
+                if (newPath) return; // Exit early if found
+            }
+        }
+    };
+    findPath(playlist);
+    
+    // Find the new element by its path and add the active class
+    if (newPath) {
+        // We need to escape CSS selectors in the path if they contain special characters
+        const safePath = newPath.replace(/([!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, '\\$1');
+        const newActive = playlistContent.querySelector(`.playlist-file[data-path="${safePath}"]`);
+        if (newActive) {
+            newActive.classList.add('active');
+        }
+    }
+};
 // === NEW: Function to handle taking and showing a screenshot ===
 const takeScreenshot = () => {
     if (!fileLoaded || !canvas) {
@@ -638,7 +674,7 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 		}
 
 		updateTrackMenus();
-		updatePlaylistUI();
+        setActivePlaylistItem(currentPlayingFile);
 		fileLoaded = true;
 		showPlayerUI();
 		updateProgressBarUI(0);
