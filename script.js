@@ -73,6 +73,7 @@ let subtitleRenderer = null;
 let isLooping = false;
 let loopStartTime = 0;
 let loopEndTime = 0;
+let playbackLogicInterval = null;
 const prevBtn = $('prevBtn');
 const nextBtn = $('nextBtn');
 
@@ -231,27 +232,35 @@ const updateNextFrame = async () => {
 	}
 };
 
+const checkPlaybackState = () => {
+    if (!playing || !fileLoaded) return;
+
+    const currentTime = getPlaybackTime();
+
+    // 1. Handle looping
+    if (isLooping && currentTime >= loopEndTime) {
+        seekToTime(loopStartTime);
+        return; // Important: return here to prevent the next check from running immediately
+    }
+
+    // 2. Handle end-of-track and autoplay
+    if (currentTime >= totalDuration && totalDuration > 0 && !isLooping) {
+        if (isAutoplayEnabled) {
+            playNext();
+        } else {
+            pause();
+            playbackTimeAtStart = totalDuration;
+            scheduleProgressUpdate(totalDuration);
+        }
+    }
+};
+
 const renderLoop = () => {
 	if (fileLoaded) {
 		const currentTime = getPlaybackTime();
 
-		if (playing && isLooping && currentTime >= loopEndTime) {
-			seekToTime(loopStartTime);
-			requestAnimationFrame(renderLoop);
-			return;
-		}
-
 		if (playing) {
-			if (currentTime >= totalDuration && totalDuration > 0 && !isLooping && isAutoplayEnabled) {
-				pause();
-				playbackTimeAtStart = totalDuration;
-				scheduleProgressUpdate(totalDuration);
-				playNext();
-			} else if (currentTime >= totalDuration && totalDuration > 0 && !isLooping && !isAutoplayEnabled) {
-				pause();
-				playbackTimeAtStart = totalDuration;
-				scheduleProgressUpdate(totalDuration);
-			} else if (nextFrame && nextFrame.timestamp <= currentTime) {
+			if (nextFrame && nextFrame.timestamp <= currentTime) {
 				ctx.drawImage(nextFrame.canvas, 0, 0, canvas.width, canvas.height);
 				nextFrame = null;
 				updateNextFrame();
@@ -353,6 +362,10 @@ const play = async () => {
 	audioContextStartTime = audioContext.currentTime;
 	playing = true;
 
+    // Add these two lines to start the interval
+    if (playbackLogicInterval) clearInterval(playbackLogicInterval);
+	playbackLogicInterval = setInterval(checkPlaybackState, 100); // Check 10 times a second
+
 	if (audioSink) {
 		const currentAsyncId = asyncId;
 		await audioBufferIterator?.return();
@@ -373,6 +386,10 @@ const pause = () => {
 	playing = false;
 	asyncId++;
 
+    // Add these two lines to stop the interval
+    clearInterval(playbackLogicInterval);
+    playbackLogicInterval = null;
+
 	audioBufferIterator?.return().catch(() => { });
 	audioBufferIterator = null;
 
@@ -388,6 +405,7 @@ const pause = () => {
 	clearTimeout(hideControlsTimeout);
 	videoControls.classList.add('show');
 };
+
 const togglePlay = () => playing ? pause() : play();
 
 const seekToTime = async (seconds) => {
