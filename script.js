@@ -82,6 +82,16 @@ let playbackLogicInterval = null;
 const prevBtn = $('prevBtn');
 const nextBtn = $('nextBtn');
 
+const cropBtn = $('cropBtn');
+const cropCanvas = $('cropCanvas');
+const cropCtx = cropCanvas.getContext('2d');
+
+let isCropping = false;
+let isDrawingCrop = false;
+let cropStart = { x: 0, y: 0 };
+let cropEnd = { x: 0, y: 0 };
+let cropRect = null; // Will store the final crop dimensions
+
 // === PERFORMANCE OPTIMIZATION: Cache DOM elements for playlist ===
 let playlistElementCache = new Map(); // Maps path -> DOM element
 let lastRenderedPlaylist = null; // For deep equality check
@@ -489,22 +499,49 @@ const handleCutAction = async () => {
 			target: new BufferTarget(),
 		});
 
-		const conversion = await Conversion.init({
+		// --- START: THIS IS THE CORRECTED PART ---
+
+		// 1. Define the base options for the conversion.
+		const conversionOptions = {
 			input,
 			output,
 			trim: {
 				start,
 				end
 			},
-		});
+		};
+
+		// 2. If a crop rectangle exists, add the `video` property
+		//    directly to the `conversionOptions` object. This is the correct API usage.
+		if (cropRect && cropRect.width > 0 && cropRect.height > 0) {
+			conversionOptions.video = {
+				crop: {
+					left: Math.round(cropRect.x),
+					top: Math.round(cropRect.y),
+					width: Math.round(cropRect.width),
+					height: Math.round(cropRect.height)
+				}
+			};
+		}
+
+		// 3. Initialize the conversion with the complete options object.
+		const conversion = await Conversion.init(conversionOptions);
+
+		// --- END: CORRECTION ---
 
 		if (!conversion.isValid) {
 			throw new Error('Could not create a valid conversion for cutting.');
 		}
+
+		conversion.onProgress = (progress) => {
+			showStatusMessage(`Cutting clip... (${Math.round(progress * 100)}%)`);
+		};
+
 		await conversion.execute();
 
 		const originalName = (currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
-		const clipName = `${originalName}_${formatTime(start)}-${formatTime(end)}.mp4`.replace(/:/g, '_');
+        // Added "_cropped" to the filename for clarity
+		const clipName = `${originalName}_${formatTime(start)}-${formatTime(end)}_cropped.mp4`.replace(/:/g, '_');
 
 		const cutClipFile = new File([output.target.buffer], clipName, {
 			type: 'video/mp4'
@@ -518,15 +555,54 @@ const handleCutAction = async () => {
 		});
 		updatePlaylistUIOptimized();
 		showStatusMessage('Clip added to playlist!');
+		if (isCropping) cropBtnClick();
 		setTimeout(hideStatusMessage, 2000);
 
 	} catch (error) {
 		console.error("Error during cutting:", error);
-		showError("Failed to cut the clip.");
+		showError(`Failed to cut the clip: ${error.message}`);
 		hideStatusMessage();
 	} finally {
 		if (input) input.dispose();
 	}
+};
+
+const getScaledCoordinates = (e) => {
+    const rect = cropCanvas.getBoundingClientRect();
+    const scaleX = cropCanvas.width / rect.width;
+    const scaleY = cropCanvas.height / rect.height;
+
+    // Use e.clientX/Y for broader browser compatibility and accuracy
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+
+    return { x, y };
+};
+
+// --- New Function: To draw the shaded overlay ---
+const drawCropOverlay = () => {
+    // Clear the previous frame
+    cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+
+    // Calculate dimensions, ensuring width and height are not negative
+    const x = Math.min(cropStart.x, cropEnd.x);
+    const y = Math.min(cropStart.y, cropEnd.y);
+    const width = Math.abs(cropStart.x - cropEnd.x);
+    const height = Math.abs(cropStart.y - cropEnd.y);
+
+    if (width > 0 || height > 0) {
+        // Draw the semi-transparent shade over the entire canvas
+        cropCtx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
+
+        // "Punch a hole" in the shade where the crop area is
+        cropCtx.clearRect(x, y, width, height);
+
+        // Add a light border around the clear area for better visibility
+        cropCtx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+        cropCtx.lineWidth = 1;
+        cropCtx.strokeRect(x, y, width, height);
+    }
 };
 
 const stopAndClear = async () => {
@@ -646,6 +722,10 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 			});
 			canvas.width = videoTrack.displayWidth || videoTrack.codedWidth || 1280;
 			canvas.height = videoTrack.displayHeight || videoTrack.codedHeight || 720;
+    
+			// Resize the crop canvas as well
+			cropCanvas.width = canvas.width;
+			cropCanvas.height = canvas.height;
 		}
 
 		if (currentAudioTrack) {
@@ -1248,6 +1328,17 @@ const setPlaybackSpeed = (newSpeed) => {
 	startVideoIterator();
 };
 
+const cropBtnClick = () => {
+	isCropping = !isCropping;
+	cropCanvas.classList.toggle('hidden', !isCropping);
+
+	if (!isCropping) {
+		// When cropping is turned off, clear the canvas and reset the crop data
+		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+		cropRect = null;
+	}
+}; 
+
 const setupEventListeners = () => {
 	$('addFileBtn').onclick = () => $('fileInput').click();
 	$('addFolderBtn').onclick = () => $('folderInput').click();
@@ -1599,6 +1690,53 @@ const setupEventListeners = () => {
 		}
 	};
 	// --- End of URL Modal Logic ---
+	cropBtn.onclick = cropBtnClick;
+
+cropCanvas.onpointerdown = (e) => {
+    if (!isCropping) return;
+    e.preventDefault();
+    cropCanvas.setPointerCapture(e.pointerId);
+
+    isDrawingCrop = true;
+    const coords = getScaledCoordinates(e);
+    cropStart = coords;
+    cropEnd = coords; // Reset end point
+};
+
+cropCanvas.onpointermove = (e) => {
+    if (!isDrawingCrop) return;
+    e.preventDefault();
+
+    cropEnd = getScaledCoordinates(e);
+    drawCropOverlay(); // Update the shaded area as the user drags
+};
+
+cropCanvas.onpointerup = (e) => {
+    if (!isDrawingCrop) return;
+    e.preventDefault();
+    cropCanvas.releasePointerCapture(e.pointerId);
+
+    isDrawingCrop = false;
+    const finalCoords = getScaledCoordinates(e);
+    cropEnd = finalCoords;
+
+    // Draw the final state of the overlay
+    drawCropOverlay();
+
+    // Store the final crop rectangle for the "Cut Clip" action
+    cropRect = {
+        x: Math.min(cropStart.x, cropEnd.x),
+        y: Math.min(cropStart.y, cropEnd.y),
+        width: Math.abs(cropStart.x - cropEnd.x),
+        height: Math.abs(cropStart.y - cropEnd.y)
+    };
+
+    // If the selection is tiny, consider it a click and don't set the crop
+    if (cropRect.width < 5 && cropRect.height < 5) {
+        cropRect = null;
+        cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+    }
+};
 };
 
 document.addEventListener('DOMContentLoaded', () => {
