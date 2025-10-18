@@ -43,6 +43,13 @@ const trimMenuBtn = $('trimMenuBtn');
 const trimMenu = $('trimMenu');
 const loopBtn = $('loopBtn');
 const cutBtn = $('cutBtn');
+const screenshotBtn = $('screenshotBtn');
+const screenshotOverlay = $('screenshotOverlay');
+const screenshotPreviewImg = $('screenshotPreviewImg');
+const closeScreenshotBtn = $('closeScreenshotBtn');
+const copyScreenshotBtn = $('copyScreenshotBtn');
+const downloadScreenshotBtn = $('downloadScreenshotBtn');
+let currentScreenshotBlob = null; // To hold the image data for copy/download
 const ctx = canvas.getContext('2d', {
 	alpha: false,
 	desynchronized: true
@@ -256,7 +263,34 @@ const renderLoop = () => {
 	}
 	requestAnimationFrame(renderLoop);
 };
+// === NEW: Function to handle taking and showing a screenshot ===
+const takeScreenshot = () => {
+    if (!fileLoaded || !canvas) {
+        showError("Cannot take screenshot: No video loaded.");
+        return;
+    }
 
+    // Use canvas.toBlob for better performance and compatibility with Clipboard API
+    canvas.toBlob((blob) => {
+        if (!blob) {
+            showError("Failed to create screenshot.");
+            return;
+        }
+
+        currentScreenshotBlob = blob;
+
+        // Revoke the previous object URL if it exists, to prevent memory leaks
+        if (screenshotPreviewImg.src) {
+            URL.revokeObjectURL(screenshotPreviewImg.src);
+        }
+
+        const imageUrl = URL.createObjectURL(blob);
+        screenshotPreviewImg.src = imageUrl;
+        screenshotOverlay.classList.remove('hidden');
+        hideTrackMenus(); // Close the config menu
+
+    }, 'image/png'); // You can change to 'image/jpeg' if preferred
+};
 const runAudioIterator = async () => {
 	if (!audioSink || !audioBufferIterator) return;
 	const currentAsyncId = asyncId;
@@ -774,7 +808,7 @@ const showError = msg => {
 	const el = document.createElement('div');
 	el.className = 'error-message';
 	el.textContent = msg;
-	el.style.cssText = "position:fixed; top:20px; right:20px; background:rgba(200,0,0,0.8); color:white; padding:10px; border-radius:4px; z-index:1000;";
+	el.style.cssText = "position:fixed; top:20px; right:20px; background:rgba(200,0,0,0.8); color:white; padding:10px; border-radius:4px; z-index:10000;";
 	document.body.appendChild(el);
 	setTimeout(() => el.remove(), 4000);
 };
@@ -1282,6 +1316,52 @@ const setupEventListeners = () => {
     
     loopBtn.onclick = toggleLoop;
     cutBtn.onclick = handleCutAction;
+    screenshotBtn.onclick = takeScreenshot;
+
+    const closeScreenshotModal = () => {
+        screenshotOverlay.classList.add('hidden');
+        // Clean up the created object URL to free memory
+        if (screenshotPreviewImg.src) {
+            URL.revokeObjectURL(screenshotPreviewImg.src);
+        }
+        currentScreenshotBlob = null;
+    };
+
+    closeScreenshotBtn.onclick = closeScreenshotModal;
+    screenshotOverlay.onclick = (e) => {
+        // Close modal only if the dark overlay background is clicked
+        if (e.target === screenshotOverlay) {
+            closeScreenshotModal();
+        }
+    };
+
+    downloadScreenshotBtn.onclick = () => {
+        if (!currentScreenshotBlob) return;
+        
+        const timestamp = formatTime(getPlaybackTime()).replace(/:/g, '-');
+		const originalName = (currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
+        const filename = `${originalName}_${timestamp}.png`;
+        
+        const a = document.createElement('a');
+        a.href = screenshotPreviewImg.src; // Use the existing Object URL
+        a.download = filename;
+        document.body.appendChild(a); // Required for Firefox
+        a.click();
+        document.body.removeChild(a);
+    };
+
+    copyScreenshotBtn.onclick = () => {
+        if (!currentScreenshotBlob) return;
+
+        navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': currentScreenshotBlob })
+        ]).then(() => {
+            showError("Screenshot copied to clipboard!"); // Use showError for quick feedback
+        }).catch(err => {
+            console.error("Copy failed:", err);
+            showError("Copy failed. Your browser may not support this feature.");
+        });
+    };
 };
 
 document.addEventListener('DOMContentLoaded', () => {
