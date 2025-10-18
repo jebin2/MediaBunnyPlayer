@@ -123,7 +123,7 @@ const handleConversion = async (source, fileName) => {
 
 		if (!conversion.isValid) {
 			console.error('Conversion is not valid. Discarded tracks:', conversion.discardedTracks);
-            // --- IMPROVED ERROR ---
+			// --- IMPROVED ERROR ---
 			let reason = 'the file contains no convertible tracks.';
 			if (conversion.discardedTracks.length > 0) {
 				const firstReason = conversion.discardedTracks[0].reason;
@@ -136,10 +136,10 @@ const handleConversion = async (source, fileName) => {
 			throw new Error(`Could not prepare conversion because ${reason}`);
 		}
 
-        // Show conversion progress
-        conversion.onProgress = (progress) => {
-            showStatusMessage(`Converting to MP4... (${Math.round(progress * 100)}%)`);
-        };
+		// Show conversion progress
+		conversion.onProgress = (progress) => {
+			showStatusMessage(`Converting to MP4... (${Math.round(progress * 100)}%)`);
+		};
 
 		await conversion.execute();
 		showStatusMessage('Conversion complete. Loading video...');
@@ -155,7 +155,7 @@ const handleConversion = async (source, fileName) => {
 		await loadMedia(convertedFile, true);
 
 	} catch (error) {
-        // --- IMPROVED ERROR ---
+		// --- IMPROVED ERROR ---
 		showError(`Conversion Failed: This file format appears to be incompatible with the in-browser converter. (${error.message})`);
 		console.error('Conversion error:', error);
 		showDropZoneUI();
@@ -298,11 +298,11 @@ const pause = () => {
 	playing = false;
 	asyncId++;
 
-	audioBufferIterator?.return().catch(() => {});
+	audioBufferIterator?.return().catch(() => { });
 	audioBufferIterator = null;
 
 	queuedAudioNodes.forEach(node => {
-		try { node.stop(); } catch (e) {}
+		try { node.stop(); } catch (e) { }
 	});
 	queuedAudioNodes.clear();
 
@@ -334,8 +334,8 @@ const stopAndClear = async () => {
 	fileLoaded = false;
 	asyncId++;
 
-	try { await videoFrameIterator?.return(); } catch (e) {}
-	try { await audioBufferIterator?.return(); } catch (e) {}
+	try { await videoFrameIterator?.return(); } catch (e) { }
+	try { await audioBufferIterator?.return(); } catch (e) { }
 
 	nextFrame = null;
 	videoSink = null;
@@ -391,13 +391,13 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 		if (!isPlayable && !isConversionAttempt) {
 			console.log("Media not directly playable, attempting conversion.");
 			await handleConversion(source, resourceName);
-			return; 
+			return;
 		}
 
 		if (!isPlayable && isConversionAttempt) {
 			throw new Error('Converted file is not playable. Its codecs may be unsupported by this browser.');
 		}
-		
+
 		currentPlayingFile = resource;
 		totalDuration = await input.computeDuration();
 		playbackTimeAtStart = 0;
@@ -414,7 +414,7 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 		}
 
 		if (!audioContext) {
-			audioContext = new(window.AudioContext || window.webkitAudioContext)();
+			audioContext = new (window.AudioContext || window.webkitAudioContext)();
 		}
 		if (audioContext.state === 'suspended') await audioContext.resume();
 
@@ -672,7 +672,7 @@ const handleFiles = (files) => {
 		return;
 	}
 
-	const fileEntries = validFiles.map(file => ({ file, path: file.name	}));
+	const fileEntries = validFiles.map(file => ({ file, path: file.name }));
 	const newTree = buildTreeFromPaths(fileEntries);
 	playlist = mergeTrees(playlist, newTree);
 	updatePlaylistUI();
@@ -842,10 +842,17 @@ const showControlsTemporarily = () => {
 };
 
 const setupEventListeners = () => {
-	$('openFileBtn').onclick = () => $('fileInput').click();
-	$('openFolderBtn').onclick = () => $('folderInput').click();
+	$('addFileBtn').onclick = () => $('fileInput').click();
+	$('addFolderBtn').onclick = () => $('folderInput').click();
 	$('clearPlaylistBtn').onclick = clearPlaylist;
-	$('chooseFileBtn').onclick = () => $('fileInput').click();
+	$('chooseFileBtn').onclick = () => {
+		fileLoaded = false
+		$('fileInput').click();
+	}
+	$('openFileBtn').onclick = () => {
+		fileLoaded = false
+		$('fileInput').click();
+	}
 	$('togglePlaylistBtn').onclick = () => playerArea.classList.toggle('playlist-visible');
 
 	$('fileInput').onclick = (e) => e.target.value = null;
@@ -999,16 +1006,16 @@ const setupEventListeners = () => {
 	};
 
 	document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible' && playing && fileLoaded) {
-            const now = getPlaybackTime();
-            const videoTime = nextFrame ? nextFrame.timestamp : now;
+		if (document.visibilityState === 'visible' && playing && fileLoaded) {
+			const now = getPlaybackTime();
+			const videoTime = nextFrame ? nextFrame.timestamp : now;
 
-            if (now - videoTime > 0.25) {
-                console.log(`Resyncing video from ${videoTime.toFixed(2)}s to ${now.toFixed(2)}s.`);
-                startVideoIterator();
-            }
-        }
-    });
+			if (now - videoTime > 0.25) {
+				console.log(`Resyncing video from ${videoTime.toFixed(2)}s to ${now.toFixed(2)}s.`);
+				startVideoIterator();
+			}
+		}
+	});
 
 	canvas.onclick = () => {
 		if (audioContext && audioContext.state === 'suspended') audioContext.resume();

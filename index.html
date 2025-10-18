@@ -28,10 +28,15 @@
 			</div>
 
 			<div class="controls-header">
-				<button class="btn" id="openFileBtn">Open File(s)</button>
-				<button class="btn" id="openFolderBtn">Open Folder</button>
-				<button class="btn" id="clearPlaylistBtn">Clear Playlist</button> <!-- Added Button -->
-				<button class="btn" id="togglePlaylistBtn">Playlist</button>
+				<button class="btn" id="openFileBtn">Open File</button>
+				<button class="btn" id="addFileBtn">Add File(s)</button>
+				<button class="btn" id="addFolderBtn">Add Folder</button>
+
+				<!-- New Split Button for Playlist -->
+				<div class="split-btn-group">
+					<button class="btn" id="togglePlaylistBtn">Playlist</button>
+					<button class="btn" id="clearPlaylistBtn" title="Clear Playlist">&times;</button>
+				</div>
 			</div>
 		</div>
 
@@ -104,7 +109,7 @@
 		</div>
 		<div class="loading hidden" id="loading">
 			<div class="spinner"></div>
-  			<div id="statusMessage"></div>
+			<div id="statusMessage"></div>
 		</div>
 	</div>
 
