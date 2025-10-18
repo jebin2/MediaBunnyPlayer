@@ -69,6 +69,7 @@
 							<div class="track-controls">
 								<button class="btn track-btn" id="audioTrackBtn">Audio</button>
 								<button class="btn track-btn" id="subtitleTrackBtn">Subtitles</button>
+								<button class="btn track-btn" id="trimMenuBtn">⚙️</button>
 							</div>
 
 							<!-- Add these dropdown menus after the video-controls div: -->
@@ -87,6 +88,20 @@
 											<span>None</span>
 										</li>
 									</ul>
+								</div>
+							</div>
+							<div class="track-menu hidden" id="trimMenu">
+								<div class="track-menu-content">
+									<h4>Configs</h4>
+									<div class="trim-menu-controls">
+										<input type="text" id="startTime" class="time-input" placeholder="00:00">
+										<span>-</span>
+										<input type="text" id="endTime" class="time-input" placeholder="00:00">
+									</div>
+									<div class="trim-menu-actions">
+										<button class="btn" id="loopBtn">Loop</button>
+										<button class="btn" id="cutBtn">Cut Clip</button>
+									</div>
 								</div>
 							</div>
 							<div class="volume-container">

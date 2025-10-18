@@ -9,8 +9,9 @@ import {
 	Conversion,
 	Output,
 	Mp4OutputFormat,
-	StreamTarget
-	// --- END ADDED ---
+	// --- CHANGED FOR CUTTING ---
+	BufferTarget
+	// --- END CHANGED ---
 	//} from 'https://cdn.skypack.dev/mediabunny@latest';
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.23.0/+esm';
 
@@ -35,6 +36,13 @@ const sidebar = $('sidebar'),
 	playlistContent = $('playlistContent'),
 	videoControls = $('videoControls');
 const progressHandle = $('progressHandle');
+// === NEW: Get references to new trim controls ===
+const startTimeInput = $('startTime');
+const endTimeInput = $('endTime');
+const trimMenuBtn = $('trimMenuBtn');
+const trimMenu = $('trimMenu');
+const loopBtn = $('loopBtn');
+const cutBtn = $('cutBtn');
 const ctx = canvas.getContext('2d', {
 	alpha: false,
 	desynchronized: true
@@ -58,6 +66,12 @@ let availableSubtitleTracks = [];
 let currentAudioTrack = null;
 let currentSubtitleTrack = null;
 let subtitleRenderer = null;
+
+// === NEW: State for looping ===
+let isLooping = false;
+let loopStartTime = 0;
+let loopEndTime = 0;
+
 
 // Optimization: Cache SubtitleRenderer constructor
 let SubtitleRendererConstructor = null;
@@ -106,20 +120,20 @@ const handleConversion = async (source, fileName) => {
 		});
 
 		// Setup the output to write to an in-memory blob
-		const chunks = [];
-		const writableStream = new WritableStream({
-			write(chunk) {
-				chunks.push(chunk.data);
-			}
+		// === CHANGED TO BufferTarget for simplicity ===
+		const output = new Output({
+			format: new Mp4OutputFormat({
+				fastStart: 'in-memory'
+			}),
+			target: new BufferTarget(),
 		});
 
-		const output = new Output({
-			format: new Mp4OutputFormat({ fastStart: 'in-memory' }),
-			target: new StreamTarget(writableStream),
-		});
 
 		// Initialize the conversion
-		const conversion = await Conversion.init({ input: conversionInput, output });
+		const conversion = await Conversion.init({
+			input: conversionInput,
+			output
+		});
 
 		if (!conversion.isValid) {
 			console.error('Conversion is not valid. Discarded tracks:', conversion.discardedTracks);
@@ -145,10 +159,14 @@ const handleConversion = async (source, fileName) => {
 		showStatusMessage('Conversion complete. Loading video...');
 
 		// Create a new File object from the resulting data
-		const blob = new Blob(chunks, { type: 'video/mp4' });
+		const blob = new Blob([output.target.buffer], {
+			type: 'video/mp4'
+		});
 		const convertedFile = new File(
 			[blob],
-			(fileName.split('.').slice(0, -1).join('.') || 'converted') + '.mp4', { type: 'video/mp4' }
+			(fileName.split('.').slice(0, -1).join('.') || 'converted') + '.mp4', {
+				type: 'video/mp4'
+			}
 		);
 
 		// Load the newly created file, marking it as a conversion result
@@ -212,8 +230,17 @@ const updateNextFrame = async () => {
 const renderLoop = () => {
 	if (fileLoaded) {
 		const currentTime = getPlaybackTime();
+
+		// === NEW: Handle looping ===
+		if (playing && isLooping && currentTime >= loopEndTime) {
+			seekToTime(loopStartTime);
+			// Skip the rest of this frame's logic to avoid issues after seeking
+			requestAnimationFrame(renderLoop);
+			return;
+		}
+
 		if (playing) {
-			if (currentTime >= totalDuration && totalDuration > 0) {
+			if (currentTime >= totalDuration && totalDuration > 0 && !isLooping) {
 				pause();
 				playbackTimeAtStart = totalDuration;
 				updateProgressBarUI(totalDuration);
@@ -235,7 +262,10 @@ const runAudioIterator = async () => {
 	const currentAsyncId = asyncId;
 
 	try {
-		for await (const { buffer, timestamp } of audioBufferIterator) {
+		for await (const {
+				buffer,
+				timestamp
+			} of audioBufferIterator) {
 			if (currentAsyncId !== asyncId) break;
 
 			const node = audioContext.createBufferSource();
@@ -272,8 +302,9 @@ const play = async () => {
 	if (audioContext.state === 'suspended') await audioContext.resume();
 
 	if (totalDuration > 0 && Math.abs(getPlaybackTime() - totalDuration) < 0.1) {
-		playbackTimeAtStart = 0;
-		await seekToTime(0);
+		const time = isLooping ? loopStartTime : 0;
+		playbackTimeAtStart = time;
+		await seekToTime(time);
 	}
 
 	audioContextStartTime = audioContext.currentTime;
@@ -298,11 +329,13 @@ const pause = () => {
 	playing = false;
 	asyncId++;
 
-	audioBufferIterator?.return().catch(() => { });
+	audioBufferIterator?.return().catch(() => {});
 	audioBufferIterator = null;
 
 	queuedAudioNodes.forEach(node => {
-		try { node.stop(); } catch (e) { }
+		try {
+			node.stop();
+		} catch (e) {}
 	});
 	queuedAudioNodes.clear();
 
@@ -321,6 +354,7 @@ const seekToTime = async (seconds) => {
 	seconds = Math.max(0, Math.min(seconds, totalDuration));
 	playbackTimeAtStart = seconds;
 	updateProgressBarUI(seconds);
+	updateTimeInputs(seconds); // === NEW: Update inputs on seek
 
 	await startVideoIterator();
 
@@ -329,13 +363,113 @@ const seekToTime = async (seconds) => {
 	}
 };
 
+const toggleLoop = () => {
+    if (isLooping) {
+        // Logic to turn looping OFF
+        isLooping = false;
+        loopBtn.textContent = 'Loop';
+    } else {
+        // Logic to turn looping ON
+        const start = parseTime(startTimeInput.value);
+        const end = parseTime(endTimeInput.value);
+
+        if (isNaN(start) || isNaN(end) || start >= end || start < 0 || end > totalDuration) {
+            showError("Invalid start or end time for looping.");
+            return;
+        }
+
+        isLooping = true;
+        loopStartTime = start;
+        loopEndTime = end;
+        loopBtn.textContent = 'Looping...';
+
+        // If currently outside the loop range, jump to the start
+        const currentTime = getPlaybackTime();
+        if (currentTime < start || currentTime > end) {
+            seekToTime(start);
+        }
+
+        // === ADDED LOGIC FOR PAUSED STATE ===
+        // If the video is not already playing, start it.
+        if (!playing) {
+            play();
+        }
+    }
+};
+
+const handleCutAction = async () => {
+    if (!fileLoaded) return;
+
+    const start = parseTime(startTimeInput.value);
+    const end = parseTime(endTimeInput.value);
+
+    if (isNaN(start) || isNaN(end) || start >= end || start < 0 || end > totalDuration) {
+        showError("Invalid start or end time for cutting.");
+        return;
+    }
+
+    showStatusMessage('Cutting clip...');
+    let input;
+    try {
+        const source = (currentPlayingFile instanceof File) 
+            ? new BlobSource(currentPlayingFile) 
+            : new UrlSource(currentPlayingFile);
+
+        input = new Input({ source, formats: ALL_FORMATS });
+
+        const output = new Output({
+            format: new Mp4OutputFormat({ fastStart: 'in-memory' }),
+            target: new BufferTarget(),
+        });
+
+        const conversion = await Conversion.init({
+            input,
+            output,
+            trim: { start, end },
+        });
+
+        if (!conversion.isValid) {
+            throw new Error('Could not create a valid conversion for cutting.');
+        }
+        await conversion.execute();
+
+        const blob = new Blob([output.target.buffer], { type: 'video/mp4' });
+        const originalName = (currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
+        const clipName = `${originalName}_${formatTime(start)}-${formatTime(end)}.mp4`.replace(/:/g, '_');
+
+        playlist.push({
+            type: 'file',
+            name: clipName,
+            file: blob,
+            isCutClip: true
+        });
+        updatePlaylistUI();
+        hideTrackMenus(); // Close the menu after cutting
+        showStatusMessage('Clip added to playlist!');
+        setTimeout(hideStatusMessage, 2000);
+
+    } catch (error) {
+        console.error("Error during cutting:", error);
+        showError("Failed to cut the clip.");
+        hideStatusMessage();
+    } finally {
+        if (input) input.dispose();
+    }
+};
+
 const stopAndClear = async () => {
 	if (playing) pause();
 	fileLoaded = false;
+	isLooping = false; // === Reset looping state
+    loopBtn.textContent = 'Loop'; // === Reset button text
 	asyncId++;
 
-	try { await videoFrameIterator?.return(); } catch (e) { }
-	try { await audioBufferIterator?.return(); } catch (e) { }
+	try {
+		await videoFrameIterator?.return();
+	} catch (e) {}
+	try {
+		await audioBufferIterator?.return();
+	} catch (e) {}
 
 	nextFrame = null;
 	videoSink = null;
@@ -371,13 +505,20 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 			source = new UrlSource(resource);
 			resourceName = resource.split('/').pop() || 'video_from_url.mp4';
 			if (!playlist.some(item => item.file === resource)) {
-				playlist.push({ type: 'file', name: resourceName, file: resource });
+				playlist.push({
+					type: 'file',
+					name: resourceName,
+					file: resource
+				});
 			}
 		} else {
 			throw new Error('Invalid media resource provided.');
 		}
 
-		input = new Input({ source, formats: ALL_FORMATS });
+		input = new Input({
+			source,
+			formats: ALL_FORMATS
+		});
 
 		const videoTrack = await input.getPrimaryVideoTrack();
 		const audioTracks = await input.getAudioTracks();
@@ -402,6 +543,10 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 		totalDuration = await input.computeDuration();
 		playbackTimeAtStart = 0;
 
+		// === NEW: Reset and set default trim times
+		startTimeInput.value = formatTime(0);
+		endTimeInput.value = formatTime(totalDuration);
+
 		availableAudioTracks = audioTracks;
 		const allTracks = await input.getTracks();
 		availableSubtitleTracks = allTracks.filter(track => track.type === 'subtitle');
@@ -414,7 +559,7 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 		}
 
 		if (!audioContext) {
-			audioContext = new (window.AudioContext || window.webkitAudioContext)();
+			audioContext = new(window.AudioContext || window.webkitAudioContext)();
 		}
 		if (audioContext.state === 'suspended') await audioContext.resume();
 
@@ -423,7 +568,9 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 		setVolume(volumeSlider.value);
 
 		if (videoTrack) {
-			videoSink = new CanvasSink(videoTrack, { poolSize: 2 });
+			videoSink = new CanvasSink(videoTrack, {
+				poolSize: 2
+			});
 			canvas.width = videoTrack.displayWidth || videoTrack.codedWidth || 1280;
 			canvas.height = videoTrack.displayHeight || videoTrack.codedHeight || 720;
 		}
@@ -565,6 +712,7 @@ const updateSubtitles = (currentTime) => {
 const hideTrackMenus = () => {
 	$('audioTrackMenu').classList.add('hidden');
 	$('subtitleTrackMenu').classList.add('hidden');
+	$('trimMenu').classList.add('hidden'); // === ADD THIS LINE ===
 };
 
 const playNext = () => {
@@ -584,6 +732,9 @@ const playNext = () => {
 	let currentIndex = -1;
 	for (let i = 0; i < flatList.length; i++) {
 		const item = flatList[i];
+		// === NEW: Handle cut clips (which are Blobs) ===
+		if (item.isCutClip) continue;
+
 		if (currentPlayingFile instanceof File && item.file instanceof File) {
 			if (currentPlayingFile.name === item.file.name && currentPlayingFile.size === item.file.size) {
 				currentIndex = i;
@@ -597,9 +748,30 @@ const playNext = () => {
 		}
 	}
 
-	if (currentIndex !== -1 && currentIndex < flatList.length - 1) {
-		loadMedia(flatList[currentIndex + 1].file);
+	if (currentIndex !== -1) {
+		// Find the next playable item
+		for (let i = currentIndex + 1; i < flatList.length; i++) {
+			if (!flatList[i].isCutClip) {
+				loadMedia(flatList[i].file);
+				return;
+			}
+		}
 	}
+};
+
+// === NEW: Helper to parse time string (e.g., "01:23") into seconds ===
+const parseTime = (timeStr) => {
+	const parts = timeStr.split(':').map(Number);
+	if (parts.some(isNaN)) return NaN;
+	let seconds = 0;
+	if (parts.length === 2) { // MM:SS
+		seconds = parts[0] * 60 + parts[1];
+	} else if (parts.length === 1) { // SS
+		seconds = parts[0];
+	} else {
+		return NaN;
+	}
+	return seconds;
 };
 
 const formatTime = s => {
@@ -634,12 +806,23 @@ const showDropZoneUI = () => {
 	totalDuration = 0;
 };
 
+// === NEW: Function to update time inputs based on current playback time ===
+const updateTimeInputs = (time) => {
+	const currentFocused = document.activeElement;
+	if (currentFocused !== startTimeInput && currentFocused !== endTimeInput) {
+		// startTimeInput.value = formatTime(time);
+	}
+};
+
 const updateProgressBarUI = (time) => {
 	const displayTime = Math.max(0, Math.min(time, totalDuration));
 	timeDisplay.textContent = `${formatTime(displayTime)} / ${formatTime(totalDuration)}`;
 	const percent = totalDuration > 0 ? (displayTime / totalDuration) * 100 : 0;
 	progressBar.style.width = `${percent}%`;
 	progressHandle.style.left = `${percent}%`;
+
+	// === NEW: Update time inputs while playing
+	if (playing) updateTimeInputs(time);
 };
 
 // --- Playlist Utility Functions ---
@@ -672,7 +855,10 @@ const handleFiles = (files) => {
 		return;
 	}
 
-	const fileEntries = validFiles.map(file => ({ file, path: file.name }));
+	const fileEntries = validFiles.map(file => ({
+		file,
+		path: file.name
+	}));
 	const newTree = buildTreeFromPaths(fileEntries);
 	playlist = mergeTrees(playlist, newTree);
 	updatePlaylistUI();
@@ -693,7 +879,10 @@ const handleFolderSelection = (event) => {
 			file.type.startsWith('audio/') ||
 			file.name.match(/\.(mp4|webm|mkv|mov|mp3|wav|aac|flac|ogg|avi|flv|wmv)$/i)
 		)
-		.map(file => ({ file, path: file.webkitRelativePath || file.name }));
+		.map(file => ({
+			file,
+			path: file.webkitRelativePath || file.name
+		}));
 
 	if (fileEntries.length > 0) {
 		const newTree = buildTreeFromPaths(fileEntries);
@@ -756,12 +945,20 @@ const buildTreeFromPaths = (files) => {
 		pathParts.forEach((part, i) => {
 			if (i === pathParts.length - 1) {
 				if (!currentLevel.some(item => item.type === 'file' && item.name === part)) {
-					currentLevel.push({ type: 'file', name: part, file: fileInfo.file });
+					currentLevel.push({
+						type: 'file',
+						name: part,
+						file: fileInfo.file
+					});
 				}
 			} else {
 				let existingNode = currentLevel.find(item => item.type === 'folder' && item.name === part);
 				if (!existingNode) {
-					existingNode = { type: 'folder', name: part, children: [] };
+					existingNode = {
+						type: 'folder',
+						name: part,
+						children: []
+					};
 					currentLevel.push(existingNode);
 				}
 				currentLevel = existingNode.children;
@@ -772,7 +969,13 @@ const buildTreeFromPaths = (files) => {
 };
 
 const escapeHTML = str => str.replace(/[&<>'"]/g,
-	tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag]));
+	tag => ({
+		'&': '&amp;',
+		'<': '&lt;',
+		'>': '&gt;',
+		"'": '&#39;',
+		'"': '&quot;'
+	} [tag]));
 
 const renderTree = (nodes, currentPath = '') => {
 	let html = '<ul class="playlist-tree">';
@@ -800,15 +1003,28 @@ const renderTree = (nodes, currentPath = '') => {
 					isActive = currentPlayingFile === node.file;
 				}
 			}
-			html += `<li class="playlist-file ${isActive ? 'active' : ''}" data-path="${safePath}" title="${safeName}">
-                        <span class="playlist-file-name" title="${safeName}">${safeName}</span>
-                        <span class="remove-item" data-path="${safePath}">&times;</span>
-                    </li>`;
+			// === NEW: Handle rendering for cut clips
+			if (node.isCutClip) {
+				html += `<li class="playlist-file cut-clip active" data-path="${safePath}" title="${safeName}">
+                            <span class="playlist-file-name">${safeName}</span>
+                            <div class="clip-actions">
+                                <button class="clip-action-btn" data-action="download" data-path="${safePath}">DL</button>
+                                <button class="clip-action-btn" data-action="copy" data-path="${safePath}">Copy</button>
+                            </div>
+                            <span class="remove-item" data-path="${safePath}">&times;</span>
+                        </li>`;
+			} else {
+				html += `<li class="playlist-file ${isActive ? 'active' : ''}" data-path="${safePath}" title="${safeName}">
+                            <span class="playlist-file-name" title="${safeName}">${safeName}</span>
+                            <span class="remove-item" data-path="${safePath}">&times;</span>
+                        </li>`;
+			}
 		}
 	});
 	html += '</ul>';
 	return html;
 };
+
 
 const updatePlaylistUI = () => {
 	if (playlist.length === 0) {
@@ -841,6 +1057,87 @@ const showControlsTemporarily = () => {
 	}
 };
 
+// === NEW: Trim/Loop action handler ===
+const handleTrimAction = async () => {
+	if (!fileLoaded) return;
+
+	const start = parseTime(startTimeInput.value);
+	const end = parseTime(endTimeInput.value);
+
+	if (isNaN(start) || isNaN(end) || start >= end || start < 0 || end > totalDuration) {
+		showError("Invalid start or end time.");
+		return;
+	}
+
+	const mode = trimModeSelect.value;
+	if (mode === 'loop') {
+		isLooping = true;
+		loopStartTime = start;
+		loopEndTime = end;
+		if (getPlaybackTime() < start || getPlaybackTime() > end) {
+			seekToTime(start);
+		}
+	} else { // mode === 'cut'
+		showStatusMessage('Cutting clip...');
+		let input;
+		try {
+			// Re-create source and input to perform the cut operation
+			const source = (currentPlayingFile instanceof File) ?
+				new BlobSource(currentPlayingFile) :
+				new UrlSource(currentPlayingFile);
+
+			input = new Input({
+				source,
+				formats: ALL_FORMATS
+			});
+
+			const output = new Output({
+				format: new Mp4OutputFormat({
+					fastStart: 'in-memory'
+				}),
+				target: new BufferTarget(),
+			});
+
+			const conversion = await Conversion.init({
+				input,
+				output,
+				trim: {
+					start,
+					end
+				},
+			});
+
+			if (!conversion.isValid) {
+				throw new Error('Could not create a valid conversion for cutting.');
+			}
+			await conversion.execute();
+
+			const blob = new Blob([output.target.buffer], {
+				type: 'video/mp4'
+			});
+			const originalName = (currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
+			const clipName = `${originalName}_${formatTime(start)}-${formatTime(end)}.mp4`.replace(/:/g, '_');
+
+			playlist.push({
+				type: 'file',
+				name: clipName,
+				file: blob, // Store the blob directly
+				isCutClip: true
+			});
+			updatePlaylistUI();
+			showStatusMessage('Clip added to playlist!');
+			setTimeout(hideStatusMessage, 2000);
+
+		} catch (error) {
+			console.error("Error during cutting:", error);
+			showError("Failed to cut the clip.");
+			hideStatusMessage();
+		} finally {
+			if (input) input.dispose();
+		}
+	}
+};
+
 const setupEventListeners = () => {
 	$('addFileBtn').onclick = () => $('fileInput').click();
 	$('addFolderBtn').onclick = () => $('folderInput').click();
@@ -861,7 +1158,10 @@ const setupEventListeners = () => {
 	$('folderInput').onclick = (e) => e.target.value = null;
 	$('folderInput').onchange = handleFolderSelection;
 
-	playBtn.onclick = (e) => { e.stopPropagation(); togglePlay(); };
+	playBtn.onclick = (e) => {
+		e.stopPropagation();
+		togglePlay();
+	};
 
 	muteBtn.onclick = (e) => {
 		e.stopPropagation();
@@ -891,7 +1191,11 @@ const setupEventListeners = () => {
 	};
 
 	document.addEventListener('click', (e) => {
-		if (!e.target.closest('.control-group')) hideTrackMenus();
+		// If the click is NOT inside a menu AND also NOT on one of the control buttons that opens a menu...
+		if (!e.target.closest('.track-menu') && !e.target.closest('.track-controls')) {
+			// ...then hide all the menus.
+			hideTrackMenus();
+		}
 	});
 
 	volumeSlider.onclick = (e) => e.stopPropagation();
@@ -914,7 +1218,9 @@ const setupEventListeners = () => {
 		e.preventDefault();
 		isSeeking = true;
 		progressContainer.setPointerCapture(e.pointerId);
-		updateProgressBarUI(handleSeekLine(e));
+		const seekTime = handleSeekLine(e);
+		updateProgressBarUI(seekTime);
+		updateTimeInputs(seekTime); // === NEW: Update on seek start
 	};
 
 	progressContainer.onpointermove = (e) => {
@@ -922,13 +1228,23 @@ const setupEventListeners = () => {
 			showControlsTemporarily();
 			return;
 		}
-		updateProgressBarUI(handleSeekLine(e));
+		const seekTime = handleSeekLine(e);
+		updateProgressBarUI(seekTime);
+		updateTimeInputs(seekTime); // === NEW: Update on seek move
 	};
+
 
 	progressContainer.onpointerup = (e) => {
 		if (!isSeeking) return;
 		isSeeking = false;
 		progressContainer.releasePointerCapture(e.pointerId);
+    
+		const finalSeekTime = handleSeekLine(e);
+		if (isLooping && (finalSeekTime < loopStartTime || finalSeekTime > loopEndTime)) {
+			isLooping = false;
+			loopBtn.textContent = 'Loop';
+			console.log("Loop disabled due to manual seek outside range.");
+		}
 		seekToTime(handleSeekLine(e));
 	};
 
@@ -970,8 +1286,36 @@ const setupEventListeners = () => {
 			return;
 		}
 
+		// === NEW: Handle cut clip actions ===
+		const actionButton = e.target.closest('.clip-action-btn');
+		if (actionButton) {
+			e.stopPropagation();
+			const path = actionButton.dataset.path;
+			const blob = findFileByPath(playlist, path);
+			if (blob instanceof Blob) {
+				if (actionButton.dataset.action === 'download') {
+					const url = URL.createObjectURL(blob);
+					const a = document.createElement('a');
+					a.href = url;
+					a.download = path.split('/').pop();
+					a.click();
+					URL.revokeObjectURL(url);
+				} else if (actionButton.dataset.action === 'copy') {
+					navigator.clipboard.write([new ClipboardItem({
+						[blob.type]: blob
+					})]).then(() => {
+						showError('Clip copied to clipboard!'); // Using showError for quick feedback
+					}, (err) => {
+						showError('Copy failed. Browser may not support it.');
+						console.error('Copy failed:', err);
+					});
+				}
+			}
+			return;
+		}
+
 		const fileElement = e.target.closest('.playlist-file');
-		if (fileElement && (e.target.classList.contains('playlist-file-name') || e.target === fileElement)) {
+		if (fileElement && !fileElement.classList.contains('cut-clip') && (e.target.classList.contains('playlist-file-name') || e.target === fileElement)) {
 			const path = fileElement.dataset.path;
 			const fileToPlay = findFileByPath(playlist, path);
 			if (fileToPlay && fileToPlay !== currentPlayingFile) {
@@ -1029,6 +1373,18 @@ const setupEventListeners = () => {
 			hideTrackMenus();
 		}
 	};
+
+	trimMenuBtn.onclick = (e) => {
+		e.stopPropagation();
+		const isHidden = trimMenu.classList.contains('hidden');
+		hideTrackMenus(); // Close all other menus first
+		if (isHidden) {
+			trimMenu.classList.remove('hidden');
+		}
+	};
+    
+    loopBtn.onclick = toggleLoop;
+    cutBtn.onclick = handleCutAction;
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1048,7 +1404,9 @@ document.addEventListener('DOMContentLoaded', () => {
 				startBtn.addEventListener('click', () => {
 					urlPlayOverlay.classList.add('hidden');
 					loadMedia(decodedUrl);
-				}, { once: true });
+				}, {
+					once: true
+				});
 			} else {
 				loadMedia(decodedUrl);
 			}

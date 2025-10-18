@@ -591,3 +591,47 @@ body {
 .split-btn-group .btn:hover {
 	z-index: 2;
 }
+/* === STYLES FOR NEW TRIM & LOOP MENU === */
+
+/* Style for the new config button in the control bar */
+#trimMenuBtn {
+    font-size: 1.2em; /* Makes the gear icon a bit larger */
+    padding: 4px 8px;
+}
+
+/* Container for the time inputs inside the new menu */
+.trim-menu-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+/* Container for the 'Loop' and 'Cut' buttons inside the new menu */
+.trim-menu-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+/* Make the action buttons fill the available space in the menu */
+.trim-menu-actions .btn {
+    flex-grow: 1;
+}
+.time-input {
+	width: 55px;
+	padding: 6px;
+	background-color: rgba(40, 40, 60, 0.8);
+	border: 1px solid #4a4a6a;
+	color: white;
+	border-radius: 4px;
+	text-align: center;
+	font-size: 0.9em;
+}
+
+.time-input::placeholder {
+	color: #aaa;
+}
