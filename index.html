@@ -28,6 +28,7 @@
 			</div>
 
 			<div class="controls-header">
+				<button class="btn" id="openUrlBtn">Open URL</button>
 				<button class="btn" id="openFileBtn">Open File</button>
 				<button class="btn" id="addFileBtn">Add File(s)</button>
 				<button class="btn" id="addFolderBtn">Add Folder</button>
@@ -150,6 +151,17 @@
 			<div class="screenshot-actions">
 				<button class="btn" id="copyScreenshotBtn">Copy Image</button>
 				<button class="btn" id="downloadScreenshotBtn">Download</button>
+			</div>
+		</div>
+	</div>
+	<div class="screenshot-overlay hidden" id="urlModal">
+		<div class="screenshot-modal">
+			<h3>Enter Video URL</h3>
+			<p>Enter the direct URL to a video file (e.g., MP4, WebM).</p>
+			<input type="url" id="urlInput" class="speed-input url-class" placeholder="https://example.com/video.mp4">
+			<div class="screenshot-actions">
+				<button class="btn" id="cancelUrlBtn">Cancel</button>
+				<button class="btn" id="loadUrlBtn">Load</button>
 			</div>
 		</div>
 	</div>

@@ -47,6 +47,11 @@ const playbackSpeedInput = $('playbackSpeedInput');
 let currentPlaybackRate = 1.0;
 const autoplayToggle = $('autoplayToggle');
 let isAutoplayEnabled = true;
+const openUrlBtn = $('openUrlBtn');
+const urlModal = $('urlModal');
+const urlInput = $('urlInput');
+const loadUrlBtn = $('loadUrlBtn');
+const cancelUrlBtn = $('cancelUrlBtn');
 const ctx = canvas.getContext('2d', {
 	alpha: false,
 	desynchronized: true
@@ -1552,6 +1557,48 @@ const setupEventListeners = () => {
 	autoplayToggle.onchange = () => {
 		isAutoplayEnabled = autoplayToggle.checked;
 	};
+	// --- Add URL Modal Logic Here ---
+	openUrlBtn.onclick = () => {
+		urlInput.value = ''; // Clear previous input
+		urlModal.classList.remove('hidden');
+		urlInput.focus();
+	};
+
+	const hideUrlModal = () => {
+		urlModal.classList.add('hidden');
+	};
+
+	cancelUrlBtn.onclick = hideUrlModal;
+
+    // Hide the modal if the user clicks on the background
+	urlModal.onclick = (e) => {
+		if (e.target === urlModal) {
+			hideUrlModal();
+		}
+	};
+
+    // Handle loading the URL
+	loadUrlBtn.onclick = () => {
+		const url = urlInput.value.trim();
+		if (url) {
+			// The existing loadMedia function already supports URLs!
+			loadMedia(url);
+			hideUrlModal();
+		} else {
+			showError("Please enter a valid URL.");
+		}
+	};
+
+    // Add keyboard shortcuts for the modal
+    urlInput.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault(); // Prevent form submission
+            loadUrlBtn.click();
+        } else if (e.key === 'Escape') {
+            hideUrlModal();
+        }
+    };
+    // --- End of URL Modal Logic ---
 };
 
 document.addEventListener('DOMContentLoaded', () => {
