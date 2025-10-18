@@ -1,6 +1,7 @@
 /* ---
  neobrutal.css
  A bold, high-contrast Neo-Brutalism theme for the MediaBunny Player.
+ UNIFIED COLOR SCHEME - V2
  --- */
 
 /* --- 1. Foundational Setup & Color Palette --- */
@@ -67,10 +68,6 @@ body {
 	color: var(--black);
 }
 
-.logo svg path {
-	fill: var(--primary-color);
-}
-
 .controls-header {
 	display: flex;
 	align-items: center;
@@ -118,6 +115,7 @@ body {
 	display: flex;
 	position: relative;
 	background: #2e3f62;
+	/* CORRECTED: Use theme background */
 	overflow: hidden;
 }
 
@@ -128,7 +126,8 @@ body {
 	justify-content: center;
 	flex-direction: column;
 	gap: 1rem;
-	border: 3px dashed var(--bg-color);
+	border: 3px dashed var(--white);
+	/* CORRECTED: Use theme color */
 	margin: 2rem;
 	border-radius: 0;
 	/* Sharp corners */
@@ -137,32 +136,21 @@ body {
 
 .drop-zone.dragover {
 	border-style: solid;
-	border-color: var(--primary-color);
-	background: var(--bg-color);
-}
-
-.drop-zone.dragover .drop-zone-content {
-	color: var(--black);
-}
-
-.drop-zone.dragover img {
-	filter: invert(1);
+	border-color: var(--accent-color);
+	/* CORRECTED: Use accent for hover */
+	background: var(--white);
 }
 
 .drop-zone-content {
 	text-align: center;
 	max-width: 400px;
 	color: var(--white);
+	/* CORRECTED: Text should be black on light bg */
 }
 
 .drop-zone-content h2 {
 	font-size: 1.75rem;
 	margin-bottom: 0.5rem;
-}
-
-.drop-zone-content p {
-	color: var(--text-medium);
-	margin-bottom: 1.5rem;
 }
 
 /* --- 5. Video Player & Controls --- */
@@ -257,6 +245,14 @@ body {
 	gap: 1rem;
 }
 
+.time-display {
+	font-size: 0.9rem;
+	color: var(--black);
+	min-width: 100px;
+	font-weight: 500;
+	font-family: 'Courier New', Courier, monospace;
+}
+
 /* Play/Pause Button */
 .play-btn {
 	width: 44px;
@@ -278,13 +274,6 @@ body {
 	background: var(--primary-color);
 }
 
-.time-display {
-	font-size: 0.9rem;
-	color: var(--black);
-	min-width: 100px;
-	font-weight: 500;
-	font-family: 'Courier New', Courier, monospace;
-}
 
 /* Volume Controls */
 .volume-slider {
@@ -334,13 +323,6 @@ body {
 	padding: 1rem;
 }
 
-.sidebar h3 {
-	margin-bottom: 1rem;
-	font-weight: 600;
-	color: var(--black);
-	padding-left: 10px;
-}
-
 .playlist-tree,
 .playlist-tree ul {
 	list-style-type: none;
@@ -349,6 +331,8 @@ body {
 
 .playlist-file,
 .playlist-folder>details>summary {
+	display: flex;
+	align-items: center;
 	border: var(--border-style);
 	border-radius: var(--border-radius);
 	padding: 0.6rem 0.75rem;
@@ -369,7 +353,8 @@ body {
 	color: var(--white);
 }
 
-.playlist-item-name {
+.playlist-file-name,
+.playlist-folder-name {
 	flex-grow: 1;
 	white-space: nowrap;
 	overflow: hidden;
@@ -392,13 +377,14 @@ body {
 	font-size: 1.2rem;
 	padding: 0 0.5rem;
 	color: var(--black);
+	margin-left: auto;
+	flex-shrink: 0;
 }
 
 .playlist-file:hover .remove-item,
 .playlist-folder>details>summary:hover .remove-item {
 	color: var(--white);
 }
-
 
 /* --- 7. Overlays & Utility Classes --- */
 .loading,
@@ -408,7 +394,8 @@ body {
 	left: 0;
 	right: 0;
 	bottom: 0;
-	background: hsla(0, 0%, 100%, 0.7);
+	background: rgba(240, 242, 245, 0.7);
+	/* CORRECTED: Use theme bg color */
 	backdrop-filter: blur(5px);
 	z-index: 1000;
 	display: flex;
@@ -441,11 +428,12 @@ body {
 	top: 5rem;
 	left: 50%;
 	transform: translateX(-50%);
-	background: #ffc0cb;
-	/* Pink */
+	background: var(--accent-color);
+	/* CORRECTED: Use theme accent color */
 	border: var(--border-style);
 	box-shadow: var(--shadow-style);
-	color: var(--black);
+	color: var(--white);
+	/* CORRECTED: Use white for contrast */
 	padding: 1rem 1.5rem;
 	border-radius: var(--border-radius);
 	z-index: 2000;
@@ -488,17 +476,23 @@ body {
 	font-size: 0.8rem;
 }
 
+/* --- 8. Track Menus (Config, Audio, Subtitles) --- */
 .track-menu {
 	position: absolute;
 	bottom: 100%;
+	/* Positions above the controls */
+	right: 0;
+	/* Aligns to the right side of its container */
 	background: var(--white);
 	border: var(--border-style);
 	border-radius: var(--border-radius);
 	box-shadow: var(--shadow-style);
-	min-width: 200px;
+	min-width: 220px;
 	max-height: 300px;
 	overflow-y: auto;
 	z-index: 1001;
+	margin-bottom: 10px;
+	/* Space between menu and buttons */
 }
 
 .track-menu-content {
@@ -506,9 +500,13 @@ body {
 }
 
 .track-menu-content h4 {
-	margin-bottom: 0.5rem;
+	margin-bottom: 0.75rem;
 	font-size: 0.9rem;
+	text-align: center;
+	font-weight: 600;
 	color: var(--black);
+	padding-bottom: 0.5rem;
+	border-bottom: var(--border-style);
 }
 
 .track-menu ul {
@@ -536,13 +534,15 @@ body {
 	color: var(--white);
 }
 
+/* --- 9. Subtitle, Playlist Clip, & Input Styles --- */
 .subtitle-overlay {
 	position: absolute;
 	bottom: 10%;
 	left: 50%;
 	transform: translateX(-50%);
-	color: white;
-	background: rgba(0, 0, 0, 0.7);
+	color: var(--white);
+	background: rgba(17, 24, 39, 0.8);
+	/* CORRECTED: Use theme black with alpha */
 	padding: 0.5rem 1rem;
 	border-radius: 4px;
 	font-size: 1.1rem;
@@ -552,177 +552,189 @@ body {
 	z-index: 500;
 }
 
-/* --- Added styles for the new split button --- */
 .split-btn-group {
 	display: inline-flex;
-	/* Aligns buttons horizontally */
-	margin-left: 5px;
-	/* Spacing from the previous button */
 }
 
 .split-btn-group>.btn {
 	position: relative;
-	/* Needed for z-index on hover */
 }
 
-/* Style for the main part of the button ("Playlist") */
 .split-btn-group #togglePlaylistBtn {
 	border-top-right-radius: 0;
 	border-bottom-right-radius: 0;
-	margin-right: -1px;
-	/* Overlaps borders for a seamless look */
+	margin-right: -2px;
+	/* Overlaps borders */
 }
 
-/* Style for the "clear" part of the button (the '×') */
 .split-btn-group #clearPlaylistBtn {
 	border-top-left-radius: 0;
 	border-bottom-left-radius: 0;
 	padding: 0 12px;
-	/* Custom padding for the icon */
 	font-size: 1.4em;
-	/* Makes the '×' a bit larger and easier to click */
 	line-height: 1;
-	/* Aligns the '×' vertically */
-	border-left: 1px solid rgba(255, 255, 255, 0.2);
-	/* The visual separator */
 }
 
-/* Ensure hover effects bring the hovered button to the front */
 .split-btn-group .btn:hover {
 	z-index: 2;
 }
-/* === STYLES FOR NEW TRIM & LOOP MENU === */
 
-/* Style for the new config button in the control bar */
+/* Config Menu Controls */
 #trimMenuBtn {
-    font-size: 1.2em; /* Makes the gear icon a bit larger */
-    padding: 4px 8px;
+	font-size: 1.2em;
+	padding: 4px 8px;
 }
 
-/* Container for the time inputs inside the new menu */
 .trim-menu-controls {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    margin-top: 10px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	margin-top: 10px;
 }
 
-/* Container for the 'Loop' and 'Cut' buttons inside the new menu */
 .trim-menu-actions {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    margin-top: 15px;
+	display: flex;
+	align-items: center;
+	justify-content: stretch;
+	gap: 10px;
+	margin-top: 15px;
 }
 
-/* Make the action buttons fill the available space in the menu */
 .trim-menu-actions .btn {
-    flex-grow: 1;
+	flex-grow: 1;
+	padding: 0.5rem;
 }
-.time-input {
-	width: 55px;
+
+/* Time and Speed Inputs */
+.time-input,
+.speed-input {
+	width: 60px;
 	padding: 6px;
-	background-color: rgba(40, 40, 60, 0.8);
-	border: 1px solid #4a4a6a;
-	color: white;
-	border-radius: 4px;
+	background: var(--bg-color);
+	/* CORRECTED */
+	border: var(--border-style);
+	/* CORRECTED */
+	color: var(--black);
+	/* CORRECTED */
+	border-radius: var(--border-radius);
 	text-align: center;
 	font-size: 0.9em;
+	font-weight: 600;
+	-moz-appearance: textfield;
+	/* Hide arrows in Firefox */
 }
 
 .time-input::placeholder {
-	color: #aaa;
+	color: var(--black);
+	opacity: 0.5;
 }
-.clip-action-btn {
-    background: none;
-    border: 1px solid #4a4a6a;
-    color: #ccc;
-    cursor: pointer;
-    padding: 2px 5px;
-    border-radius: 3px;
-    /* === NEW/ADJUSTED STYLES === */
-    font-size: 1em; /* Adjust size of the icon */
-    line-height: 1; /* Helps with vertical alignment */
-}
-/* === STYLES FOR NEW SCREENSHOT MODAL === */
 
+.speed-input::-webkit-outer-spin-button,
+.speed-input::-webkit-inner-spin-button {
+	-webkit-appearance: none;
+	margin: 0;
+}
+
+.playback-speed-container {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+
+/* Playlist Cut Clip Actions */
+.playlist-file.cut-clip {
+	font-style: italic;
+}
+
+.playlist-file.cut-clip .playlist-file-name {
+	color: var(--primary-color);
+}
+
+.playlist-file.cut-clip:hover .playlist-file-name {
+	color: var(--white);
+}
+
+.clip-actions {
+	display: inline-flex;
+	gap: 5px;
+	margin-left: auto;
+}
+
+.clip-action-btn {
+	background: none;
+	border: 1px solid var(--black);
+	color: var(--black);
+	cursor: pointer;
+	padding: 2px 5px;
+	border-radius: 3px;
+	font-size: 1em;
+	line-height: 1;
+}
+
+.playlist-file:hover .clip-action-btn {
+	border-color: var(--white);
+	color: var(--white);
+}
+
+
+/* --- 10. Screenshot Modal --- */
 .screenshot-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.7);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 2000; /* Ensure it's on top of everything */
-    backdrop-filter: blur(5px);
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background-color: rgba(240, 242, 245, 0.7);
+	/* CORRECTED: Use theme bg */
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 2000;
+	backdrop-filter: blur(5px);
 }
 
 .screenshot-modal {
-    background-color: #2a2a45; /* Match player theme */
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
-    position: relative;
-    text-align: center;
-    border: 1px solid #4a4a6a;
+	background-color: var(--white);
+	/* CORRECTED */
+	padding: 2rem;
+	border-radius: var(--border-radius);
+	box-shadow: var(--shadow-style);
+	position: relative;
+	text-align: center;
+	border: var(--border-style);
 }
 
 .screenshot-modal .close-btn {
-    position: absolute;
-    top: 10px;
-    right: 15px;
-    background: none;
-    border: none;
-    color: #ccc;
-    font-size: 1.8em;
-    cursor: pointer;
+	position: absolute;
+	top: 10px;
+	right: 15px;
+	background: none;
+	border: none;
+	color: var(--black);
+	/* CORRECTED */
+	font-size: 1.8em;
+	cursor: pointer;
 }
+
 .screenshot-modal .close-btn:hover {
-    color: white;
+	color: var(--accent-color);
 }
 
 #screenshotPreviewImg {
-    max-width: 80vw;
-    max-height: 70vh;
-    border: 2px solid #4a4a6a;
-    margin-top: 15px;
-    margin-bottom: 20px;
-    background-color: #111;
+	max-width: 80vw;
+	max-height: 70vh;
+	border: var(--border-style);
+	/* CORRECTED */
+	margin-top: 15px;
+	margin-bottom: 20px;
+	background-color: var(--bg-color);
+	/* CORRECTED */
 }
 
 .screenshot-actions {
-    display: flex;
-    gap: 15px;
-    justify-content: center;
-}
-/* === STYLES FOR NEW PLAYBACK SPEED CONTROL === */
-
-.playback-speed-container {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin-right: 10px;
-}
-
-.speed-input {
-    width: 50px;
-    background-color: transparent;
-    border: 1px solid #4a4a6a;
-    border-radius: 4px;
-    padding: 5px;
-    text-align: center;
-    font-weight: bold;
-    -moz-appearance: textfield; /* Hide arrows in Firefox */
-}
-
-/* Hide arrows in Chrome, Safari, Edge */
-.speed-input::-webkit-outer-spin-button,
-.speed-input::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
+	display: flex;
+	gap: 15px;
+	justify-content: center;
 }
