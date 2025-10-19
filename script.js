@@ -8,8 +8,9 @@ import {
 	Conversion,
 	Output,
 	Mp4OutputFormat,
-	BufferTarget
-} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.23.0/+esm';
+	BufferTarget,
+	QUALITY_HIGH
+} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
 
 const MEDIABUNNY_URL = 'https://cdn.jsdelivr.net/npm/mediabunny@1.23.0/+esm';
 
@@ -91,6 +92,14 @@ let isDrawingCrop = false;
 let cropStart = { x: 0, y: 0 };
 let cropEnd = { x: 0, y: 0 };
 let cropRect = null; // Will store the final crop dimensions
+
+// ... after your other element selectors
+const panScanBtn = $('panScanBtn');
+
+// ... after your other state variables
+let isPanning = false; // Are we in "Dynamic Crop" recording mode?
+let panKeyframes = []; // Stores the recorded path: [{ timestamp, rect }, ...]
+let panRectSize = null; // Stores the locked size of the panning rectangle
 
 // === PERFORMANCE OPTIMIZATION: Cache DOM elements for playlist ===
 let playlistElementCache = new Map(); // Maps path -> DOM element
@@ -469,6 +478,69 @@ const toggleLoop = () => {
 	}
 };
 
+// Helper function to get the interpolated crop rectangle for a specific timestamp
+const getInterpolatedCropRect = (timestamp) => {
+	if (!panKeyframes || panKeyframes.length === 0) return null;
+
+	// Find the two keyframes that surround the current timestamp
+	let prevKey = panKeyframes[0];
+	let nextKey = null;
+
+	for (let i = 1; i < panKeyframes.length; i++) {
+		if (panKeyframes[i].timestamp > timestamp) {
+			nextKey = panKeyframes[i];
+			break;
+		}
+		prevKey = panKeyframes[i];
+	}
+
+	if (!nextKey) {
+		return prevKey.rect;
+	}
+
+	// Linear Interpolation
+	const timeDiff = nextKey.timestamp - prevKey.timestamp;
+	if (timeDiff <= 0) return prevKey.rect;
+
+	const t = (timestamp - prevKey.timestamp) / timeDiff;
+
+	const interpolatedX = prevKey.rect.x + (nextKey.rect.x - prevKey.rect.x) * t;
+	const interpolatedY = prevKey.rect.y + (nextKey.rect.y - prevKey.rect.y) * t;
+
+	// CLAMP the rectangle to video bounds
+	const clampedRect = clampRectToVideoBounds({
+		x: interpolatedX,
+		y: interpolatedY,
+		width: prevKey.rect.width,
+		height: prevKey.rect.height,
+	});
+
+	return clampedRect;
+};
+
+// NEW HELPER FUNCTION: Clamp rectangle to video dimensions
+const clampRectToVideoBounds = (rect) => {
+	if (!canvas.width || !canvas.height) return rect;
+
+	const videoWidth = canvas.width;
+	const videoHeight = canvas.height;
+
+	let { x, y, width, height } = rect;
+
+	// Clamp x to be within [0, videoWidth - width]
+	x = Math.max(0, Math.min(x, videoWidth - width));
+
+	// Clamp y to be within [0, videoHeight - height]
+	y = Math.max(0, Math.min(y, videoHeight - height));
+
+	// Ensure width and height don't exceed video bounds
+	width = Math.min(width, videoWidth - x);
+	height = Math.min(height, videoHeight - y);
+
+	return { x, y, width, height };
+};
+// --- Replace your entire handleCutAction function with this new version ---
+
 const handleCutAction = async () => {
 	if (!fileLoaded) return;
 	if (playing) pause();
@@ -483,6 +555,9 @@ const handleCutAction = async () => {
 	hideTrackMenus();
 	showStatusMessage('Cutting clip...');
 	let input;
+	let processCanvas = null; // Canvas for offscreen processing
+	let processCtx = null;
+
 	try {
 		const source = (currentPlayingFile instanceof File) ?
 			new BlobSource(currentPlayingFile) :
@@ -494,41 +569,108 @@ const handleCutAction = async () => {
 		});
 
 		const output = new Output({
-			format: new Mp4OutputFormat({
-				fastStart: 'in-memory'
-			}),
+			format: new Mp4OutputFormat({ fastStart: 'in-memory' }),
 			target: new BufferTarget(),
 		});
 
-		// --- START: THIS IS THE CORRECTED PART ---
-
-		// 1. Define the base options for the conversion.
 		const conversionOptions = {
 			input,
 			output,
-			trim: {
-				start,
-				end
-			},
+			trim: { start, end },
 		};
 
-		// 2. If a crop rectangle exists, add the `video` property
-		//    directly to the `conversionOptions` object. This is the correct API usage.
-		if (cropRect && cropRect.width > 0 && cropRect.height > 0) {
+		let cropFuncToReset = null;
+		// --- THIS IS THE KEY PART ---
+		if (panKeyframes.length > 1 && panRectSize) {
+			cropFuncToReset = togglePanning;
+
+			// ENSURE EVEN DIMENSIONS for H.264 codec
+			const evenWidth = Math.round(panRectSize.width / 2) * 2;
+			const evenHeight = Math.round(panRectSize.height / 2) * 2;
+
+			// Get the source video track to read its properties
+			const videoTrack = await input.getPrimaryVideoTrack();
+
+			if (!videoTrack) {
+				throw new Error("No video track found for dynamic cropping.");
+			}
+
+			// DYNAMIC PAN/CROP LOGIC
+			conversionOptions.video = {
+				// Explicitly specify the source track
+				track: videoTrack,
+
+				// Codec configuration
+				codec: 'avc',
+				bitrate: QUALITY_HIGH,
+
+				// CRITICAL: Specify the output dimensions
+				processedWidth: evenWidth,
+				processedHeight: evenHeight,
+
+				// Force transcoding
+				forceTranscode: true,
+
+				process: (sample) => {
+					const cropRect = getInterpolatedCropRect(sample.timestamp);
+					if (!cropRect) return sample;
+
+					// Double-check bounds before processing
+					const safeCropRect = clampRectToVideoBounds(cropRect);
+
+					// Validate the crop rectangle
+					if (safeCropRect.width <= 0 || safeCropRect.height <= 0) {
+						console.warn('Invalid crop dimensions, returning original frame');
+						return sample;
+					}
+
+					if (!processCanvas) {
+						// Use EVEN dimensions
+						processCanvas = new OffscreenCanvas(evenWidth, evenHeight);
+						processCtx = processCanvas.getContext('2d', { alpha: false });
+					}
+
+					processCtx.clearRect(0, 0, processCanvas.width, processCanvas.height);
+
+					// Access the actual VideoFrame from MediaBunny's wrapper
+					const videoFrame = sample._data || sample;
+
+					// Use the clamped rectangle for drawing
+					processCtx.drawImage(
+						videoFrame,
+						Math.round(safeCropRect.x),
+						Math.round(safeCropRect.y),
+						Math.round(safeCropRect.width),
+						Math.round(safeCropRect.height),
+						0,
+						0,
+						processCanvas.width,
+						processCanvas.height
+					);
+
+					return processCanvas;
+				}
+			};
+		} else if (cropRect && cropRect.width > 0) {
+			cropFuncToReset = toggleStaticCrop;
+
+			// ENSURE EVEN DIMENSIONS for static crop
+			const evenWidth = Math.round(cropRect.width / 2) * 2;
+			const evenHeight = Math.round(cropRect.height / 2) * 2;
+
+			// STATIC CROP LOGIC
 			conversionOptions.video = {
 				crop: {
 					left: Math.round(cropRect.x),
 					top: Math.round(cropRect.y),
-					width: Math.round(cropRect.width),
-					height: Math.round(cropRect.height)
+					width: evenWidth,
+					height: evenHeight
 				}
 			};
 		}
+		// If neither crop is set, conversionOptions remains as is.
 
-		// 3. Initialize the conversion with the complete options object.
 		const conversion = await Conversion.init(conversionOptions);
-
-		// --- END: CORRECTION ---
 
 		if (!conversion.isValid) {
 			throw new Error('Could not create a valid conversion for cutting.');
@@ -541,22 +683,14 @@ const handleCutAction = async () => {
 		await conversion.execute();
 
 		const originalName = (currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
-        // Added "_cropped" to the filename for clarity
-		const clipName = `${originalName}_${formatTime(start)}-${formatTime(end)}_cropped.mp4`.replace(/:/g, '_');
+		const clipName = `${originalName}_${formatTime(start)}-${formatTime(end)}_edited.mp4`.replace(/:/g, '_');
 
-		const cutClipFile = new File([output.target.buffer], clipName, {
-			type: 'video/mp4'
-		});
+		const cutClipFile = new File([output.target.buffer], clipName, { type: 'video/mp4' });
 
-		playlist.push({
-			type: 'file',
-			name: clipName,
-			file: cutClipFile,
-			isCutClip: true
-		});
+		playlist.push({ type: 'file', name: clipName, file: cutClipFile, isCutClip: true });
 		updatePlaylistUIOptimized();
+		cropFuncToReset(null, true);
 		showStatusMessage('Clip added to playlist!');
-		if (isCropping) cropBtnClick();
 		setTimeout(hideStatusMessage, 2000);
 
 	} catch (error) {
@@ -568,42 +702,112 @@ const handleCutAction = async () => {
 	}
 };
 
+const positionCropCanvas = () => {
+	if (!canvas.width || !canvas.height) {
+		console.warn('Video dimensions not available yet');
+		return null;
+	}
+
+	const container = videoContainer;
+	const containerRect = container.getBoundingClientRect();
+	
+	// Get video dimensions
+	const videoWidth = canvas.width;
+	const videoHeight = canvas.height;
+	
+	// Calculate aspect ratios
+	const videoAspect = videoWidth / videoHeight;
+	const containerAspect = containerRect.width / containerRect.height;
+	
+	let renderWidth, renderHeight, offsetX, offsetY;
+	
+	// Calculate actual rendered video dimensions (object-fit: contain behavior)
+	if (containerAspect > videoAspect) {
+		// Container is wider - video is constrained by height
+		renderHeight = containerRect.height;
+		renderWidth = renderHeight * videoAspect;
+		offsetX = (containerRect.width - renderWidth) / 2;
+		offsetY = 0;
+	} else {
+		// Container is taller - video is constrained by width
+		renderWidth = containerRect.width;
+		renderHeight = renderWidth / videoAspect;
+		offsetX = 0;
+		offsetY = (containerRect.height - renderHeight) / 2;
+	}
+	
+	// Position and size the crop canvas to match the video
+	cropCanvas.style.left = `${offsetX}px`;
+	cropCanvas.style.top = `${offsetY}px`;
+	cropCanvas.style.width = `${renderWidth}px`;
+	cropCanvas.style.height = `${renderHeight}px`;
+	
+	// Keep the canvas internal resolution at video resolution for accuracy
+	// (We already set cropCanvas.width/height to match canvas.width/height elsewhere)
+	
+	return {
+		renderWidth,
+		renderHeight,
+		offsetX,
+		offsetY,
+		videoWidth,
+		videoHeight,
+		scaleX: videoWidth / renderWidth,
+		scaleY: videoHeight / renderHeight
+	};
+};
+
+/**
+ * Stores the current crop canvas dimensions for coordinate conversion
+ */
+let cropCanvasDimensions = null;
+
 const getScaledCoordinates = (e) => {
-    const rect = cropCanvas.getBoundingClientRect();
-    const scaleX = cropCanvas.width / rect.width;
-    const scaleY = cropCanvas.height / rect.height;
+	const rect = cropCanvas.getBoundingClientRect();
+	
+	// Get canvas internal resolution
+	const canvasWidth = cropCanvas.width;
+	const canvasHeight = cropCanvas.height;
+	
+	// Get displayed size
+	const displayWidth = rect.width;
+	const displayHeight = rect.height;
+	
+	// Calculate scale factors
+	const scaleX = canvasWidth / displayWidth;
+	const scaleY = canvasHeight / displayHeight;
 
-    // Use e.clientX/Y for broader browser compatibility and accuracy
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
+	// Calculate mouse position relative to canvas
+	const x = (e.clientX - rect.left) * scaleX;
+	const y = (e.clientY - rect.top) * scaleY;
 
-    return { x, y };
+	return { x, y };
 };
 
 // --- New Function: To draw the shaded overlay ---
 const drawCropOverlay = () => {
-    // Clear the previous frame
-    cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+	// Clear the previous frame
+	cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
 
-    // Calculate dimensions, ensuring width and height are not negative
-    const x = Math.min(cropStart.x, cropEnd.x);
-    const y = Math.min(cropStart.y, cropEnd.y);
-    const width = Math.abs(cropStart.x - cropEnd.x);
-    const height = Math.abs(cropStart.y - cropEnd.y);
+	// Calculate dimensions, ensuring width and height are not negative
+	const x = Math.min(cropStart.x, cropEnd.x);
+	const y = Math.min(cropStart.y, cropEnd.y);
+	const width = Math.abs(cropStart.x - cropEnd.x);
+	const height = Math.abs(cropStart.y - cropEnd.y);
 
-    if (width > 0 || height > 0) {
-        // Draw the semi-transparent shade over the entire canvas
-        cropCtx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-        cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
+	if (width > 0 || height > 0) {
+		// Draw the semi-transparent shade over the entire canvas
+		cropCtx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+		cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
 
-        // "Punch a hole" in the shade where the crop area is
-        cropCtx.clearRect(x, y, width, height);
+		// "Punch a hole" in the shade where the crop area is
+		cropCtx.clearRect(x, y, width, height);
 
-        // Add a light border around the clear area for better visibility
-        cropCtx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-        cropCtx.lineWidth = 1;
-        cropCtx.strokeRect(x, y, width, height);
-    }
+		// Add a light border around the clear area for better visibility
+		cropCtx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+		cropCtx.lineWidth = 1;
+		cropCtx.strokeRect(x, y, width, height);
+	}
 };
 
 const stopAndClear = async () => {
@@ -723,7 +927,7 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 			});
 			canvas.width = videoTrack.displayWidth || videoTrack.codedWidth || 1280;
 			canvas.height = videoTrack.displayHeight || videoTrack.codedHeight || 720;
-    
+
 			// Resize the crop canvas as well
 			cropCanvas.width = canvas.width;
 			cropCanvas.height = canvas.height;
@@ -959,6 +1163,16 @@ const showError = msg => {
 	el.className = 'error-message';
 	el.textContent = msg;
 	el.style.cssText = "position:fixed; top:20px; right:20px; background:rgba(200,0,0,0.8); color:white; padding:10px; border-radius:4px; z-index:10000;";
+	document.body.appendChild(el);
+	setTimeout(() => el.remove(), 4000);
+};
+const showInfo = msg => {
+	if (document.querySelector('.error-message')) return;
+
+	const el = document.createElement('div');
+	el.className = 'error-message';
+	el.textContent = msg;
+	el.style.cssText = "position:fixed; top:20px; right:20px; background:var(--bg-mid); color:white; padding:10px; border-radius:4px; z-index:10000;";
 	document.body.appendChild(el);
 	setTimeout(() => el.remove(), 4000);
 };
@@ -1329,19 +1543,45 @@ const setPlaybackSpeed = (newSpeed) => {
 	startVideoIterator();
 };
 
-const cropBtnClick = () => {
-	isCropping = !isCropping;
+// Function to enter/exit Static Cropping mode
+const toggleStaticCrop = (e, reset = false) => {
+	isCropping = !reset && !isCropping;
+	isPanning = false; // Ensure panning is off
+	panScanBtn.textContent = 'Dynamic Crop';
+	cropBtn.textContent = isCropping ? 'Cropping...' : 'Crop';
 	cropCanvas.classList.toggle('hidden', !isCropping);
 	cropBtn.classList.toggle('hover_highlight');
-	if (!isCropping) {
-		// When cropping is turned off, clear the canvas and reset the crop data
+
+	if (isCropping) {
+		// Position the crop canvas when entering crop mode
+		cropCanvasDimensions = positionCropCanvas();
+	} else {
 		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
 		cropRect = null;
-		cropBtn.textContent = 'Crop';
-	} else{
-		cropBtn.textContent = 'Cropping...';
+		cropCanvasDimensions = null;
 	}
-}; 
+};
+
+// Function to enter/exit Dynamic Pan/Crop mode
+const togglePanning = (e, reset = false) => {
+	isPanning = !reset && !isPanning;
+	isCropping = false; // Ensure static cropping is off
+	cropBtn.textContent = 'Crop';
+	panScanBtn.textContent = isPanning ? 'Recording... (Press R to lock)' : 'Dynamic Crop';
+	cropCanvas.classList.toggle('hidden', !isPanning);
+	panScanBtn.classList.toggle('hover_highlight');
+	panKeyframes = [];
+	panRectSize = null;
+
+	if (isPanning) {
+		// Position the crop canvas when entering panning mode
+		cropCanvasDimensions = positionCropCanvas();
+		showInfo("Draw a rectangle to define the crop size. Playback will start and the rectangle will follow your cursor. Press 'R' to lock its position.");
+	} else {
+		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+		cropCanvasDimensions = null;
+	}
+};
 
 const setupEventListeners = () => {
 	$('addFileBtn').onclick = () => $('fileInput').click();
@@ -1694,53 +1934,128 @@ const setupEventListeners = () => {
 		}
 	};
 	// --- End of URL Modal Logic ---
-	cropBtn.onclick = cropBtnClick;
+	cropBtn.onclick = toggleStaticCrop;
+	panScanBtn.onclick = togglePanning;
 
-cropCanvas.onpointerdown = (e) => {
-    if (!isCropping) return;
-    e.preventDefault();
-    cropCanvas.setPointerCapture(e.pointerId);
+	cropCanvas.onpointerdown = (e) => {
+		// This logic now applies to both modes
+		if (!isCropping && !isPanning) return;
+		e.preventDefault();
+		cropCanvas.setPointerCapture(e.pointerId);
 
-    isDrawingCrop = true;
-    const coords = getScaledCoordinates(e);
-    cropStart = coords;
-    cropEnd = coords; // Reset end point
-};
+		isDrawingCrop = true;
+		const coords = getScaledCoordinates(e);
+		cropStart = coords;
+		cropEnd = coords;
+	};
 
-cropCanvas.onpointermove = (e) => {
-    if (!isDrawingCrop) return;
-    e.preventDefault();
+	cropCanvas.onpointermove = (e) => {
+		if (!isDrawingCrop) {
+			// This is the logic for live panning after the initial rect is drawn
+			if (isPanning && panRectSize) {
+				const coords = getScaledCoordinates(e);
 
-    cropEnd = getScaledCoordinates(e);
-    drawCropOverlay(); // Update the shaded area as the user drags
-};
+				// Center the rectangle on the cursor
+				let currentRect = {
+					x: coords.x - panRectSize.width / 2,
+					y: coords.y - panRectSize.height / 2,
+					...panRectSize
+				};
 
-cropCanvas.onpointerup = (e) => {
-    if (!isDrawingCrop) return;
-    e.preventDefault();
-    cropCanvas.releasePointerCapture(e.pointerId);
+				// CLAMP the rectangle before recording
+				currentRect = clampRectToVideoBounds(currentRect);
 
-    isDrawingCrop = false;
-    const finalCoords = getScaledCoordinates(e);
-    cropEnd = finalCoords;
+				// Record a new keyframe with clamped coordinates
+				panKeyframes.push({ timestamp: getPlaybackTime(), rect: currentRect });
 
-    // Draw the final state of the overlay
-    drawCropOverlay();
+				// Redraw the overlay to show the moving rect
+				drawShadedOverlay(currentRect);
+			}
+			return;
+		}
 
-    // Store the final crop rectangle for the "Cut Clip" action
-    cropRect = {
-        x: Math.min(cropStart.x, cropEnd.x),
-        y: Math.min(cropStart.y, cropEnd.y),
-        width: Math.abs(cropStart.x - cropEnd.x),
-        height: Math.abs(cropStart.y - cropEnd.y)
-    };
+		e.preventDefault();
+		cropEnd = getScaledCoordinates(e);
 
-    // If the selection is tiny, consider it a click and don't set the crop
-    if (cropRect.width < 5 && cropRect.height < 5) {
-        cropRect = null;
-        cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
-    }
-};
+		const rect = {
+			x: Math.min(cropStart.x, cropEnd.x),
+			y: Math.min(cropStart.y, cropEnd.y),
+			width: Math.abs(cropStart.x - cropEnd.x),
+			height: Math.abs(cropStart.y - cropEnd.y)
+		};
+		drawShadedOverlay(rect);
+	};
+
+	cropCanvas.onpointerup = (e) => {
+		if (!isDrawingCrop) return;
+		e.preventDefault();
+		cropCanvas.releasePointerCapture(e.pointerId);
+		isDrawingCrop = false;
+
+		const finalRect = {
+			x: Math.min(cropStart.x, cropEnd.x),
+			y: Math.min(cropStart.y, cropEnd.y),
+			width: Math.abs(cropStart.x - cropEnd.x),
+			height: Math.abs(cropStart.y - cropEnd.y)
+		};
+
+		if (finalRect.width < 10 || finalRect.height < 10) {
+			cropRect = null;
+			panRectSize = null;
+			cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+			return;
+		}
+
+		if (isPanning) {
+			// ENSURE EVEN DIMENSIONS when setting panRectSize
+			const evenWidth = Math.round(finalRect.width / 2) * 2;
+			const evenHeight = Math.round(finalRect.height / 2) * 2;
+
+			panRectSize = { width: evenWidth, height: evenHeight };
+
+			// Adjust the first keyframe to use even dimensions
+			const adjustedRect = {
+				x: finalRect.x,
+				y: finalRect.y,
+				width: evenWidth,
+				height: evenHeight
+			};
+
+			panKeyframes.push({ timestamp: getPlaybackTime(), rect: adjustedRect });
+
+			if (!playing) play();
+		} else if (isCropping) {
+			cropRect = finalRect;
+		}
+	};
+	// We need to modify the drawing function to accept a rectangle
+	const drawShadedOverlay = (rect) => {
+		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+		if (!rect) return;
+
+		cropCtx.fillStyle = isPanning ? 'rgba(0, 50, 100, 0.6)' : 'rgba(0, 0, 0, 0.6)';
+		cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
+		cropCtx.clearRect(rect.x, rect.y, rect.width, rect.height);
+
+		cropCtx.strokeStyle = isPanning ? 'rgba(50, 150, 255, 0.9)' : 'rgba(255, 255, 255, 0.8)';
+		cropCtx.lineWidth = 2;
+		cropCtx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+	};
+	document.addEventListener('keydown', (e) => {
+		if (isPanning && panRectSize && e.key.toLowerCase() === 'r') {
+			e.preventDefault();
+			// Add one last keyframe at the release point
+			const lastKeyframe = panKeyframes[panKeyframes.length - 1];
+			if (lastKeyframe) {
+				panKeyframes.push({ timestamp: getPlaybackTime(), rect: lastKeyframe.rect });
+			}
+
+			// Exit panning mode
+			isPanning = false; // Stop listening to mouse moves
+			panScanBtn.textContent = 'Path Recorded!';
+			showInfo("Panning path recorded. The crop will now remain fixed. You can now use 'Cut Clip'.");
+		}
+	});
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -1777,4 +2092,14 @@ document.addEventListener('DOMContentLoaded', () => {
 		navigator.serviceWorker.register('service-worker.js')
 			.catch(err => console.log('ServiceWorker registration failed:', err));
 	}
+
+let resizeTimeout;
+window.addEventListener('resize', () => {
+	clearTimeout(resizeTimeout);
+	resizeTimeout = setTimeout(() => {
+		if ((isCropping || isPanning) && !cropCanvas.classList.contains('hidden')) {
+			cropCanvasDimensions = positionCropCanvas();
+		}
+	}, 100); // Debounce resize events
+});
 });
