@@ -105,6 +105,7 @@ let scaleWithRatio = false;
 // let useSpotlightEffect = false;
 let useBlurBackground = false;
 let dynamicCropMode = 'none'; // Can be 'none', 'spotlight', or 'max-size'
+let isShiftPressed = false;
 
 // === PERFORMANCE OPTIMIZATION: Cache DOM elements for playlist ===
 let playlistElementCache = new Map(); // Maps path -> DOM element
@@ -2269,10 +2270,14 @@ const setupEventListeners = () => {
 				}
 			} else if (isPanning && panRectSize && isCropFixed) {
 				// Live panning with fixed size
+            const lastRectSize = panKeyframes.length > 0
+                ? { width: panKeyframes[panKeyframes.length - 1].rect.width, height: panKeyframes[panKeyframes.length - 1].rect.height }
+                : panRectSize;
 				let currentRect = {
-					x: coords.x - panRectSize.width / 2,
-					y: coords.y - panRectSize.height / 2,
-					...panRectSize
+					x: coords.x - lastRectSize.width / 2,
+					y: coords.y - lastRectSize.height / 2,
+					width: lastRectSize.width,
+					height: lastRectSize.height
 				};
 				currentRect = clampRectToVideoBounds(currentRect);
 				panKeyframes.push({ timestamp: getPlaybackTime(), rect: currentRect });
@@ -2385,19 +2390,60 @@ const setupEventListeners = () => {
 		updateFixSizeButton();
 	};
 
-	// We need to modify the drawing function to accept a rectangle
-	const drawShadedOverlay = (rect) => {
-		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
-		if (!rect) return;
+	// 2. Add the wheel event listener for zooming
+	cropCanvas.addEventListener('wheel', (e) => {
+		if (!isPanning || !isShiftPressed || !panRectSize) return;
+		e.preventDefault();
 
-		cropCtx.fillStyle = isPanning ? 'rgba(0, 50, 100, 0.6)' : 'rgba(0, 0, 0, 0.6)';
-		cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
-		cropCtx.clearRect(rect.x, rect.y, rect.width, rect.height);
+		const lastKeyframe = panKeyframes[panKeyframes.length - 1];
+		if (!lastKeyframe) return;
 
-		cropCtx.strokeStyle = isPanning ? 'rgba(50, 150, 255, 0.9)' : 'rgba(255, 255, 255, 0.8)';
-		cropCtx.lineWidth = 2;
-		cropCtx.strokeRect(rect.x, rect.y, rect.width, rect.height);
-	};
+		// === NEW: GET MOUSE POSITION FOR CENTERED ZOOM ===
+		const coords = getScaledCoordinates(e);
+		const ZOOM_SPEED = 0.05;
+
+		const currentRect = lastKeyframe.rect;
+		const zoomFactor = e.deltaY < 0 ? (1 - ZOOM_SPEED) : (1 + ZOOM_SPEED);
+		const aspectRatio = panRectSize.width / panRectSize.height;
+
+		// === NEW: CALCULATE MOUSE POSITION AS A RATIO WITHIN THE RECTANGLE ===
+		// This ensures the point under the cursor stays in the same relative position after zoom.
+		const ratioX = (coords.x - currentRect.x) / currentRect.width;
+		const ratioY = (coords.y - currentRect.y) / currentRect.height;
+
+		let newWidth = currentRect.width * zoomFactor;
+		let newHeight = newWidth / aspectRatio;
+
+		// === NEW: CALCULATE NEW TOP-LEFT CORNER BASED ON MOUSE POSITION ===
+		let newX = coords.x - (newWidth * ratioX);
+		let newY = coords.y - (newHeight * ratioY);
+
+		let newZoomedRect = { x: newX, y: newY, width: newWidth, height: newHeight };
+		newZoomedRect = clampRectToVideoBounds(newZoomedRect);
+
+		// === CRITICAL SMOOTHNESS FIX ===
+		// Instead of pushing a new keyframe, we UPDATE the last one.
+		// This prevents keyframe overload and makes the zoom feel smooth.
+		lastKeyframe.rect = newZoomedRect;
+
+		drawCropWithHandles(newZoomedRect);
+
+	}, { passive: false }); // { passive: false } is needed for preventDefault() to work reliably
+
+	// 1. Add global listeners to track the Shift key state
+	document.addEventListener('keydown', (e) => {
+		if (e.key === 'Shift') {
+			isShiftPressed = true;
+		}
+	});
+
+	document.addEventListener('keyup', (e) => {
+		if (e.key === 'Shift') {
+			isShiftPressed = false;
+			// When Shift is released, the next mouse move will automatically
+			// record a normal, un-zoomed keyframe, effectively "snapping back".
+		}
+	});
 	document.addEventListener('keydown', (e) => {
 		if (isPanning && panRectSize && e.key.toLowerCase() === 'r') {
 			e.preventDefault();
