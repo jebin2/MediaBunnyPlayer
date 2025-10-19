@@ -181,7 +181,7 @@ input:checked+.slider:before {
 	padding: 0.6rem 1.2rem;
 	border-radius: var(--border-radius);
 	cursor: pointer;
-	font-size: 0.7rem;
+	font-size: 0.9rem;
 	font-family: 'Press Start 2P', monospace;
 	transition: all var(--transition-speed);
 	box-shadow: 0 0 4px rgba(0, 255, 255, 0.2);
@@ -460,7 +460,7 @@ input:checked+.slider:before {
 
 .track-btn {
 	padding: 0.4rem 0.8rem;
-	font-size: 0.65rem;
+	/* font-size: 0.65rem; */
 }
 
 /* Track Menus */
@@ -488,7 +488,7 @@ input:checked+.slider:before {
 
 .track-menu-content h4 {
 	color: var(--accent-neon);
-	font-size: 0.7rem;
+	/* font-size: 0.7rem; */
 	margin-bottom: 0.75rem;
 	text-shadow: 0 0 8px var(--accent-neon);
 }
@@ -504,7 +504,7 @@ input:checked+.slider:before {
 	border: 1px solid var(--border-color);
 	border-radius: var(--border-radius);
 	cursor: pointer;
-	font-size: 0.6rem;
+	/* font-size: 0.6rem; */
 	transition: all var(--transition-speed);
 }
 
@@ -534,7 +534,7 @@ input:checked+.slider:before {
 	color: var(--text-primary);
 	padding: 0.4rem;
 	border-radius: var(--border-radius);
-	font-size: 0.6rem;
+	/* font-size: 0.6rem; */
 	font-family: 'Press Start 2P', monospace;
 	text-align: center;
 }
@@ -557,7 +557,7 @@ input:checked+.slider:before {
 
 .trim-menu-actions .btn {
 	flex: 1;
-	font-size: 0.6rem;
+	/* font-size: 0.6rem; */
 	padding: 0.5rem;
 }
 
@@ -957,25 +957,105 @@ body::after {
 	margin: 10px 0;
 }
 
+/* --- Custom Radio Buttons for Trim Mode --- */
+
 .trim-mode-selector {
-	border: 1px solid rgba(255, 255, 255, 0.2);
-	border-radius: 4px;
-	padding: 5px 10px;
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius);
+	padding: 0.75rem 1rem 1rem; /* Added more padding */
 	margin-bottom: 10px;
 	display: flex;
 	justify-content: space-around;
-	font-size: 0.9em;
+	gap: 1rem; /* Added gap for spacing */
+	background: rgba(255, 255, 255, 0.05);
+	box-shadow: 0 0 4px rgba(0, 255, 255, 0.2);
 }
 
 .trim-mode-selector legend {
-	padding: 0 5px;
-	font-size: 0.8em;
-	opacity: 0.7;
+	padding: 0 0.5rem;
+	font-size: 0.7rem; /* Increased font size */
+	color: var(--accent-neon);
+	text-shadow: var(--glow-effect);
 }
 
 .trim-mode-selector div {
 	display: flex;
 	align-items: center;
+}
+
+/* Hide the default radio button */
+.trim-mode-selector input[type="radio"] {
+	opacity: 0;
+	position: absolute;
+	width: 0;
+	height: 0;
+}
+
+/* Style the label to be the new clickable area */
+.trim-mode-selector label {
+	position: relative;
+	padding-left: 24px; /* Space for the custom radio button */
+	cursor: pointer;
+	font-size: 0.65rem;
+	color: var(--text-primary);
+	transition: color var(--transition-speed);
+	text-shadow: none; /* Reset text shadow for clarity */
+}
+
+/* Create the custom radio button's outer circle */
+.trim-mode-selector label::before {
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 14px;
+	height: 14px;
+	border: 2px solid var(--border-color);
+	border-radius: 50%;
+	background-color: var(--bg-mid);
+	transition: all var(--transition-speed);
+}
+
+/* Create the inner glowing dot (hidden by default) */
+.trim-mode-selector label::after {
+	content: '';
+	position: absolute;
+	left: 4px;
+	top: 50%;
+	transform: translateY(-50%) scale(0); /* Hidden by default */
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background-color: var(--accent-neon);
+	box-shadow: var(--glow-effect);
+	transition: all var(--transition-speed);
+}
+
+/* --- States --- */
+
+/* Hover state: make the label and outer circle glow */
+.trim-mode-selector label:hover {
+	color: var(--accent-neon);
+}
+
+.trim-mode-selector label:hover::before {
+	border-color: var(--accent-neon);
+	box-shadow: var(--glow-effect);
+}
+
+/* Checked state: make the inner dot appear and glow */
+.trim-mode-selector input[type="radio"]:checked + label::before {
+	border-color: var(--accent-neon);
+}
+
+.trim-mode-selector input[type="radio"]:checked + label::after {
+	transform: translateY(-50%) scale(1); /* Show the inner dot */
+}
+
+.trim-mode-selector input[type="radio"]:checked + label {
+	color: var(--accent-neon);
+	text-shadow: 0 0 5px rgba(0, 255, 255, 0.7);
 }
 
 /* Style the popup menu */
@@ -1013,7 +1093,8 @@ body::after {
 	opacity: 1;
 	transition: opacity 0.3s ease, transform 0.3s ease;
 	font-family: 'Press Start 2P', monospace;
-	font-size: 0.6rem;
+	font-size: 0.65rem;
+	line-height: 20px;
 }
 
 .shortcut-keys-panel.hidden {

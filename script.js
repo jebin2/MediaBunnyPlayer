@@ -1949,6 +1949,7 @@ const resetAllConfigs = () => {
     useBlurBackground = false;
     smoothPath = false;
     blurAmount = 15;
+	updateDynamicCropOptionsUI();
 
     // 4. Reset the UI for dynamic crop options
     const cropModeNoneRadio = $('cropModeNone');
@@ -1986,6 +1987,23 @@ const resetAllConfigs = () => {
 
     // 9. Give user feedback
     showInfo("All configurations have been reset.");
+};
+
+const cropModeRadios = document.querySelectorAll('input[name="cropMode"]');
+const scaleOptionContainer = $('scaleOptionContainer');
+const scaleWithRatioToggle = $('scaleWithRatioToggle');
+const blurOptionContainer = $('blurOptionContainer');
+const smoothOptionContainer = $('smoothOptionContainer');
+const smoothPathToggle = $('smoothPathToggle');
+const blurBackgroundToggle = $('blurBackgroundToggle');
+const blurAmountInput = $('blurAmountInput');
+
+// Helper function to update the visibility of sub-options based on the selected mode
+const updateDynamicCropOptionsUI = () => {
+	scaleOptionContainer.style.display = (dynamicCropMode === 'max-size') ? 'flex' : 'none';
+	blurOptionContainer.style.display = (dynamicCropMode === 'spotlight' || dynamicCropMode === 'max-size') ? 'flex' : 'none';
+	// Show the smooth option for ANY dynamic mode
+	smoothOptionContainer.style.display = (dynamicCropMode !== 'none') ? 'flex' : 'none';
 };
 
 const setupEventListeners = () => {
@@ -2662,29 +2680,12 @@ const setupEventListeners = () => {
 		}
 	});
 
-	const cropModeRadios = document.querySelectorAll('input[name="cropMode"]');
-	const scaleOptionContainer = $('scaleOptionContainer');
-	const scaleWithRatioToggle = $('scaleWithRatioToggle');
-	const blurOptionContainer = $('blurOptionContainer');
-	const smoothOptionContainer = $('smoothOptionContainer');
-	const smoothPathToggle = $('smoothPathToggle');
-	const blurBackgroundToggle = $('blurBackgroundToggle');
-	const blurAmountInput = $('blurAmountInput');
-
-	// Helper function to update the visibility of sub-options based on the selected mode
-	const updateDynamicCropOptionsUI = () => {
-		scaleOptionContainer.style.display = (dynamicCropMode === 'max-size') ? 'flex' : 'none';
-		blurOptionContainer.style.display = (dynamicCropMode === 'spotlight' || dynamicCropMode === 'max-size') ? 'flex' : 'none';
-		// Show the smooth option for ANY dynamic mode
-		smoothOptionContainer.style.display = (dynamicCropMode !== 'none') ? 'flex' : 'none';
-	};
-
     // Trigger the UI visibility update
     if(cropModeRadios.length > 0) {
         // Find the event listener's helper function to call it directly
         // Note: This assumes updateDynamicCropOptionsUI is available in this scope.
         // It's better to define it outside the event listener if it's not.
-        updateDynamicCropOptionsUI(); 
+        updateDynamicCropOptionsUI();
     }
 
 	if (smoothPathToggle) {
@@ -2830,7 +2831,7 @@ const setupEventListeners = () => {
 		} else if (e.key.toLowerCase() === 's') {
 			e.preventDefault();
 			takeScreenshot()
-		} else if (e.key.toLowerCase() === 'c') {
+		} else if (e.key.toLowerCase() === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) {
 			e.preventDefault();
 			handleCutAction()
 		} else if (e.key.toLowerCase() === 'escape') {
