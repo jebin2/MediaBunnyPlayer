@@ -710,17 +710,17 @@ const positionCropCanvas = () => {
 
 	const container = videoContainer;
 	const containerRect = container.getBoundingClientRect();
-	
+
 	// Get video dimensions
 	const videoWidth = canvas.width;
 	const videoHeight = canvas.height;
-	
+
 	// Calculate aspect ratios
 	const videoAspect = videoWidth / videoHeight;
 	const containerAspect = containerRect.width / containerRect.height;
-	
+
 	let renderWidth, renderHeight, offsetX, offsetY;
-	
+
 	// Calculate actual rendered video dimensions (object-fit: contain behavior)
 	if (containerAspect > videoAspect) {
 		// Container is wider - video is constrained by height
@@ -735,16 +735,16 @@ const positionCropCanvas = () => {
 		offsetX = 0;
 		offsetY = (containerRect.height - renderHeight) / 2;
 	}
-	
+
 	// Position and size the crop canvas to match the video
 	cropCanvas.style.left = `${offsetX}px`;
 	cropCanvas.style.top = `${offsetY}px`;
 	cropCanvas.style.width = `${renderWidth}px`;
 	cropCanvas.style.height = `${renderHeight}px`;
-	
+
 	// Keep the canvas internal resolution at video resolution for accuracy
 	// (We already set cropCanvas.width/height to match canvas.width/height elsewhere)
-	
+
 	return {
 		renderWidth,
 		renderHeight,
@@ -764,15 +764,15 @@ let cropCanvasDimensions = null;
 
 const getScaledCoordinates = (e) => {
 	const rect = cropCanvas.getBoundingClientRect();
-	
+
 	// Get canvas internal resolution
 	const canvasWidth = cropCanvas.width;
 	const canvasHeight = cropCanvas.height;
-	
+
 	// Get displayed size
 	const displayWidth = rect.width;
 	const displayHeight = rect.height;
-	
+
 	// Calculate scale factors
 	const scaleX = canvasWidth / displayWidth;
 	const scaleY = canvasHeight / displayHeight;
@@ -1555,10 +1555,14 @@ const toggleStaticCrop = (e, reset = false) => {
 	if (isCropping) {
 		// Position the crop canvas when entering crop mode
 		cropCanvasDimensions = positionCropCanvas();
+		isCropFixed = false; // Reset fixed state
+		updateFixSizeButton();
 	} else {
 		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
 		cropRect = null;
 		cropCanvasDimensions = null;
+		isCropFixed = false;
+		updateFixSizeButton();
 	}
 };
 
@@ -1576,10 +1580,294 @@ const togglePanning = (e, reset = false) => {
 	if (isPanning) {
 		// Position the crop canvas when entering panning mode
 		cropCanvasDimensions = positionCropCanvas();
+		isCropFixed = false; // Reset fixed state
+		updateFixSizeButton();
 		showInfo("Draw a rectangle to define the crop size. Playback will start and the rectangle will follow your cursor. Press 'R' to lock its position.");
 	} else {
 		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
 		cropCanvasDimensions = null;
+		isCropFixed = false;
+		updateFixSizeButton();
+	}
+};
+
+// ============================================================================
+// ADD NEW VARIABLES for crop resize/move functionality
+// ============================================================================
+
+let isCropFixed = false; // Is the crop size locked?
+let isDraggingCrop = false; // Are we moving the crop?
+let isResizingCrop = false; // Are we resizing the crop?
+let resizeHandle = null; // Which corner/edge is being resized
+let dragStartPos = { x: 0, y: 0 }; // Starting position for drag
+let originalCropRect = null; // Original crop rect before drag/resize
+
+// Resize handle size in pixels
+const HANDLE_SIZE = 12;
+const HANDLE_HALF = HANDLE_SIZE / 2;
+
+// ============================================================================
+// NEW FUNCTION: Draw crop rectangle with resize handles
+// ============================================================================
+
+const drawCropWithHandles = (rect) => {
+	if (!rect || rect.width <= 0 || rect.height <= 0) return;
+
+	cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+
+	// Draw semi-transparent overlay
+	const overlayColor = isPanning ? 'rgba(0, 50, 100, 0.6)' : 'rgba(0, 0, 0, 0.6)';
+	cropCtx.fillStyle = overlayColor;
+	cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
+
+	// Clear the crop area
+	cropCtx.clearRect(rect.x, rect.y, rect.width, rect.height);
+
+	// Draw border
+	const borderColor = isPanning ? 'rgba(50, 150, 255, 0.9)' : 'rgba(255, 255, 255, 0.8)';
+	cropCtx.strokeStyle = borderColor;
+	cropCtx.lineWidth = 2;
+	cropCtx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+
+	// Draw resize handles if crop is not fixed
+	if (!isCropFixed) {
+		cropCtx.fillStyle = '#00ffff';
+		cropCtx.strokeStyle = '#ffffff';
+		cropCtx.lineWidth = 1;
+
+		// Corner handles
+		const corners = [
+			{ x: rect.x, y: rect.y, cursor: 'nw' },
+			{ x: rect.x + rect.width, y: rect.y, cursor: 'ne' },
+			{ x: rect.x, y: rect.y + rect.height, cursor: 'sw' },
+			{ x: rect.x + rect.width, y: rect.y + rect.height, cursor: 'se' }
+		];
+
+		corners.forEach(corner => {
+			cropCtx.fillRect(
+				corner.x - HANDLE_HALF,
+				corner.y - HANDLE_HALF,
+				HANDLE_SIZE,
+				HANDLE_SIZE
+			);
+			cropCtx.strokeRect(
+				corner.x - HANDLE_HALF,
+				corner.y - HANDLE_HALF,
+				HANDLE_SIZE,
+				HANDLE_SIZE
+			);
+		});
+
+		// Edge handles
+		const edges = [
+			{ x: rect.x + rect.width / 2, y: rect.y, cursor: 'n' }, // top
+			{ x: rect.x + rect.width / 2, y: rect.y + rect.height, cursor: 's' }, // bottom
+			{ x: rect.x, y: rect.y + rect.height / 2, cursor: 'w' }, // left
+			{ x: rect.x + rect.width, y: rect.y + rect.height / 2, cursor: 'e' } // right
+		];
+
+		edges.forEach(edge => {
+			cropCtx.fillRect(
+				edge.x - HANDLE_HALF,
+				edge.y - HANDLE_HALF,
+				HANDLE_SIZE,
+				HANDLE_SIZE
+			);
+			cropCtx.strokeRect(
+				edge.x - HANDLE_HALF,
+				edge.y - HANDLE_HALF,
+				HANDLE_SIZE,
+				HANDLE_SIZE
+			);
+		});
+	}
+};
+
+// ============================================================================
+// NEW FUNCTION: Get resize handle at position
+// ============================================================================
+
+const getResizeHandle = (x, y, rect) => {
+	if (!rect || isCropFixed) return null;
+
+	const handles = [
+		{ name: 'nw', x: rect.x, y: rect.y },
+		{ name: 'ne', x: rect.x + rect.width, y: rect.y },
+		{ name: 'sw', x: rect.x, y: rect.y + rect.height },
+		{ name: 'se', x: rect.x + rect.width, y: rect.y + rect.height },
+		{ name: 'n', x: rect.x + rect.width / 2, y: rect.y },
+		{ name: 's', x: rect.x + rect.width / 2, y: rect.y + rect.height },
+		{ name: 'w', x: rect.x, y: rect.y + rect.height / 2 },
+		{ name: 'e', x: rect.x + rect.width, y: rect.y + rect.height / 2 }
+	];
+
+	for (const handle of handles) {
+		const dist = Math.sqrt(
+			Math.pow(x - handle.x, 2) + Math.pow(y - handle.y, 2)
+		);
+		if (dist <= HANDLE_SIZE) {
+			return handle.name;
+		}
+	}
+
+	return null;
+};
+
+// ============================================================================
+// NEW FUNCTION: Check if point is inside crop rect
+// ============================================================================
+
+const isInsideCropRect = (x, y, rect) => {
+	if (!rect) return false;
+	return x >= rect.x && x <= rect.x + rect.width &&
+		y >= rect.y && y <= rect.y + rect.height;
+};
+
+// ============================================================================
+// NEW FUNCTION: Get cursor style for handle
+// ============================================================================
+
+const getCursorForHandle = (handle) => {
+	const cursors = {
+		'nw': 'nw-resize',
+		'ne': 'ne-resize',
+		'sw': 'sw-resize',
+		'se': 'se-resize',
+		'n': 'n-resize',
+		's': 's-resize',
+		'w': 'w-resize',
+		'e': 'e-resize',
+		'move': 'move'
+	};
+	return cursors[handle] || 'crosshair';
+};
+
+// ============================================================================
+// NEW FUNCTION: Apply resize based on handle
+// ============================================================================
+
+const applyResize = (handle, deltaX, deltaY, originalRect) => {
+	let newRect = { ...originalRect };
+
+	switch (handle) {
+		case 'nw':
+			newRect.x = originalRect.x + deltaX;
+			newRect.y = originalRect.y + deltaY;
+			newRect.width = originalRect.width - deltaX;
+			newRect.height = originalRect.height - deltaY;
+			break;
+		case 'ne':
+			newRect.y = originalRect.y + deltaY;
+			newRect.width = originalRect.width + deltaX;
+			newRect.height = originalRect.height - deltaY;
+			break;
+		case 'sw':
+			newRect.x = originalRect.x + deltaX;
+			newRect.width = originalRect.width - deltaX;
+			newRect.height = originalRect.height + deltaY;
+			break;
+		case 'se':
+			newRect.width = originalRect.width + deltaX;
+			newRect.height = originalRect.height + deltaY;
+			break;
+		case 'n':
+			newRect.y = originalRect.y + deltaY;
+			newRect.height = originalRect.height - deltaY;
+			break;
+		case 's':
+			newRect.height = originalRect.height + deltaY;
+			break;
+		case 'w':
+			newRect.x = originalRect.x + deltaX;
+			newRect.width = originalRect.width - deltaX;
+			break;
+		case 'e':
+			newRect.width = originalRect.width + deltaX;
+			break;
+	}
+
+	// Ensure minimum size
+	if (newRect.width < 20) {
+		newRect.width = 20;
+		if (handle.includes('w')) newRect.x = originalRect.x + originalRect.width - 20;
+	}
+	if (newRect.height < 20) {
+		newRect.height = 20;
+		if (handle.includes('n')) newRect.y = originalRect.y + originalRect.height - 20;
+	}
+
+	// Clamp to canvas bounds
+	return clampRectToVideoBounds(newRect);
+};
+
+// ============================================================================
+// MODIFY toggleStaticCrop to reset fixed state
+// ============================================================================
+
+// ============================================================================
+// NEW FUNCTION: Update Fix Size button visibility and state
+// ============================================================================
+
+const updateFixSizeButton = () => {
+	const fixSizeBtn = document.getElementById('fixSizeBtn');
+	if (!fixSizeBtn) return;
+
+	const shouldShow = (isCropping || isPanning) &&
+		(cropRect || panRectSize);
+
+	if (shouldShow) {
+		fixSizeBtn.style.display = 'inline-block';
+		fixSizeBtn.textContent = isCropFixed ? 'Resize' : 'Fix Size';
+		if (isCropFixed) {
+			fixSizeBtn.classList.add('hover_highlight');
+		} else {
+			fixSizeBtn.classList.remove('hover_highlight');
+		}
+	} else {
+		fixSizeBtn.style.display = 'none';
+	}
+};
+
+// ============================================================================
+// NEW FUNCTION: Toggle crop fixed state
+// ============================================================================
+
+const toggleCropFixed = () => {
+	isCropFixed = !isCropFixed;
+	updateFixSizeButton();
+
+	if (isCropFixed) {
+		// When fixing, ensure even dimensions for video processing
+		if (isCropping && cropRect) {
+			cropRect.width = Math.round(cropRect.width / 2) * 2;
+			cropRect.height = Math.round(cropRect.height / 2) * 2;
+			cropRect = clampRectToVideoBounds(cropRect);
+			drawCropWithHandles(cropRect);
+		} else if (isPanning && panRectSize) {
+			panRectSize.width = Math.round(panRectSize.width / 2) * 2;
+			panRectSize.height = Math.round(panRectSize.height / 2) * 2;
+			// Update the last keyframe with even dimensions
+			if (panKeyframes.length > 0) {
+				const lastFrame = panKeyframes[panKeyframes.length - 1];
+				lastFrame.rect.width = panRectSize.width;
+				lastFrame.rect.height = panRectSize.height;
+				lastFrame.rect = clampRectToVideoBounds(lastFrame.rect);
+			}
+		}
+		showInfo(isPanning ?
+			"Size locked! Move the crop area with your cursor during playback." :
+			"Size locked! The crop is now fixed.");
+	} else {
+		showInfo("You can now resize or move the crop area.");
+		// Redraw with handles
+		if (isCropping && cropRect) {
+			drawCropWithHandles(cropRect);
+		} else if (isPanning && panKeyframes.length > 0) {
+			const lastFrame = panKeyframes[panKeyframes.length - 1];
+			if (lastFrame) {
+				drawCropWithHandles(lastFrame.rect);
+			}
+		}
 	}
 };
 
@@ -1949,85 +2237,183 @@ const setupEventListeners = () => {
 		cropEnd = coords;
 	};
 
-	cropCanvas.onpointermove = (e) => {
-		if (!isDrawingCrop) {
-			// This is the logic for live panning after the initial rect is drawn
-			if (isPanning && panRectSize) {
-				const coords = getScaledCoordinates(e);
+	cropCanvas.onpointerdown = (e) => {
+		if (!isCropping && !isPanning) return;
+		e.preventDefault();
+		cropCanvas.setPointerCapture(e.pointerId);
 
-				// Center the rectangle on the cursor
+		const coords = getScaledCoordinates(e);
+
+		// If we have an existing crop rect
+		const currentRect = isCropping ? cropRect :
+			(panKeyframes.length > 0 ? panKeyframes[panKeyframes.length - 1].rect : null);
+
+		if (currentRect && !isCropFixed) {
+			// Check if clicking on a resize handle
+			resizeHandle = getResizeHandle(coords.x, coords.y, currentRect);
+
+			if (resizeHandle) {
+				isResizingCrop = true;
+				originalCropRect = { ...currentRect };
+				dragStartPos = coords;
+			} else if (isInsideCropRect(coords.x, coords.y, currentRect)) {
+				// Clicking inside crop area - start dragging
+				isDraggingCrop = true;
+				originalCropRect = { ...currentRect };
+				dragStartPos = coords;
+			} else {
+				// Clicking outside - start drawing new rect
+				isDrawingCrop = true;
+				cropStart = coords;
+				cropEnd = coords;
+			}
+		} else if (currentRect && isCropFixed && isPanning) {
+			// In panning mode with fixed size, any click starts recording movement
+			isDraggingCrop = true;
+			dragStartPos = coords;
+		} else {
+			// No existing rect - start drawing
+			isDrawingCrop = true;
+			cropStart = coords;
+			cropEnd = coords;
+		}
+	};
+
+	cropCanvas.onpointermove = (e) => {
+		const coords = getScaledCoordinates(e);
+
+		// Update cursor based on position
+		if (!isDrawingCrop && !isDraggingCrop && !isResizingCrop) {
+			const currentRect = isCropping ? cropRect :
+				(panKeyframes.length > 0 ? panKeyframes[panKeyframes.length - 1].rect : null);
+
+			if (currentRect && !isCropFixed) {
+				const handle = getResizeHandle(coords.x, coords.y, currentRect);
+				if (handle) {
+					cropCanvas.style.cursor = getCursorForHandle(handle);
+				} else if (isInsideCropRect(coords.x, coords.y, currentRect)) {
+					cropCanvas.style.cursor = 'move';
+				} else {
+					cropCanvas.style.cursor = 'crosshair';
+				}
+			} else if (isPanning && panRectSize && isCropFixed) {
+				// Live panning with fixed size
 				let currentRect = {
 					x: coords.x - panRectSize.width / 2,
 					y: coords.y - panRectSize.height / 2,
 					...panRectSize
 				};
-
-				// CLAMP the rectangle before recording
 				currentRect = clampRectToVideoBounds(currentRect);
-
-				// Record a new keyframe with clamped coordinates
 				panKeyframes.push({ timestamp: getPlaybackTime(), rect: currentRect });
-
-				// Redraw the overlay to show the moving rect
-				drawShadedOverlay(currentRect);
+				drawCropWithHandles(currentRect);
+				return;
 			}
+		}
+
+		// Handle drawing new rect
+		if (isDrawingCrop) {
+			e.preventDefault();
+			cropEnd = coords;
+
+			const rect = {
+				x: Math.min(cropStart.x, cropEnd.x),
+				y: Math.min(cropStart.y, cropEnd.y),
+				width: Math.abs(cropStart.x - cropEnd.x),
+				height: Math.abs(cropStart.y - cropEnd.y)
+			};
+			drawCropWithHandles(rect);
 			return;
 		}
 
-		e.preventDefault();
-		cropEnd = getScaledCoordinates(e);
+		// Handle resizing
+		if (isResizingCrop && originalCropRect) {
+			e.preventDefault();
+			const deltaX = coords.x - dragStartPos.x;
+			const deltaY = coords.y - dragStartPos.y;
 
-		const rect = {
-			x: Math.min(cropStart.x, cropEnd.x),
-			y: Math.min(cropStart.y, cropEnd.y),
-			width: Math.abs(cropStart.x - cropEnd.x),
-			height: Math.abs(cropStart.y - cropEnd.y)
-		};
-		drawShadedOverlay(rect);
+			const newRect = applyResize(resizeHandle, deltaX, deltaY, originalCropRect);
+
+			if (isCropping) {
+				cropRect = newRect;
+			} else if (isPanning && panKeyframes.length > 0) {
+				panKeyframes[panKeyframes.length - 1].rect = newRect;
+				panRectSize = { width: newRect.width, height: newRect.height };
+			}
+
+			drawCropWithHandles(newRect);
+			return;
+		}
+
+		// Handle dragging/moving
+		if (isDraggingCrop && originalCropRect) {
+			e.preventDefault();
+			const deltaX = coords.x - dragStartPos.x;
+			const deltaY = coords.y - dragStartPos.y;
+
+			let newRect = {
+				x: originalCropRect.x + deltaX,
+				y: originalCropRect.y + deltaY,
+				width: originalCropRect.width,
+				height: originalCropRect.height
+			};
+
+			newRect = clampRectToVideoBounds(newRect);
+
+			if (isCropping) {
+				cropRect = newRect;
+			} else if (isPanning) {
+				if (isCropFixed) {
+					// Record keyframe while dragging in fixed mode
+					panKeyframes.push({ timestamp: getPlaybackTime(), rect: newRect });
+				} else if (panKeyframes.length > 0) {
+					panKeyframes[panKeyframes.length - 1].rect = newRect;
+				}
+			}
+
+			drawCropWithHandles(newRect);
+			return;
+		}
 	};
 
 	cropCanvas.onpointerup = (e) => {
-		if (!isDrawingCrop) return;
+		if (!isDrawingCrop && !isDraggingCrop && !isResizingCrop) return;
 		e.preventDefault();
 		cropCanvas.releasePointerCapture(e.pointerId);
-		isDrawingCrop = false;
 
-		const finalRect = {
-			x: Math.min(cropStart.x, cropEnd.x),
-			y: Math.min(cropStart.y, cropEnd.y),
-			width: Math.abs(cropStart.x - cropEnd.x),
-			height: Math.abs(cropStart.y - cropEnd.y)
-		};
-
-		if (finalRect.width < 10 || finalRect.height < 10) {
-			cropRect = null;
-			panRectSize = null;
-			cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
-			return;
-		}
-
-		if (isPanning) {
-			// ENSURE EVEN DIMENSIONS when setting panRectSize
-			const evenWidth = Math.round(finalRect.width / 2) * 2;
-			const evenHeight = Math.round(finalRect.height / 2) * 2;
-
-			panRectSize = { width: evenWidth, height: evenHeight };
-
-			// Adjust the first keyframe to use even dimensions
-			const adjustedRect = {
-				x: finalRect.x,
-				y: finalRect.y,
-				width: evenWidth,
-				height: evenHeight
+		// Finalize drawing new rect
+		if (isDrawingCrop) {
+			const finalRect = {
+				x: Math.min(cropStart.x, cropEnd.x),
+				y: Math.min(cropStart.y, cropEnd.y),
+				width: Math.abs(cropStart.x - cropEnd.x),
+				height: Math.abs(cropStart.y - cropEnd.y)
 			};
 
-			panKeyframes.push({ timestamp: getPlaybackTime(), rect: adjustedRect });
-
-			if (!playing) play();
-		} else if (isCropping) {
-			cropRect = finalRect;
+			if (finalRect.width < 10 || finalRect.height < 10) {
+				cropRect = null;
+				panRectSize = null;
+				cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+			} else {
+				if (isPanning) {
+					panRectSize = { width: finalRect.width, height: finalRect.height };
+					panKeyframes.push({ timestamp: getPlaybackTime(), rect: finalRect });
+				} else if (isCropping) {
+					cropRect = finalRect;
+				}
+				drawCropWithHandles(finalRect);
+			}
 		}
+
+		isDrawingCrop = false;
+		isDraggingCrop = false;
+		isResizingCrop = false;
+		resizeHandle = null;
+		originalCropRect = null;
+		cropCanvas.style.cursor = 'crosshair';
+
+		updateFixSizeButton();
 	};
+
 	// We need to modify the drawing function to accept a rectangle
 	const drawShadedOverlay = (rect) => {
 		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
@@ -2093,13 +2479,39 @@ document.addEventListener('DOMContentLoaded', () => {
 			.catch(err => console.log('ServiceWorker registration failed:', err));
 	}
 
-let resizeTimeout;
-window.addEventListener('resize', () => {
-	clearTimeout(resizeTimeout);
-	resizeTimeout = setTimeout(() => {
-		if ((isCropping || isPanning) && !cropCanvas.classList.contains('hidden')) {
-			cropCanvasDimensions = positionCropCanvas();
+	let resizeTimeout;
+	window.addEventListener('resize', () => {
+		clearTimeout(resizeTimeout);
+		resizeTimeout = setTimeout(() => {
+			if ((isCropping || isPanning) && !cropCanvas.classList.contains('hidden')) {
+				cropCanvasDimensions = positionCropCanvas();
+				// Redraw current crop
+				const currentRect = isCropping ? cropRect :
+					(panKeyframes.length > 0 ? panKeyframes[panKeyframes.length - 1].rect : null);
+				if (currentRect) {
+					drawCropWithHandles(currentRect);
+				}
+			}
+		}, 100);
+	});
+
+	// Fix Size button handler
+	const fixSizeBtn = document.getElementById('fixSizeBtn');
+	if (fixSizeBtn) {
+		fixSizeBtn.onclick = (e) => {
+			e.stopPropagation();
+			toggleCropFixed();
+		};
+	}
+
+	// Update the 'R' key handler for panning mode
+	document.addEventListener('keydown', (e) => {
+		if (isPanning && panRectSize && e.key.toLowerCase() === 'r' && !isCropFixed) {
+			e.preventDefault();
+			toggleCropFixed();
+			if (isCropFixed && !playing) {
+				play(); // Auto-start playback when fixing size in pan mode
+			}
 		}
-	}, 100); // Debounce resize events
-});
+	});
 });
