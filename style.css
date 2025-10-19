@@ -942,3 +942,11 @@ body::after {
 .hidden {
 	display: none;
 }
+.trim-option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 8px;
+    gap: 6px;
+    font-size: 0.9em;
+}

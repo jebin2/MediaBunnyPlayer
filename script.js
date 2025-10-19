@@ -100,6 +100,7 @@ const panScanBtn = $('panScanBtn');
 let isPanning = false; // Are we in "Dynamic Crop" recording mode?
 let panKeyframes = []; // Stores the recorded path: [{ timestamp, rect }, ...]
 let panRectSize = null; // Stores the locked size of the panning rectangle
+let useMaxSize = false;
 
 // === PERFORMANCE OPTIMIZATION: Cache DOM elements for playlist ===
 let playlistElementCache = new Map(); // Maps path -> DOM element
@@ -584,9 +585,27 @@ const handleCutAction = async () => {
 		if (panKeyframes.length > 1 && panRectSize) {
 			cropFuncToReset = togglePanning;
 
-			// ENSURE EVEN DIMENSIONS for H.264 codec
-			const evenWidth = Math.round(panRectSize.width / 2) * 2;
-			const evenHeight = Math.round(panRectSize.height / 2) * 2;
+			// =================== START OF NEW LOGIC ===================
+
+			// 1. Determine the final output dimensions for the video.
+			let outputWidth, outputHeight;
+
+			if (useMaxSize && panKeyframes.length > 0) {
+				// If the option is checked, find the max width and height from all recorded frames.
+				const maxWidth = Math.max(...panKeyframes.map(kf => kf.rect.width));
+				const maxHeight = Math.max(...panKeyframes.map(kf => kf.rect.height));
+
+				// Use these max values and ensure they are even for codec compatibility.
+				outputWidth = Math.round(maxWidth / 2) * 2;
+				outputHeight = Math.round(maxHeight / 2) * 2;
+			} else {
+				// Otherwise, use the default behavior (the size of the last-drawn rectangle).
+				outputWidth = Math.round(panRectSize.width / 2) * 2;
+				outputHeight = Math.round(panRectSize.height / 2) * 2;
+			}
+
+			// =================== END OF NEW LOGIC =====================
+
 
 			// Get the source video track to read its properties
 			const videoTrack = await input.getPrimaryVideoTrack();
@@ -597,68 +616,64 @@ const handleCutAction = async () => {
 
 			// DYNAMIC PAN/CROP LOGIC
 			conversionOptions.video = {
-				// Explicitly specify the source track
 				track: videoTrack,
-
-				// Codec configuration
 				codec: 'avc',
 				bitrate: QUALITY_HIGH,
 
-				// CRITICAL: Specify the output dimensions
-				processedWidth: evenWidth,
-				processedHeight: evenHeight,
+				// CRITICAL: Use the calculated output dimensions
+				processedWidth: outputWidth,
+				processedHeight: outputHeight,
 
-				// Force transcoding
 				forceTranscode: true,
 
+				// =================== START OF MODIFIED PROCESS FUNCTION ===================
 				process: (sample) => {
 					const cropRect = getInterpolatedCropRect(sample.timestamp);
 					if (!cropRect) return sample;
 
-					// Double-check bounds before processing
 					const safeCropRect = clampRectToVideoBounds(cropRect);
-
-					// Validate the crop rectangle
 					if (safeCropRect.width <= 0 || safeCropRect.height <= 0) {
-						console.warn('Invalid crop dimensions, returning original frame');
 						return sample;
 					}
 
 					if (!processCanvas) {
-						// Use EVEN dimensions
-						processCanvas = new OffscreenCanvas(evenWidth, evenHeight);
+						// This canvas is now created with the final output dimensions.
+						processCanvas = new OffscreenCanvas(outputWidth, outputHeight);
 						processCtx = processCanvas.getContext('2d', { alpha: false });
 					}
 
-					processCtx.clearRect(0, 0, processCanvas.width, processCanvas.height);
+					// 2. Fill the entire canvas with black. This creates the background padding.
+					processCtx.fillStyle = 'black';
+					processCtx.fillRect(0, 0, processCanvas.width, processCanvas.height);
 
-					// Access the actual VideoFrame from MediaBunny's wrapper
 					const videoFrame = sample._data || sample;
 
-					// Use the clamped rectangle for drawing
+					// 3. Calculate where to place the (potentially smaller) cropped image to center it.
+					const destX = (outputWidth - safeCropRect.width) / 2;
+					const destY = (outputHeight - safeCropRect.height) / 2;
+
+					// 4. Draw the cropped portion of the source video onto the center of our black canvas.
 					processCtx.drawImage(
 						videoFrame,
-						Math.round(safeCropRect.x),
-						Math.round(safeCropRect.y),
-						Math.round(safeCropRect.width),
-						Math.round(safeCropRect.height),
-						0,
-						0,
-						processCanvas.width,
-						processCanvas.height
+						Math.round(safeCropRect.x),      // Source X from video
+						Math.round(safeCropRect.y),      // Source Y from video
+						Math.round(safeCropRect.width),  // Source Width
+						Math.round(safeCropRect.height), // Source Height
+						destX,                           // Destination X on black canvas
+						destY,                           // Destination Y on black canvas
+						safeCropRect.width,              // Destination Width on black canvas
+						safeCropRect.height              // Destination Height on black canvas
 					);
 
 					return processCanvas;
 				}
+				// =================== END OF MODIFIED PROCESS FUNCTION =====================
 			};
 		} else if (cropRect && cropRect.width > 0) {
+			// (The static crop logic remains unchanged)
 			cropFuncToReset = toggleStaticCrop;
-
-			// ENSURE EVEN DIMENSIONS for static crop
 			const evenWidth = Math.round(cropRect.width / 2) * 2;
 			const evenHeight = Math.round(cropRect.height / 2) * 2;
-
-			// STATIC CROP LOGIC
 			conversionOptions.video = {
 				crop: {
 					left: Math.round(cropRect.x),
@@ -668,7 +683,6 @@ const handleCutAction = async () => {
 				}
 			};
 		}
-		// If neither crop is set, conversionOptions remains as is.
 
 		const conversion = await Conversion.init(conversionOptions);
 
@@ -689,7 +703,7 @@ const handleCutAction = async () => {
 
 		playlist.push({ type: 'file', name: clipName, file: cutClipFile, isCutClip: true });
 		updatePlaylistUIOptimized();
-		cropFuncToReset(null, true);
+		if (cropFuncToReset) cropFuncToReset(null, true); // Use if to avoid errors
 		showStatusMessage('Clip added to playlist!');
 		setTimeout(hideStatusMessage, 2000);
 
@@ -2442,6 +2456,12 @@ const setupEventListeners = () => {
 			showInfo("Panning path recorded. The crop will now remain fixed. You can now use 'Cut Clip'.");
 		}
 	});
+	const useMaxSizeToggle = $('useMaxSizeToggle');
+	if (useMaxSizeToggle) {
+		useMaxSizeToggle.onchange = (e) => {
+			useMaxSize = e.target.checked;
+		};
+	}
 };
 
 document.addEventListener('DOMContentLoaded', () => {
