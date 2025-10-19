@@ -104,6 +104,7 @@ let panRectSize = null; // Stores the locked size of the panning rectangle
 let scaleWithRatio = false;
 // let useSpotlightEffect = false;
 let useBlurBackground = false;
+let smoothPath = false;
 let dynamicCropMode = 'none'; // Can be 'none', 'spotlight', or 'max-size'
 let isShiftPressed = false;
 
@@ -573,6 +574,15 @@ const handleCutAction = async () => {
 
 		if (panKeyframes.length > 1 && panRectSize) {
 			cropFuncToReset = togglePanning;
+
+			// =================== START OF NEW SMOOTHING LOGIC ===================
+			// If the smooth path option is checked, preprocess the keyframes.
+			if (smoothPath) {
+				showStatusMessage('Smoothing path...'); // Optional feedback for the user
+				// Replace the jerky keyframes with the new, smoothed version.
+				panKeyframes = smoothPathWithMovingAverage(panKeyframes, 15);
+			}
+			// =================== END OF NEW SMOOTHING LOGIC =====================
 			const videoTrack = await input.getPrimaryVideoTrack();
 			if (!videoTrack) throw new Error("No video track found for dynamic cropping.");
 
@@ -1835,6 +1845,54 @@ const toggleCropFixed = () => {
 	}
 };
 
+/**
+ * Smooths a path of keyframes using a Simple Moving Average.
+ * @param {Array} keyframes The original panKeyframes.
+ * @param {number} windowSize The number of frames to average (must be an odd number).
+ * @returns {Array} A new array of smoothed keyframes.
+ */
+const smoothPathWithMovingAverage = (keyframes, windowSize = 15) => {
+    if (keyframes.length < windowSize) {
+        return keyframes; // Not enough data to smooth
+    }
+
+    const smoothedKeyframes = [];
+    const halfWindow = Math.floor(windowSize / 2);
+
+    for (let i = 0; i < keyframes.length; i++) {
+        // Define the bounds for the moving window, clamping at the edges
+        const start = Math.max(0, i - halfWindow);
+        const end = Math.min(keyframes.length - 1, i + halfWindow);
+        
+        let sumX = 0, sumY = 0, sumWidth = 0, sumHeight = 0;
+        
+        // Sum the properties of the keyframes within the window
+        for (let j = start; j <= end; j++) {
+            sumX += keyframes[j].rect.x;
+            sumY += keyframes[j].rect.y;
+            sumWidth += keyframes[j].rect.width;
+            sumHeight += keyframes[j].rect.height;
+        }
+
+        const count = (end - start) + 1;
+        
+        // Create the new smoothed keyframe
+        const newKeyframe = {
+            timestamp: keyframes[i].timestamp, // Keep original timestamp
+            rect: {
+                x: sumX / count,
+                y: sumY / count,
+                width: sumWidth / count,
+                height: sumHeight / count,
+            }
+        };
+
+        smoothedKeyframes.push(newKeyframe);
+    }
+
+    return smoothedKeyframes;
+};
+
 const setupEventListeners = () => {
 	$('addFileBtn').onclick = () => $('fileInput').click();
 	$('addFolderBtn').onclick = () => $('folderInput').click();
@@ -2464,15 +2522,23 @@ const setupEventListeners = () => {
 	const scaleOptionContainer = $('scaleOptionContainer');
 	const scaleWithRatioToggle = $('scaleWithRatioToggle');
 	const blurOptionContainer = $('blurOptionContainer');
+	const smoothOptionContainer = $('smoothOptionContainer');
+	const smoothPathToggle = $('smoothPathToggle'); 
 	const blurBackgroundToggle = $('blurBackgroundToggle');
 
 	// Helper function to update the visibility of sub-options based on the selected mode
 	const updateDynamicCropOptionsUI = () => {
-		// Show Scale to Fit only when Max Size is the active mode
 		scaleOptionContainer.style.display = (dynamicCropMode === 'max-size') ? 'flex' : 'none';
-		// Show Blur Background when either Spotlight or Max Size is active
 		blurOptionContainer.style.display = (dynamicCropMode === 'spotlight' || dynamicCropMode === 'max-size') ? 'flex' : 'none';
+		// Show the smooth option for ANY dynamic mode
+		smoothOptionContainer.style.display = (dynamicCropMode !== 'none') ? 'flex' : 'none';
 	};
+
+	if (smoothPathToggle) {
+		smoothPathToggle.onchange = (e) => {
+			smoothPath = e.target.checked;
+		};
+	}
 
 	// Listen for changes on any of the radio buttons
 	cropModeRadios.forEach(radio => {
@@ -2484,6 +2550,10 @@ const setupEventListeners = () => {
 			if (scaleWithRatioToggle) {
 				scaleWithRatioToggle.checked = false;
 				scaleWithRatio = false;
+			}
+			if (smoothPathToggle) {
+				smoothPathToggle.checked = false;
+				smoothPath = false;
 			}
 			if (blurBackgroundToggle) {
 				blurBackgroundToggle.checked = false;
