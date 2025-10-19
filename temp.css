@@ -1,0 +1,1251 @@
+/* ---
+ NeoGrid 1984.css (Refactored & Expanded)
+ A retro-pixelwave theme for Media Player — glowing 80s grid vibes.
+ --- */
+
+/* --- 1. Foundational Setup & Color Palette --- */
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+* {
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+:root {
+	/* Retro Neon Palette */
+	--bg-dark: #0a0014;
+	--bg-mid: #1b0b2e;
+	--bg-light: #241a3a;
+	--text-primary: #e0d8ff;
+	--text-secondary: #8a7fcf;
+	--accent-neon: #00ffff;
+	--error-neon: #ff007f;
+	/* Magenta for errors */
+
+	/* Borders, Shadows & Effects */
+	--border-color: rgba(160, 140, 255, 0.25);
+	--soft-shadow: 0 0 20px rgba(0, 255, 255, 0.25);
+	--glow-effect: 0 0 12px rgba(0, 255, 255, 0.6);
+	--error-glow: 0 0 12px rgba(255, 0, 127, 0.7);
+	--border-radius: 6px;
+	--transition-speed: 0.25s;
+}
+
+body {
+	font-family: 'Press Start 2P', monospace;
+	background-color: var(--bg-dark);
+	background-image:
+		radial-gradient(circle at 50% 30%, #1a0936 0%, var(--bg-dark) 80%),
+		repeating-linear-gradient(to bottom, rgba(0, 255, 255, 0.05) 0, rgba(0, 255, 255, 0.05) 1px, transparent 2px, transparent 20px);
+	background-size: cover;
+	color: var(--text-primary);
+	text-shadow: 0 0 3px rgba(0, 255, 255, 0.6);
+	overflow: hidden;
+	height: 100vh;
+}
+
+/* --- App Container --- */
+.app-container {
+	display: flex;
+	flex-direction: column;
+	height: 100vh;
+}
+
+/* --- 2. Header & New Split Action Button --- */
+.header {
+	background: var(--bg-mid);
+	border-bottom: 1px solid var(--border-color);
+	box-shadow: inset 0 -2px 0 rgba(0, 255, 255, 0.4);
+	padding: 0.8rem 1.5rem;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 1rem;
+}
+
+.logo {
+	display: flex;
+	align-items: center;
+}
+
+.logo strong {
+	color: var(--accent-neon);
+	text-shadow: 0 0 8px var(--accent-neon);
+}
+
+.controls-header {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	flex-wrap: wrap;
+}
+
+/* NEW: Wrapper for positioning the action dropdown */
+.split-action-btn-wrapper {
+	position: relative;
+}
+
+/* NEW: Main action button in the split group */
+#mainActionBtn {
+	border-top-right-radius: 0;
+	border-bottom-right-radius: 0;
+	border-right: none;
+}
+
+/* NEW: Dropdown arrow in the split group */
+.btn-dropdown {
+	border-top-left-radius: 0;
+	border-bottom-left-radius: 0;
+	padding-left: 0.5rem;
+	padding-right: 0.5rem;
+}
+
+/* NEW: The dropdown menu for actions */
+.action-dropdown-menu {
+	position: absolute;
+	top: 100%;
+	left: 0;
+	margin-top: 5px;
+	background-color: var(--bg-mid);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius);
+	z-index: 1001;
+	min-width: 160px;
+	padding: 5px;
+	box-shadow: var(--soft-shadow);
+}
+
+/* NEW: Buttons inside the dropdown */
+.action-dropdown-menu .btn {
+	display: block;
+	width: 100%;
+	text-align: left;
+	border: none;
+	background: none;
+	box-shadow: none;
+}
+
+.action-dropdown-menu .btn:hover {
+	background: var(--accent-neon);
+	color: var(--bg-dark);
+	text-shadow: none;
+	transform: none;
+}
+
+/* --- 3. Buttons (Unified) --- */
+.btn {
+	background: rgba(255, 255, 255, 0.05);
+	border: 1px solid var(--border-color);
+	color: var(--text-primary);
+	padding: 0.6rem 1.2rem;
+	border-radius: var(--border-radius);
+	cursor: pointer;
+	font-size: 0.7rem;
+	font-family: 'Press Start 2P', monospace;
+	transition: all var(--transition-speed);
+	box-shadow: 0 0 4px rgba(0, 255, 255, 0.2);
+	text-shadow: inherit;
+}
+
+.btn:hover,
+.hover_highlight {
+	background: var(--accent-neon);
+	color: var(--bg-dark);
+	text-shadow: none;
+	box-shadow: var(--glow-effect);
+	transform: translateY(-2px);
+}
+
+/* --- 4. Settings Menu & Form Elements (THEMED) --- */
+
+/* The main popup menu for settings */
+#settingsMenu {
+	min-width: 300px;
+}
+
+/* NEW: Styling for the fieldset/legend */
+.trim-mode-selector {
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius);
+	padding: 8px 12px;
+	margin: 1rem 0;
+	display: flex;
+	justify-content: space-around;
+	gap: 1rem;
+}
+
+.trim-mode-selector legend {
+	padding: 0 5px;
+	font-size: 0.6rem;
+	color: var(--text-secondary);
+	text-shadow: none;
+}
+
+/* NEW: Container for each custom checkbox/radio */
+.trim-option {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-top: 0.75rem;
+	gap: 6px;
+	font-size: 0.6rem;
+}
+
+/* NEW: Base style to hide default radio/checkbox */
+.trim-option input[type="radio"],
+.trim-option input[type="checkbox"] {
+	opacity: 0;
+	position: absolute;
+	width: 0;
+	height: 0;
+}
+
+/* NEW: Custom style for the label (the clickable part) */
+.trim-option label {
+	cursor: pointer;
+	position: relative;
+	padding-left: 25px;
+	/* Make space for custom box */
+	color: var(--text-primary);
+	transition: color var(--transition-speed);
+}
+
+/* NEW: Create the custom box/circle */
+.trim-option label::before {
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 14px;
+	height: 14px;
+	border: 1px solid var(--border-color);
+	background: rgba(255, 255, 255, 0.05);
+	transition: all var(--transition-speed);
+}
+
+/* NEW: Style for radio buttons (circles) */
+.trim-option input[type="radio"]+label::before {
+	border-radius: 50%;
+}
+
+/* NEW: Style for checkboxes (squares) */
+.trim-option input[type="checkbox"]+label::before {
+	border-radius: 3px;
+}
+
+/* NEW: Hover state for the label */
+.trim-option label:hover::before {
+	border-color: var(--accent-neon);
+}
+
+/* NEW: Checked state for the box/circle */
+.trim-option input:checked+label::before {
+	background: var(--accent-neon);
+	border-color: var(--accent-neon);
+	box-shadow: var(--glow-effect);
+}
+
+/* NEW: Add the inner checkmark/dot for the checked state */
+.trim-option input:checked+label::after {
+	content: '';
+	position: absolute;
+	left: 5px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 6px;
+	height: 6px;
+	background: var(--bg-dark);
+}
+
+.trim-option input[type="radio"]:checked+label::after {
+	border-radius: 50%;
+}
+
+.trim-option input[type="checkbox"]:checked+label::after {
+	border-radius: 1px;
+}
+
+/* THEMED: Blur amount input */
+#blurAmountInput {
+	width: 60px;
+	background: var(--bg-dark);
+	border: 1px solid var(--border-color);
+	color: var(--accent-neon);
+	text-align: center;
+	padding: 0.3rem 0.5rem;
+	font-family: 'Press Start 2P', monospace;
+	font-size: 0.6rem;
+	border-radius: var(--border-radius);
+}
+
+#blurAmountInput:focus {
+	outline: none;
+	border-color: var(--accent-neon);
+	box-shadow: var(--glow-effect);
+}
+
+/* --- 5. Shortcut Keys Panel (THEMED) --- */
+.shortcut-keys-panel {
+	position: absolute;
+	top: 0;
+	width: 420px;
+	z-index: 50;
+	background-color: rgba(10, 0, 20, 0.7);
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
+	border: 1px solid var(--border-color);
+	border-radius: 8px;
+	box-shadow: var(--soft-shadow);
+	opacity: 1;
+	transition: opacity 0.3s ease, transform 0.3s ease;
+	font-family: 'Press Start 2P', monospace;
+	font-size: 0.6rem;
+}
+
+.shortcut-keys-panel.hidden {
+	opacity: 0;
+	pointer-events: none;
+	transform: translateX(-50%) translateY(-20px);
+}
+
+.shortcut-title {
+	padding: 8px 15px;
+	text-align: center;
+	color: var(--accent-neon);
+	border-bottom: 1px solid var(--border-color);
+	text-shadow: var(--glow-effect);
+}
+
+.shortcut-list {
+	list-style: none;
+	padding: 10px 15px;
+	margin: 0;
+}
+
+.shortcut-list li {
+	display: flex;
+	align-items: center;
+	padding: 5px 0;
+	gap: 0.5rem;
+}
+
+.shortcut-list kbd {
+	background-color: var(--bg-light);
+	border: 1px solid var(--border-color);
+	border-radius: 4px;
+	padding: 3px 7px;
+	color: var(--accent-neon);
+	text-shadow: var(--glow-effect);
+}
+
+.shortcut-list span {
+	color: var(--text-primary);
+	text-shadow: none;
+}
+
+/* --- 6. Info & Error Messages (THEMED) --- */
+.error-message,
+.info-message {
+	position: fixed;
+	top: 20px;
+	right: 20px;
+	padding: 1rem;
+	border-radius: var(--border-radius);
+	z-index: 10000;
+	font-size: 0.7rem;
+	opacity: 0;
+	transform: translateX(20px);
+	animation: slideInFade 4s ease-out forwards;
+}
+
+.error-message {
+	background: rgba(40, 0, 20, 0.9);
+	border: 1px solid var(--error-neon);
+	color: var(--error-neon);
+	text-shadow: 0 0 8px var(--error-neon);
+	box-shadow: 0 0 12px var(--error-neon);
+}
+
+.info-message {
+	background: rgba(10, 0, 20, 0.9);
+	border: 1px solid var(--accent-neon);
+	color: var(--accent-neon);
+	text-shadow: var(--glow-effect);
+	box-shadow: var(--soft-shadow);
+}
+
+@keyframes slideInFade {
+	0% {
+		opacity: 0;
+		transform: translateX(20px);
+	}
+
+	10% {
+		opacity: 1;
+		transform: translateX(0);
+	}
+
+	90% {
+		opacity: 1;
+		transform: translateX(0);
+	}
+
+	100% {
+		opacity: 0;
+		transform: translateX(20px);
+	}
+}
+
+
+/* --- (All other existing styles from your file remain below this line) --- */
+/* For brevity, I'll omit the unchanged styles you already have. Just prepend this new/refactored block to your existing CSS file and remove any duplicates. */
+
+/* --- FROM YOUR FILE (mostly unchanged, just for completeness) --- */
+.split-btn-group {
+	display: flex;
+}
+
+.split-btn-group .btn:first-child {
+	border-top-right-radius: 0;
+	border-bottom-right-radius: 0;
+	border-right: none;
+}
+
+.split-btn-group .btn:last-child {
+	border-top-left-radius: 0;
+	border-bottom-left-radius: 0;
+}
+
+.autoplay-control {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.autoplay-label {
+	font-size: 0.7rem;
+	color: var(--text-primary);
+}
+
+.switch {
+	position: relative;
+	display: inline-block;
+	width: 40px;
+	height: 20px;
+}
+
+.switch input {
+	opacity: 0;
+	width: 0;
+	height: 0;
+}
+
+.slider {
+	position: absolute;
+	cursor: pointer;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background-color: rgba(255, 255, 255, 0.1);
+	border: 1px solid var(--border-color);
+	transition: var(--transition-speed);
+}
+
+.slider:before {
+	position: absolute;
+	content: "";
+	height: 14px;
+	width: 14px;
+	left: 2px;
+	bottom: 2px;
+	background-color: #fff;
+	transition: var(--transition-speed);
+}
+
+input:checked+.slider {
+	background-color: var(--accent-neon);
+	border-color: var(--accent-neon);
+	box-shadow: var(--glow-effect);
+}
+
+input:checked+.slider:before {
+	transform: translateX(20px);
+}
+
+.slider.round {
+	border-radius: 20px;
+}
+
+.slider.round:before {
+	border-radius: 50%;
+}
+
+.player-area {
+	display: flex;
+	flex: 1;
+	position: relative;
+	background: var(--bg-dark);
+	overflow: hidden;
+}
+
+.drop-zone {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border: 2px dashed var(--accent-neon);
+	margin: 2rem;
+	border-radius: var(--border-radius);
+	background: rgba(0, 255, 255, 0.02);
+	transition: all var(--transition-speed);
+}
+
+.drop-zone.dragover {
+	background: rgba(0, 255, 255, 0.1);
+	box-shadow: var(--glow-effect);
+}
+
+.drop-zone-content {
+	text-align: center;
+	padding: 2rem;
+}
+
+.drop-zone-content h2 {
+	color: var(--accent-neon);
+	font-size: 1rem;
+	margin-bottom: 1rem;
+}
+
+.video-container {
+	position: relative;
+	flex: 1;
+	background: #000;
+	display: none;
+}
+
+.video-container.active {
+	display: flex;
+}
+
+.video-canvas {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+}
+
+.url-play-overlay {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.7);
+	color: var(--accent-neon);
+	cursor: pointer;
+	z-index: 10;
+}
+
+.url-play-overlay.hidden {
+	display: none;
+}
+
+.play-button-overlay {
+	font-size: 4rem;
+	color: var(--accent-neon);
+	text-shadow: var(--glow-effect);
+	margin-bottom: 1rem;
+}
+
+.video-controls {
+	position: absolute;
+	bottom: 20px;
+	left: 20px;
+	right: 20px;
+	background: rgba(10, 0, 20, 0.9);
+	backdrop-filter: blur(6px);
+	border: 1px solid rgba(0, 255, 255, 0.2);
+	border-radius: 10px;
+	padding: 0.5rem 0.8rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.75rem;
+	opacity: 0;
+	transform: translateY(10px);
+	transition: opacity var(--transition-speed), transform var(--transition-speed);
+	z-index: 100;
+}
+
+.video-controls.show {
+	opacity: 1;
+	transform: translateY(0);
+}
+
+.progress-container {
+	width: 100%;
+	height: 6px;
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 10px;
+	cursor: pointer;
+	position: relative;
+}
+
+.progress-bar {
+	height: 100%;
+	background: var(--accent-neon);
+	width: 0%;
+	box-shadow: var(--glow-effect);
+	border-radius: 10px;
+	transition: width 0.1s;
+}
+
+.progress-handle {
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	background: var(--accent-neon);
+	box-shadow: var(--glow-effect);
+	position: absolute;
+	top: 50%;
+	left: 0;
+	transform: translate(-50%, -50%) scale(0);
+	transition: transform var(--transition-speed);
+	pointer-events: none;
+}
+
+.progress-container:hover .progress-handle {
+	transform: translate(-50%, -50%) scale(1);
+}
+
+#seekPreview {
+	position: absolute;
+	bottom: 100%;
+	margin-bottom: 10px;
+	background: rgba(10, 0, 20, 0.95);
+	border: 1px solid var(--accent-neon);
+	border-radius: var(--border-radius);
+	padding: 0.5rem;
+	pointer-events: none;
+	transform: translateX(-50%);
+	box-shadow: var(--glow-effect);
+}
+
+#seekPreview.hidden {
+	display: none;
+}
+
+#seekPreviewCanvas {
+	display: block;
+	border-radius: 4px;
+	margin-bottom: 0.25rem;
+}
+
+#seekPreviewTime {
+	display: block;
+	text-align: center;
+	font-size: 0.6rem;
+	color: var(--accent-neon);
+}
+
+.controls-bottom {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+}
+
+.controls-left,
+.controls-right {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+
+.play-btn {
+	background: none;
+	border: none;
+	color: var(--accent-neon);
+	font-size: 1.5rem;
+	cursor: pointer;
+	text-shadow: 0 0 8px var(--accent-neon);
+	padding: 0;
+	transition: all var(--transition-speed);
+}
+
+.play-btn:hover {
+	color: #fff;
+	text-shadow: 0 0 12px var(--accent-neon);
+	transform: scale(1.1);
+}
+
+.time-display {
+	font-size: 0.6rem;
+	color: var(--text-secondary);
+}
+
+.playback-speed-container {
+	display: flex;
+	align-items: center;
+}
+
+.speed-input {
+	width: 60px;
+	background: rgba(255, 255, 255, 0.05);
+	border: 1px solid var(--border-color);
+	color: var(--text-primary);
+	padding: 0.3rem 0.5rem;
+	border-radius: var(--border-radius);
+	font-size: 0.6rem;
+	font-family: 'Press Start 2P', monospace;
+	text-align: center;
+}
+
+.speed-input:focus {
+	outline: none;
+	border-color: var(--accent-neon);
+	box-shadow: var(--glow-effect);
+}
+
+.track-controls {
+	display: flex;
+	gap: 0.5rem;
+	position: relative;
+}
+
+.track-btn {
+	padding: 0.4rem 0.8rem;
+	font-size: 0.65rem;
+}
+
+.track-menu {
+	position: absolute;
+	bottom: 100%;
+	right: 0;
+	margin-bottom: 10px;
+	background: rgba(10, 0, 20, 0.95);
+	border: 1px solid var(--accent-neon);
+	border-radius: var(--border-radius);
+	min-width: 200px;
+	overflow-y: auto;
+	box-shadow: var(--glow-effect);
+	z-index: 200;
+}
+
+.track-menu.hidden {
+	display: none;
+}
+
+.track-menu-content {
+	padding: 1rem;
+}
+
+.track-menu-content h4 {
+	color: var(--accent-neon);
+	font-size: 0.7rem;
+	margin-bottom: 0.75rem;
+	text-shadow: 0 0 8px var(--accent-neon);
+}
+
+.track-menu ul {
+	list-style: none;
+}
+
+.track-item {
+	padding: 0.5rem;
+	margin-bottom: 0.25rem;
+	background: rgba(255, 255, 255, 0.05);
+	border: 1px solid var(--border-color);
+	border-radius: var(--border-radius);
+	cursor: pointer;
+	font-size: 0.6rem;
+	transition: all var(--transition-speed);
+}
+
+.track-item:hover {
+	background: var(--accent-neon);
+	color: var(--bg-dark);
+	box-shadow: var(--glow-effect);
+}
+
+.track-item.active {
+	background: rgba(0, 255, 255, 0.2);
+	border-color: var(--accent-neon);
+}
+
+.trim-menu-controls {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+	margin-bottom: 0.75rem;
+}
+
+.time-input {
+	flex: 1;
+	background: rgba(255, 255, 255, 0.05);
+	border: 1px solid var(--border-color);
+	color: var(--text-primary);
+	padding: 0.4rem;
+	border-radius: var(--border-radius);
+	font-size: 0.6rem;
+	font-family: 'Press Start 2P', monospace;
+	text-align: center;
+}
+
+.time-input:focus {
+	outline: none;
+	border-color: var(--accent-neon);
+	box-shadow: var(--glow-effect);
+}
+
+.trim-menu-actions {
+	display: flex;
+	gap: 0.5rem;
+	margin-bottom: 0.5rem;
+}
+
+.trim-menu-actions.screenshot {
+	margin-bottom: 0;
+}
+
+.trim-menu-actions .btn {
+	flex: 1;
+	font-size: 0.6rem;
+	padding: 0.5rem;
+}
+
+.volume-container {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.volume-slider {
+	width: 80px;
+	height: 4px;
+	-webkit-appearance: none;
+	appearance: none;
+	background: rgba(255, 255, 255, 0.1);
+	border-radius: 10px;
+	outline: none;
+	cursor: pointer;
+}
+
+.volume-slider::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	width: 12px;
+	height: 12px;
+	background: var(--accent-neon);
+	border-radius: 50%;
+	cursor: pointer;
+	box-shadow: var(--glow-effect);
+}
+
+.volume-slider::-moz-range-thumb {
+	width: 12px;
+	height: 12px;
+	background: var(--accent-neon);
+	border-radius: 50%;
+	cursor: pointer;
+	border: none;
+	box-shadow: var(--glow-effect);
+}
+
+.fullscreen-btn {
+	background: none;
+	border: none;
+	color: var(--accent-neon);
+	font-size: 1.2rem;
+	cursor: pointer;
+	padding: 0.2rem;
+	text-shadow: 0 0 8px var(--accent-neon);
+	transition: all var(--transition-speed);
+}
+
+.fullscreen-btn:hover {
+	color: #fff;
+	text-shadow: 0 0 12px var(--accent-neon);
+	transform: scale(1.1);
+}
+
+.sidebar {
+	width: 0;
+	background: var(--bg-mid);
+	border-left: 0 solid var(--border-color);
+	overflow-y: auto;
+	overflow-x: hidden;
+	transition: width var(--transition-speed);
+}
+
+.player-area.playlist-visible .sidebar {
+	width: 300px;
+	border-left: 1px solid var(--border-color);
+	padding: 1rem;
+}
+
+#playlistContent {
+	font-size: 0.75rem;
+	line-height: 1.6;
+}
+
+.playlist-folder {
+	margin-bottom: 0.5rem;
+}
+
+.playlist-folder>details {
+	margin-bottom: 0.25rem;
+}
+
+.playlist-folder>details>summary {
+	background: rgba(255, 255, 255, 0.08);
+	border: 1px solid var(--border-color);
+	color: var(--accent-neon);
+	padding: 0.6rem;
+	margin-bottom: 0.5rem;
+	border-radius: var(--border-radius);
+	cursor: pointer;
+	transition: all var(--transition-speed);
+	list-style: none;
+	font-weight: bold;
+	text-shadow: 0 0 4px rgba(0, 255, 255, 0.4);
+}
+
+.playlist-folder>details>summary::-webkit-details-marker {
+	display: none;
+}
+
+.playlist-folder>details>summary::before {
+	content: "▶ ";
+	display: inline-block;
+	margin-right: 0.5rem;
+	transition: transform var(--transition-speed);
+}
+
+.playlist-folder>details[open]>summary::before {
+	transform: rotate(90deg);
+}
+
+.playlist-folder>details>summary:hover {
+	background: rgba(0, 255, 255, 0.15);
+	border-color: var(--accent-neon);
+	box-shadow: var(--glow-effect);
+}
+
+.playlist-file {
+	background: rgba(255, 255, 255, 0.05);
+	border: 1px solid var(--border-color);
+	color: var(--text-primary);
+	padding: 0.6rem;
+	margin-bottom: 0.5rem;
+	margin-left: 1.5rem;
+	border-radius: var(--border-radius);
+	cursor: pointer;
+	transition: all var(--transition-speed);
+	word-break: break-word;
+	font-size: 0.7rem;
+	line-height: 1.5;
+	text-shadow: 0 0 2px rgba(224, 216, 255, 0.6);
+}
+
+.playlist-file:hover {
+	background: var(--accent-neon);
+	color: var(--bg-dark);
+	box-shadow: var(--glow-effect);
+	text-shadow: none;
+}
+
+.playlist-file.active {
+	background: rgba(0, 255, 255, 0.2);
+	border-color: var(--accent-neon);
+	box-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
+}
+
+.playlist-folder .playlist-folder {
+	margin-left: 1rem;
+}
+
+.playlist-folder .playlist-folder .playlist-file {
+	margin-left: 2.5rem;
+}
+
+.loading {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(10, 0, 20, 0.7);
+	backdrop-filter: blur(10px);
+	-webkit-backdrop-filter: blur(10px);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	z-index: 1500;
+	pointer-events: all;
+}
+
+.loading.hidden {
+	display: none;
+	pointer-events: none;
+}
+
+.loading-content {
+	background: rgba(10, 0, 20, 0.95);
+	border: 1px solid var(--accent-neon);
+	border-radius: var(--border-radius);
+	padding: 2rem;
+	text-align: center;
+	box-shadow: var(--glow-effect);
+}
+
+.spinner {
+	width: 50px;
+	height: 50px;
+	border: 4px solid rgba(0, 255, 255, 0.2);
+	border-top-color: var(--accent-neon);
+	border-radius: 50%;
+	animation: spin 1s linear infinite;
+	margin: 0 auto 1rem;
+}
+
+@keyframes spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+#statusMessage {
+	font-size: 0.65rem;
+	color: var(--text-primary);
+	margin-top: 1rem;
+}
+
+.screenshot-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: rgba(0, 0, 0, 0.9);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 2000;
+}
+
+.screenshot-overlay.hidden {
+	display: none;
+}
+
+.screenshot-modal {
+	background: var(--bg-mid);
+	border: 2px solid var(--accent-neon);
+	border-radius: var(--border-radius);
+	padding: 2rem;
+	max-width: 90%;
+	max-height: 90%;
+	overflow: auto;
+	box-shadow: var(--glow-effect);
+	position: relative;
+}
+
+.close-btn {
+	position: absolute;
+	top: 0.5rem;
+	right: 0.5rem;
+	background: rgba(255, 255, 255, 0.1);
+	border: 1px solid var(--border-color);
+	color: var(--accent-neon);
+	font-size: 1.5rem;
+	width: 30px;
+	height: 30px;
+	border-radius: 50%;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	transition: all var(--transition-speed);
+}
+
+.close-btn:hover {
+	background: var(--accent-neon);
+	color: var(--bg-dark);
+	box-shadow: var(--glow-effect);
+}
+
+.screenshot-modal h3 {
+	color: var(--accent-neon);
+	font-size: 0.9rem;
+	margin-bottom: 1rem;
+	text-shadow: 0 0 8px var(--accent-neon);
+}
+
+#screenshotPreviewImg {
+	max-width: 100%;
+	height: auto;
+	border: 1px solid var(--accent-neon);
+	border-radius: var(--border-radius);
+	margin-bottom: 1rem;
+}
+
+.screenshot-actions {
+	display: flex;
+	gap: 1rem;
+	justify-content: center;
+}
+
+#fileInput,
+#folderInput {
+	display: none;
+}
+
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--bg-dark);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--accent-neon);
+	border-radius: 4px;
+	box-shadow: var(--glow-effect);
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: #fff;
+}
+
+body::after {
+	content: "";
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: repeating-linear-gradient(to bottom,
+			rgba(255, 255, 255, 0.02) 0,
+			rgba(255, 255, 255, 0.02) 1px,
+			transparent 2px,
+			transparent 4px);
+	pointer-events: none;
+	mix-blend-mode: overlay;
+	z-index: 1000;
+}
+
+@media (max-width: 768px) {
+	.header {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.controls-header {
+		justify-content: center;
+	}
+
+	.player-area.playlist-visible .sidebar {
+		width: 250px;
+	}
+
+	.video-controls {
+		bottom: 10px;
+		left: 10px;
+		right: 10px;
+	}
+
+	.controls-bottom {
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+}
+
+.url-class {
+	margin-top: 1rem;
+	margin-bottom: 1rem;
+	width: 100%;
+	height: 2rem;
+}
+
+#cropCanvas {
+	position: absolute;
+	cursor: crosshair;
+	z-index: 10;
+	pointer-events: auto;
+	border: 2px solid var(--accent-neon);
+	box-shadow: var(--glow-effect);
+	/* Width and height will be set dynamically by JavaScript */
+}
+
+.hidden {
+	display: none;
+}
+
+.menu-divider {
+	border: none;
+	border-top: 1px solid rgba(255, 255, 255, 0.15);
+	margin: 10px 0;
+}
+
+.blur-input {
+	width: 50px;
+	background-color: var(--bg-dark);
+	color: white;
+	border: 1px solid var(--border-color);
+	border-radius: 4px;
+	padding: 2px 4px;
+	margin-left: 8px;
+	/* Space it out from the label */
+}
+
+/* This is to align the checkbox and the input nicely */
+#blurOptionContainer {
+	justify-content: space-between;
+}
+
+#blurOptionContainer div {
+	display: flex;
+	align-items: center;
+}
+
+.showMessage .error-message {
+	position: fixed;
+	top: 20px;
+	right: 20px;
+	background: rgba(200, 0, 0, 0.8);
+	padding: 10px;
+	border-radius: 4px;
+	z-index: 10000;
+}
+
+.showMessage {
+	position: absolute;
+	top: 0;
+	right: 0px;
+	padding: 10px;
+    width: 420px;
+    z-index: 50;
+	background-color: rgba(10, 0, 20, 0.7);
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
+	/* For Safari */
+
+	border: 1px solid var(--border-color);
+	border-radius: 8px;
+	box-shadow: var(--soft-shadow);
+
+	/* Smooth transition for appearing/disappearing */
+	opacity: 1;
+	transition: opacity 0.3s ease, transform 0.3s ease;
+	font-family: 'Press Start 2P', monospace;
+    font-size: 0.6rem;
+}
