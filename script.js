@@ -604,7 +604,7 @@ const handleCutAction = async () => {
 
 						if (useBlurBackground) {
 							processCtx.drawImage(videoFrame, 0, 0, outputWidth, outputHeight);
-							processCtx.filter = 'blur(15px)'; processCtx.drawImage(processCanvas, 0, 0); processCtx.filter = 'none';
+							processCtx.filter = `blur(${blurAmount}px)`; processCtx.drawImage(processCanvas, 0, 0); processCtx.filter = 'none';
 						} else {
 							processCtx.fillStyle = 'black'; processCtx.fillRect(0, 0, outputWidth, outputHeight);
 						}
