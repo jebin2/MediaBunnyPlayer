@@ -240,7 +240,23 @@
 	</div>
 	<input type="file" id="fileInput" multiple accept="video/*,audio/*">
 	<input type="file" id="folderInput" webkitdirectory multiple>
-	<script type="module" src="script.js"></script>
+	<script type="module">
+		const urlParams = new URLSearchParams(window.location.search);
+		const modular = urlParams.get('modular') === 'true';
+
+		if (modular) {
+			import('./main.js')
+				.then(module => {
+					console.log('Loaded main.js');
+				});
+		} else {
+			import('./script.js')
+				.then(module => {
+					console.log('Loaded main.js');
+				});
+		}
+	</script>
+
 </body>
 
 </html>
