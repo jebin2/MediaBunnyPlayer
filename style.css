@@ -1,6 +1,7 @@
 /* ---
- NeoGrid 1984.css (Refactored & Expanded)
- A retro-pixelwave theme for Media Player — glowing 80s grid vibes.
+ NeoGrid 1984.css
+ A retro-pixelwave theme for MediaBunny Player — glowing 80s grid vibes.
+ No yellow or orange used.
  --- */
 
 /* --- 1. Foundational Setup & Color Palette --- */
@@ -15,19 +16,22 @@
 :root {
 	/* Retro Neon Palette */
 	--bg-dark: #0a0014;
+	/* Deep cosmic purple */
 	--bg-mid: #1b0b2e;
+	/* VHS purple tone */
 	--bg-light: #241a3a;
+	/* Slightly lighter surface */
 	--text-primary: #e0d8ff;
+	/* Faint lavender white */
 	--text-secondary: #8a7fcf;
+	/* Muted purple-gray */
 	--accent-neon: #00ffff;
-	--error-neon: #ff007f;
-	/* Magenta for errors */
+	/* Cyan glow highlight */
 
 	/* Borders, Shadows & Effects */
 	--border-color: rgba(160, 140, 255, 0.25);
 	--soft-shadow: 0 0 20px rgba(0, 255, 255, 0.25);
 	--glow-effect: 0 0 12px rgba(0, 255, 255, 0.6);
-	--error-glow: 0 0 12px rgba(255, 0, 127, 0.7);
 	--border-radius: 6px;
 	--transition-speed: 0.25s;
 }
@@ -52,7 +56,7 @@ body {
 	height: 100vh;
 }
 
-/* --- 2. Header & New Split Action Button --- */
+/* --- 2. Header --- */
 .header {
 	background: var(--bg-mid);
 	border-bottom: 1px solid var(--border-color);
@@ -82,330 +86,10 @@ body {
 	flex-wrap: wrap;
 }
 
-/* NEW: Wrapper for positioning the action dropdown */
-.split-action-btn-wrapper {
-	position: relative;
-}
-
-/* NEW: Main action button in the split group */
-#mainActionBtn {
-	border-top-right-radius: 0;
-	border-bottom-right-radius: 0;
-	border-right: none;
-}
-
-/* NEW: Dropdown arrow in the split group */
-.btn-dropdown {
-	border-top-left-radius: 0;
-	border-bottom-left-radius: 0;
-	padding-left: 0.5rem;
-	padding-right: 0.5rem;
-}
-
-/* NEW: The dropdown menu for actions */
-.action-dropdown-menu {
-	position: absolute;
-	top: 100%;
-	left: 0;
-	margin-top: 5px;
-	background-color: var(--bg-mid);
-	border: 1px solid var(--border-color);
-	border-radius: var(--border-radius);
-	z-index: 1001;
-	min-width: 160px;
-	padding: 5px;
-	box-shadow: var(--soft-shadow);
-}
-
-/* NEW: Buttons inside the dropdown */
-.action-dropdown-menu .btn {
-	display: block;
-	width: 100%;
-	text-align: left;
-	border: none;
-	background: none;
-	box-shadow: none;
-}
-
-.action-dropdown-menu .btn:hover {
-	background: var(--accent-neon);
-	color: var(--bg-dark);
-	text-shadow: none;
-	transform: none;
-}
-
-/* --- 3. Buttons (Unified) --- */
-.btn {
-	background: rgba(255, 255, 255, 0.05);
-	border: 1px solid var(--border-color);
-	color: var(--text-primary);
-	padding: 0.6rem 1.2rem;
-	border-radius: var(--border-radius);
-	cursor: pointer;
-	font-size: 0.7rem;
-	font-family: 'Press Start 2P', monospace;
-	transition: all var(--transition-speed);
-	box-shadow: 0 0 4px rgba(0, 255, 255, 0.2);
-	text-shadow: inherit;
-}
-
-.btn:hover,
-.hover_highlight {
-	background: var(--accent-neon);
-	color: var(--bg-dark);
-	text-shadow: none;
-	box-shadow: var(--glow-effect);
-	transform: translateY(-2px);
-}
-
-/* --- 4. Settings Menu & Form Elements (THEMED) --- */
-
-/* The main popup menu for settings */
-#settingsMenu {
-	min-width: 300px;
-}
-
-/* NEW: Styling for the fieldset/legend */
-.trim-mode-selector {
-	border: 1px solid var(--border-color);
-	border-radius: var(--border-radius);
-	padding: 8px 12px;
-	margin: 1rem 0;
-	display: flex;
-	justify-content: space-around;
-	gap: 1rem;
-}
-
-.trim-mode-selector legend {
-	padding: 0 5px;
-	font-size: 0.6rem;
-	color: var(--text-secondary);
-	text-shadow: none;
-}
-
-/* NEW: Container for each custom checkbox/radio */
-.trim-option {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	margin-top: 0.75rem;
-	gap: 6px;
-	font-size: 0.6rem;
-}
-
-/* NEW: Base style to hide default radio/checkbox */
-.trim-option input[type="radio"],
-.trim-option input[type="checkbox"] {
-	opacity: 0;
-	position: absolute;
-	width: 0;
-	height: 0;
-}
-
-/* NEW: Custom style for the label (the clickable part) */
-.trim-option label {
-	cursor: pointer;
-	position: relative;
-	padding-left: 25px;
-	/* Make space for custom box */
-	color: var(--text-primary);
-	transition: color var(--transition-speed);
-}
-
-/* NEW: Create the custom box/circle */
-.trim-option label::before {
-	content: '';
-	position: absolute;
-	left: 0;
-	top: 50%;
-	transform: translateY(-50%);
-	width: 14px;
-	height: 14px;
-	border: 1px solid var(--border-color);
-	background: rgba(255, 255, 255, 0.05);
-	transition: all var(--transition-speed);
-}
-
-/* NEW: Style for radio buttons (circles) */
-.trim-option input[type="radio"]+label::before {
-	border-radius: 50%;
-}
-
-/* NEW: Style for checkboxes (squares) */
-.trim-option input[type="checkbox"]+label::before {
-	border-radius: 3px;
-}
-
-/* NEW: Hover state for the label */
-.trim-option label:hover::before {
-	border-color: var(--accent-neon);
-}
-
-/* NEW: Checked state for the box/circle */
-.trim-option input:checked+label::before {
-	background: var(--accent-neon);
-	border-color: var(--accent-neon);
-	box-shadow: var(--glow-effect);
-}
-
-/* NEW: Add the inner checkmark/dot for the checked state */
-.trim-option input:checked+label::after {
-	content: '';
-	position: absolute;
-	left: 5px;
-	top: 50%;
-	transform: translateY(-50%);
-	width: 6px;
-	height: 6px;
-	background: var(--bg-dark);
-}
-
-.trim-option input[type="radio"]:checked+label::after {
-	border-radius: 50%;
-}
-
-.trim-option input[type="checkbox"]:checked+label::after {
-	border-radius: 1px;
-}
-
-/* THEMED: Blur amount input */
-#blurAmountInput {
-	width: 60px;
-	background: var(--bg-dark);
-	border: 1px solid var(--border-color);
-	color: var(--accent-neon);
-	text-align: center;
-	padding: 0.3rem 0.5rem;
-	font-family: 'Press Start 2P', monospace;
-	font-size: 0.6rem;
-	border-radius: var(--border-radius);
-}
-
-#blurAmountInput:focus {
-	outline: none;
-	border-color: var(--accent-neon);
-	box-shadow: var(--glow-effect);
-}
-
-/* --- 5. Shortcut Keys Panel (THEMED) --- */
-.shortcut-keys-panel {
-	position: absolute;
-	top: 0;
-	width: 420px;
-	z-index: 50;
-	background-color: rgba(10, 0, 20, 0.7);
-	backdrop-filter: blur(8px);
-	-webkit-backdrop-filter: blur(8px);
-	border: 1px solid var(--border-color);
-	border-radius: 8px;
-	box-shadow: var(--soft-shadow);
-	opacity: 1;
-	transition: opacity 0.3s ease, transform 0.3s ease;
-	font-family: 'Press Start 2P', monospace;
-	font-size: 0.6rem;
-}
-
-.shortcut-keys-panel.hidden {
-	opacity: 0;
-	pointer-events: none;
-	transform: translateX(-50%) translateY(-20px);
-}
-
-.shortcut-title {
-	padding: 8px 15px;
-	text-align: center;
-	color: var(--accent-neon);
-	border-bottom: 1px solid var(--border-color);
-	text-shadow: var(--glow-effect);
-}
-
-.shortcut-list {
-	list-style: none;
-	padding: 10px 15px;
-	margin: 0;
-}
-
-.shortcut-list li {
-	display: flex;
-	align-items: center;
-	padding: 5px 0;
-	gap: 0.5rem;
-}
-
-.shortcut-list kbd {
-	background-color: var(--bg-light);
-	border: 1px solid var(--border-color);
-	border-radius: 4px;
-	padding: 3px 7px;
-	color: var(--accent-neon);
-	text-shadow: var(--glow-effect);
-}
-
-.shortcut-list span {
-	color: var(--text-primary);
-	text-shadow: none;
-}
-
-/* --- 6. Info & Error Messages (THEMED) --- */
-.error-message,
-.info-message {
-	position: fixed;
-	top: 20px;
-	right: 20px;
-	padding: 1rem;
-	border-radius: var(--border-radius);
-	z-index: 10000;
-	font-size: 0.7rem;
-	opacity: 0;
-	transform: translateX(20px);
-	animation: slideInFade 4s ease-out forwards;
-}
-
-.error-message {
-	background: rgba(40, 0, 20, 0.9);
-	border: 1px solid var(--error-neon);
-	color: var(--error-neon);
-	text-shadow: 0 0 8px var(--error-neon);
-	box-shadow: 0 0 12px var(--error-neon);
-}
-
-.info-message {
-	background: rgba(10, 0, 20, 0.9);
-	border: 1px solid var(--accent-neon);
-	color: var(--accent-neon);
-	text-shadow: var(--glow-effect);
-	box-shadow: var(--soft-shadow);
-}
-
-@keyframes slideInFade {
-	0% {
-		opacity: 0;
-		transform: translateX(20px);
-	}
-
-	10% {
-		opacity: 1;
-		transform: translateX(0);
-	}
-
-	90% {
-		opacity: 1;
-		transform: translateX(0);
-	}
-
-	100% {
-		opacity: 0;
-		transform: translateX(20px);
-	}
-}
-
-
-/* --- (All other existing styles from your file remain below this line) --- */
-/* For brevity, I'll omit the unchanged styles you already have. Just prepend this new/refactored block to your existing CSS file and remove any duplicates. */
-
-/* --- FROM YOUR FILE (mostly unchanged, just for completeness) --- */
+/* --- Split Button Group --- */
 .split-btn-group {
 	display: flex;
+	gap: 0;
 }
 
 .split-btn-group .btn:first-child {
@@ -417,8 +101,12 @@ body {
 .split-btn-group .btn:last-child {
 	border-top-left-radius: 0;
 	border-bottom-left-radius: 0;
+	padding: 0.6rem 0.8rem;
+	font-size: 1rem;
+	line-height: 1;
 }
 
+/* --- Autoplay Control --- */
 .autoplay-control {
 	display: flex;
 	align-items: center;
@@ -430,6 +118,7 @@ body {
 	color: var(--text-primary);
 }
 
+/* --- Switch --- */
 .switch {
 	position: relative;
 	display: inline-block;
@@ -484,6 +173,47 @@ input:checked+.slider:before {
 	border-radius: 50%;
 }
 
+/* --- 3. Buttons --- */
+.btn {
+	background: rgba(255, 255, 255, 0.05);
+	border: 1px solid var(--border-color);
+	color: var(--text-primary);
+	padding: 0.6rem 1.2rem;
+	border-radius: var(--border-radius);
+	cursor: pointer;
+	font-size: 0.7rem;
+	font-family: 'Press Start 2P', monospace;
+	transition: all var(--transition-speed);
+	box-shadow: 0 0 4px rgba(0, 255, 255, 0.2);
+}
+
+.btn:hover,
+.hover_highlight {
+	background: var(--accent-neon);
+	color: var(--bg-dark);
+	box-shadow: var(--glow-effect);
+	transform: translateY(-2px);
+}
+
+.btn:active {
+	transform: translateY(0);
+	opacity: 0.9;
+}
+
+.btn-primary {
+	background: var(--accent-neon);
+	color: var(--bg-dark);
+	border-color: var(--accent-neon);
+	box-shadow: var(--glow-effect);
+}
+
+.btn-primary:hover {
+	background: #fff;
+	color: var(--bg-dark);
+	box-shadow: 0 0 16px var(--accent-neon);
+}
+
+/* --- 4. Player Area --- */
 .player-area {
 	display: flex;
 	flex: 1;
@@ -520,6 +250,7 @@ input:checked+.slider:before {
 	margin-bottom: 1rem;
 }
 
+/* --- 5. Video Player --- */
 .video-container {
 	position: relative;
 	flex: 1;
@@ -537,6 +268,7 @@ input:checked+.slider:before {
 	object-fit: contain;
 }
 
+/* --- URL Play Overlay --- */
 .url-play-overlay {
 	position: absolute;
 	top: 0;
@@ -564,6 +296,7 @@ input:checked+.slider:before {
 	margin-bottom: 1rem;
 }
 
+/* --- Video Controls --- */
 .video-controls {
 	position: absolute;
 	bottom: 20px;
@@ -588,6 +321,7 @@ input:checked+.slider:before {
 	transform: translateY(0);
 }
 
+/* Progress Bar */
 .progress-container {
 	width: 100%;
 	height: 6px;
@@ -624,6 +358,7 @@ input:checked+.slider:before {
 	transform: translate(-50%, -50%) scale(1);
 }
 
+/* Seek Preview */
 #seekPreview {
 	position: absolute;
 	bottom: 100%;
@@ -654,6 +389,7 @@ input:checked+.slider:before {
 	color: var(--accent-neon);
 }
 
+/* --- Controls Bottom --- */
 .controls-bottom {
 	display: flex;
 	align-items: center;
@@ -668,6 +404,7 @@ input:checked+.slider:before {
 	gap: 0.75rem;
 }
 
+/* --- 6. Play Button --- */
 .play-btn {
 	background: none;
 	border: none;
@@ -690,6 +427,7 @@ input:checked+.slider:before {
 	color: var(--text-secondary);
 }
 
+/* Playback Speed */
 .playback-speed-container {
 	display: flex;
 	align-items: center;
@@ -713,6 +451,7 @@ input:checked+.slider:before {
 	box-shadow: var(--glow-effect);
 }
 
+/* Track Controls */
 .track-controls {
 	display: flex;
 	gap: 0.5rem;
@@ -724,6 +463,7 @@ input:checked+.slider:before {
 	font-size: 0.65rem;
 }
 
+/* Track Menus */
 .track-menu {
 	position: absolute;
 	bottom: 100%;
@@ -779,6 +519,7 @@ input:checked+.slider:before {
 	border-color: var(--accent-neon);
 }
 
+/* Trim Menu */
 .trim-menu-controls {
 	display: flex;
 	align-items: center;
@@ -820,6 +561,7 @@ input:checked+.slider:before {
 	padding: 0.5rem;
 }
 
+/* Volume Container */
 .volume-container {
 	display: flex;
 	align-items: center;
@@ -875,6 +617,7 @@ input:checked+.slider:before {
 	transform: scale(1.1);
 }
 
+/* --- 7. Sidebar --- */
 .sidebar {
 	width: 0;
 	background: var(--bg-mid);
@@ -895,6 +638,7 @@ input:checked+.slider:before {
 	line-height: 1.6;
 }
 
+/* Playlist Folder Structure */
 .playlist-folder {
 	margin-bottom: 0.5rem;
 }
@@ -938,6 +682,7 @@ input:checked+.slider:before {
 	box-shadow: var(--glow-effect);
 }
 
+/* Playlist Files */
 .playlist-file {
 	background: rgba(255, 255, 255, 0.05);
 	border: 1px solid var(--border-color);
@@ -967,6 +712,7 @@ input:checked+.slider:before {
 	box-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
 }
 
+/* Nested folder structure */
 .playlist-folder .playlist-folder {
 	margin-left: 1rem;
 }
@@ -975,6 +721,7 @@ input:checked+.slider:before {
 	margin-left: 2.5rem;
 }
 
+/* --- 8. Loading Spinner --- */
 .loading {
 	position: fixed;
 	top: 0;
@@ -1028,6 +775,7 @@ input:checked+.slider:before {
 	margin-top: 1rem;
 }
 
+/* --- Screenshot Overlay --- */
 .screenshot-overlay {
 	position: fixed;
 	top: 0;
@@ -1102,11 +850,13 @@ input:checked+.slider:before {
 	justify-content: center;
 }
 
+/* --- File Inputs (Hidden) --- */
 #fileInput,
 #folderInput {
 	display: none;
 }
 
+/* --- Scrollbar Styling --- */
 ::-webkit-scrollbar {
 	width: 8px;
 	height: 8px;
@@ -1126,6 +876,7 @@ input:checked+.slider:before {
 	background: #fff;
 }
 
+/* --- 10. VHS Scanline Effect --- */
 body::after {
 	content: "";
 	position: fixed;
@@ -1143,6 +894,7 @@ body::after {
 	z-index: 1000;
 }
 
+/* --- Responsive Design --- */
 @media (max-width: 768px) {
 	.header {
 		flex-direction: column;
@@ -1190,34 +942,120 @@ body::after {
 	display: none;
 }
 
+.trim-option {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-top: 8px;
+	gap: 6px;
+	font-size: 0.9em;
+}
+
 .menu-divider {
 	border: none;
 	border-top: 1px solid rgba(255, 255, 255, 0.15);
 	margin: 10px 0;
 }
 
-.blur-input {
-	width: 50px;
-	background-color: var(--bg-dark);
-	color: white;
-	border: 1px solid var(--border-color);
+.trim-mode-selector {
+	border: 1px solid rgba(255, 255, 255, 0.2);
 	border-radius: 4px;
-	padding: 2px 4px;
-	margin-left: 8px;
-	/* Space it out from the label */
+	padding: 5px 10px;
+	margin-bottom: 10px;
+	display: flex;
+	justify-content: space-around;
+	font-size: 0.9em;
 }
 
-/* This is to align the checkbox and the input nicely */
-#blurOptionContainer {
-	justify-content: space-between;
+.trim-mode-selector legend {
+	padding: 0 5px;
+	font-size: 0.8em;
+	opacity: 0.7;
 }
 
-#blurOptionContainer div {
+.trim-mode-selector div {
 	display: flex;
 	align-items: center;
 }
 
-.showMessage .error-message {
+/* Style the popup menu */
+.action-dropdown-menu {
+	position: absolute;
+	top: 52px;
+	background-color: var(--bg-mid);
+	border: 1px solid var(--border-color);
+	border-radius: 4px;
+	z-index: 1001;
+	/* Ensure it's above other controls */
+	padding: 7px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.action-dropdown-menu button {
+	display: block;
+	width: 100%;
+	text-align: left;
+	border: none;
+	color: var(--text-primary);
+}
+
+.shortcut-keys-panel {
+	position: absolute;
+	top: 0;
+	/* Give it some space from the top edge */
+	width: 380px;
+	z-index: 50;
+	/* Ensure it's above the canvas but below menus */
+
+	/* CRITICAL FIX: Provide a semi-transparent background for the blur to work */
+	background-color: rgba(0, 0, 0, 0.4);
+	backdrop-filter: blur(8px);
+	-webkit-backdrop-filter: blur(8px);
+	/* For Safari */
+
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	border-radius: 8px;
+	box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+
+	/* Smooth transition for appearing/disappearing */
+	opacity: 1;
+	transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.shortcut-keys-panel.hidden {
+	opacity: 0;
+	pointer-events: none;
+	/* Prevent interaction when hidden */
+	transform: translateX(-50%) translateY(-20px);
+	/* Add a slide effect */
+}
+
+.shortcut-list {
+	list-style: none;
+	padding: 10px 15px;
+	margin: 0;
+	font-family: sans-serif;
+}
+
+.shortcut-list li {
+	display: flex;
+	align-items: center;
+	padding: 6px 0;
+}
+
+.shortcut-list kbd {
+	background-color: #333;
+	border: 1px solid #555;
+	border-radius: 4px;
+	padding: 2px 6px;
+	margin-right: 8px;
+	font-size: 0.9em;
+	box-shadow: 1px 1px 0 #555;
+	color: #fff;
+	font-weight: bold;
+}
+
+.error-message {
 	position: fixed;
 	top: 20px;
 	right: 20px;
@@ -1227,25 +1065,24 @@ body::after {
 	z-index: 10000;
 }
 
-.showMessage {
+.showInfo {
 	position: absolute;
 	top: 0;
 	right: 0px;
 	padding: 10px;
-    width: 420px;
-    z-index: 50;
-	background-color: rgba(10, 0, 20, 0.7);
+	width: 400px;
+	z-index: 50;
+	background-color: rgba(0, 0, 0, 0.4);
 	backdrop-filter: blur(8px);
 	-webkit-backdrop-filter: blur(8px);
 	/* For Safari */
 
-	border: 1px solid var(--border-color);
+	border: 1px solid rgba(255, 255, 255, 0.2);
 	border-radius: 8px;
-	box-shadow: var(--soft-shadow);
+	box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 
 	/* Smooth transition for appearing/disappearing */
 	opacity: 1;
 	transition: opacity 0.3s ease, transform 0.3s ease;
-	font-family: 'Press Start 2P', monospace;
-    font-size: 0.6rem;
+	font-family: sans-serif;
 }
