@@ -105,6 +105,7 @@ let scaleWithRatio = false;
 let useBlurBackground = false;
 let smoothPath = false;
 let currentOpenFileAction = 'open-file';
+let blurAmount = 15;
 let dynamicCropMode = 'none'; // Can be 'none', 'spotlight', or 'max-size'
 let isShiftPressed = false;
 
@@ -1528,6 +1529,7 @@ const toggleStaticCrop = (e, reset = false) => {
 	cropCanvas.classList.toggle('hidden', !isCropping);
 	panScanBtn.classList.toggle('hover_highlight', isPanning);
 	cropBtn.classList.toggle('hover_highlight');
+	if (reset) cropBtn.classList.remove('hover_highlight');
 
 	if (isCropping) {
 		// Position the crop canvas when entering crop mode
@@ -1554,6 +1556,7 @@ const togglePanning = (e, reset = false) => {
 	cropCanvas.classList.toggle('hidden', !isPanning);
 	cropBtn.classList.toggle('hover_highlight', isCropping);
 	panScanBtn.classList.toggle('hover_highlight');
+	if (reset) panScanBtn.classList.remove('hover_highlight');
 
 	panKeyframes = [];
 	panRectSize = null;
@@ -1898,6 +1901,69 @@ const smoothPathWithMovingAverage = (keyframes, windowSize = 15) => {
 	}
 
 	return smoothedKeyframes;
+};
+
+/**
+ * Resets all user-configurable editing states to their default values.
+ */
+const resetAllConfigs = () => {
+    // 1. Pause the player if it's running
+    if (playing) pause();
+
+    // 2. Deactivate and reset any active cropping/panning modes
+    // Using the reset flag in our existing toggle functions is perfect for this
+    toggleStaticCrop(null, true);
+    togglePanning(null, true);
+
+    // 3. Reset all dynamic crop configuration states
+    dynamicCropMode = 'none';
+    scaleWithRatio = false;
+    useBlurBackground = false;
+    smoothPath = false;
+    blurAmount = 15;
+
+    // 4. Reset the UI for dynamic crop options
+    const cropModeNoneRadio = $('cropModeNone');
+    if (cropModeNoneRadio) cropModeNoneRadio.checked = true;
+
+    const scaleWithRatioToggle = $('scaleWithRatioToggle');
+    if (scaleWithRatioToggle) scaleWithRatioToggle.checked = false;
+
+    const smoothPathToggle = $('smoothPathToggle');
+    if (smoothPathToggle) smoothPathToggle.checked = false;
+
+    const blurBackgroundToggle = $('blurBackgroundToggle');
+    const blurAmountInput = $('blurAmountInput');
+    if (blurBackgroundToggle) blurBackgroundToggle.checked = false;
+    if (blurAmountInput) {
+        blurAmountInput.value = 15;
+    }
+
+    // Trigger the UI visibility update
+    const cropModeRadios = document.querySelectorAll('input[name="cropMode"]');
+    if(cropModeRadios.length > 0) {
+        // Find the event listener's helper function to call it directly
+        // Note: This assumes updateDynamicCropOptionsUI is available in this scope.
+        // It's better to define it outside the event listener if it's not.
+        updateDynamicCropOptionsUI(); 
+    }
+
+
+    // 5. Reset the time range inputs to the full duration of the video
+    if (fileLoaded) {
+        startTimeInput.value = formatTime(0);
+        endTimeInput.value = formatTime(totalDuration);
+    }
+
+    // 6. Reset the looping state and UI
+    isLooping = false;
+    loopStartTime = 0;
+    loopEndTime = 0;
+    loopBtn.textContent = 'Loop';
+    loopBtn.classList.remove('hover_highlight');
+
+    // 7. Give user feedback
+    showInfo("All configurations have been reset.");
 };
 
 const setupEventListeners = () => {
@@ -2581,6 +2647,7 @@ const setupEventListeners = () => {
 	const smoothOptionContainer = $('smoothOptionContainer');
 	const smoothPathToggle = $('smoothPathToggle');
 	const blurBackgroundToggle = $('blurBackgroundToggle');
+	const blurAmountInput = $('blurAmountInput');
 
 	// Helper function to update the visibility of sub-options based on the selected mode
 	const updateDynamicCropOptionsUI = () => {
@@ -2614,6 +2681,8 @@ const setupEventListeners = () => {
 			if (blurBackgroundToggle) {
 				blurBackgroundToggle.checked = false;
 				useBlurBackground = false;
+				blurAmountInput.value = 15; // And reset its value
+				blurAmount = 15;
 			}
 
 			// Update the UI to show the correct sub-options
@@ -2627,11 +2696,23 @@ const setupEventListeners = () => {
 			scaleWithRatio = e.target.checked;
 		};
 	}
-	if (blurBackgroundToggle) {
+	if (blurBackgroundToggle && blurAmountInput) {
 		blurBackgroundToggle.onchange = (e) => {
 			useBlurBackground = e.target.checked;
 		};
+
+		blurAmountInput.oninput = (e) => {
+			// Update the state with the user's chosen blur amount
+			const amount = parseInt(e.target.value, 10);
+			if (!isNaN(amount)) {
+				blurAmount = Math.max(1, Math.min(100, amount)); // Clamp value between 1 and 100
+			}
+		};
 	}
+	const resetAllBtn = $('resetAllBtn'); // Find our new button ID
+	if (resetAllBtn) {
+        resetAllBtn.onclick = resetAllConfigs; // Simply call our powerful new function
+    }
 	updateDynamicCropOptionsUI();
 };
 

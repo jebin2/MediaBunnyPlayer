@@ -473,7 +473,6 @@ input:checked+.slider:before {
 	border: 1px solid var(--accent-neon);
 	border-radius: var(--border-radius);
 	min-width: 200px;
-	max-height: 300px;
 	overflow-y: auto;
 	box-shadow: var(--glow-effect);
 	z-index: 200;
