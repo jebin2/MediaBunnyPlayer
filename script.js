@@ -102,6 +102,7 @@ let panKeyframes = []; // Stores the recorded path: [{ timestamp, rect }, ...]
 let panRectSize = null; // Stores the locked size of the panning rectangle
 let useMaxSize = false;
 let scaleWithRatio = false;
+let useSpotlightEffect = false;
 
 // === PERFORMANCE OPTIMIZATION: Cache DOM elements for playlist ===
 let playlistElementCache = new Map(); // Maps path -> DOM element
@@ -565,139 +566,144 @@ const handleCutAction = async () => {
 			new BlobSource(currentPlayingFile) :
 			new UrlSource(currentPlayingFile);
 
-		input = new Input({
-			source,
-			formats: ALL_FORMATS
-		});
-
+		input = new Input({ source, formats: ALL_FORMATS });
 		const output = new Output({
 			format: new Mp4OutputFormat({ fastStart: 'in-memory' }),
 			target: new BufferTarget(),
 		});
 
-		const conversionOptions = {
-			input,
-			output,
-			trim: { start, end },
-		};
-
+		const conversionOptions = { input, output, trim: { start, end } };
 		let cropFuncToReset = null;
+
 		if (panKeyframes.length > 1 && panRectSize) {
 			cropFuncToReset = togglePanning;
-
-			let outputWidth, outputHeight;
-
-			if (useMaxSize && panKeyframes.length > 0) {
-				const maxWidth = Math.max(...panKeyframes.map(kf => kf.rect.width));
-				const maxHeight = Math.max(...panKeyframes.map(kf => kf.rect.height));
-				outputWidth = Math.round(maxWidth / 2) * 2;
-				outputHeight = Math.round(maxHeight / 2) * 2;
-			} else {
-				outputWidth = Math.round(panRectSize.width / 2) * 2;
-				outputHeight = Math.round(panRectSize.height / 2) * 2;
-			}
 
 			const videoTrack = await input.getPrimaryVideoTrack();
 			if (!videoTrack) throw new Error("No video track found for dynamic cropping.");
 
-			conversionOptions.video = {
-				track: videoTrack,
-				codec: 'avc',
-				bitrate: QUALITY_HIGH,
-				processedWidth: outputWidth,
-				processedHeight: outputHeight,
-				forceTranscode: true,
+			// =================== START OF NEW TOP-LEVEL LOGIC ===================
 
-				process: (sample) => {
-					const cropRect = getInterpolatedCropRect(sample.timestamp);
-					if (!cropRect) return sample;
+			if (useSpotlightEffect) {
+				// --- LOGIC FOR SPOTLIGHT EFFECT ---
 
-					const safeCropRect = clampRectToVideoBounds(cropRect);
-					if (safeCropRect.width <= 0 || safeCropRect.height <= 0) return sample;
+				// 1. The output video size is the original video's size.
+				const outputWidth = videoTrack.codedWidth;
+				const outputHeight = videoTrack.codedHeight;
 
-					if (!processCanvas) {
-						processCanvas = new OffscreenCanvas(outputWidth, outputHeight);
-						processCtx = processCanvas.getContext('2d', { alpha: false });
-					}
+				conversionOptions.video = {
+					track: videoTrack,
+					codec: 'avc',
+					bitrate: QUALITY_HIGH,
+					processedWidth: outputWidth,
+					processedHeight: outputHeight,
+					forceTranscode: true,
 
-					processCtx.fillStyle = 'black';
-					processCtx.fillRect(0, 0, processCanvas.width, processCanvas.height);
+					process: (sample) => {
+						const cropRect = getInterpolatedCropRect(sample.timestamp);
+						if (!cropRect) return sample;
+						const safeCropRect = clampRectToVideoBounds(cropRect);
+						if (safeCropRect.width <= 0 || safeCropRect.height <= 0) return sample;
 
-					const videoFrame = sample._data || sample;
-
-					// =================== START OF NEW SCALING LOGIC ===================
-					
-					let destX, destY, destWidth, destHeight;
-
-					// Check if both max size and scaling options are enabled
-					if (useMaxSize && scaleWithRatio) {
-						// Calculate aspect ratios
-						const sourceAspectRatio = safeCropRect.width / safeCropRect.height;
-						const outputAspectRatio = outputWidth / outputHeight;
-
-						// Determine the scaled dimensions to fit inside the output canvas while maintaining the source ratio
-						if (sourceAspectRatio > outputAspectRatio) {
-							// Source is wider than the destination canvas ratio (letterbox)
-							destWidth = outputWidth;
-							destHeight = destWidth / sourceAspectRatio;
-						} else {
-							// Source is taller or same ratio as the destination (pillarbox)
-							destHeight = outputHeight;
-							destWidth = destHeight * sourceAspectRatio;
+						if (!processCanvas) {
+							processCanvas = new OffscreenCanvas(outputWidth, outputHeight);
+							processCtx = processCanvas.getContext('2d', { alpha: false });
 						}
-						
-						// Center the scaled image
-						destX = (outputWidth - destWidth) / 2;
-						destY = (outputHeight - destHeight) / 2;
 
-					} else {
-						// This is the previous logic for when scaling is disabled
-						// The destination size is the same as the source crop size
-						destWidth = safeCropRect.width;
-						destHeight = safeCropRect.height;
-						// Center the unscaled crop
-						destX = (outputWidth - destWidth) / 2;
-						destY = (outputHeight - destHeight) / 2;
+						const videoFrame = sample._data || sample;
+
+						// 2. Fill the entire canvas with black.
+						processCtx.fillStyle = 'black';
+						processCtx.fillRect(0, 0, outputWidth, outputHeight);
+
+						// 3. Draw the cropped part of the source video onto the exact same
+						//    coordinates on our black canvas, creating the "spotlight".
+						processCtx.drawImage(
+							videoFrame,
+							Math.round(safeCropRect.x),
+							Math.round(safeCropRect.y),
+							Math.round(safeCropRect.width),
+							Math.round(safeCropRect.height),
+							Math.round(safeCropRect.x),      // Destination X is the same as Source X
+							Math.round(safeCropRect.y),      // Destination Y is the same as Source Y
+							Math.round(safeCropRect.width),
+							Math.round(safeCropRect.height)
+						);
+
+						return processCanvas;
 					}
-					
-					// =================== END OF NEW SCALING LOGIC =====================
+				};
 
-					processCtx.drawImage(
-						videoFrame,
-						Math.round(safeCropRect.x),      // Source X
-						Math.round(safeCropRect.y),      // Source Y
-						Math.round(safeCropRect.width),  // Source Width
-						Math.round(safeCropRect.height), // Source Height
-						destX,                           // Destination X
-						destY,                           // Destination Y
-						destWidth,                       // Destination Width (now potentially scaled)
-						destHeight                       // Destination Height (now potentially scaled)
-					);
+			} else {
+				// --- FALLBACK TO PREVIOUS LOGIC (MAX SIZE, SCALING, OR DEFAULT) ---
 
-					return processCanvas;
+				let outputWidth, outputHeight;
+				if (useMaxSize && panKeyframes.length > 0) {
+					const maxWidth = Math.max(...panKeyframes.map(kf => kf.rect.width));
+					const maxHeight = Math.max(...panKeyframes.map(kf => kf.rect.height));
+					outputWidth = Math.round(maxWidth / 2) * 2;
+					outputHeight = Math.round(maxHeight / 2) * 2;
+				} else {
+					outputWidth = Math.round(panRectSize.width / 2) * 2;
+					outputHeight = Math.round(panRectSize.height / 2) * 2;
 				}
-			};
+
+				conversionOptions.video = {
+					track: videoTrack,
+					codec: 'avc',
+					bitrate: QUALITY_HIGH,
+					processedWidth: outputWidth,
+					processedHeight: outputHeight,
+					forceTranscode: true,
+					process: (sample) => {
+						const cropRect = getInterpolatedCropRect(sample.timestamp);
+						if (!cropRect) return sample;
+						const safeCropRect = clampRectToVideoBounds(cropRect);
+						if (safeCropRect.width <= 0 || safeCropRect.height <= 0) return sample;
+						if (!processCanvas) {
+							processCanvas = new OffscreenCanvas(outputWidth, outputHeight);
+							processCtx = processCanvas.getContext('2d', { alpha: false });
+						}
+						processCtx.fillStyle = 'black';
+						processCtx.fillRect(0, 0, outputWidth, outputHeight);
+						const videoFrame = sample._data || sample;
+						let destX, destY, destWidth, destHeight;
+						if (useMaxSize && scaleWithRatio) {
+							const sourceAspectRatio = safeCropRect.width / safeCropRect.height;
+							const outputAspectRatio = outputWidth / outputHeight;
+							if (sourceAspectRatio > outputAspectRatio) {
+								destWidth = outputWidth;
+								destHeight = destWidth / sourceAspectRatio;
+							} else {
+								destHeight = outputHeight;
+								destWidth = destHeight * sourceAspectRatio;
+							}
+							destX = (outputWidth - destWidth) / 2;
+							destY = (outputHeight - destHeight) / 2;
+						} else {
+							destWidth = safeCropRect.width;
+							destHeight = safeCropRect.height;
+							destX = (outputWidth - destWidth) / 2;
+							destY = (outputHeight - destHeight) / 2;
+						}
+						processCtx.drawImage(videoFrame, Math.round(safeCropRect.x), Math.round(safeCropRect.y), Math.round(safeCropRect.width), Math.round(safeCropRect.height), destX, destY, destWidth, destHeight);
+						return processCanvas;
+					}
+				};
+			}
+			// =================== END OF NEW TOP-LEVEL LOGIC =====================
+
 		} else if (cropRect && cropRect.width > 0) {
 			cropFuncToReset = toggleStaticCrop;
 			const evenWidth = Math.round(cropRect.width / 2) * 2;
 			const evenHeight = Math.round(cropRect.height / 2) * 2;
 			conversionOptions.video = {
-				crop: {
-					left: Math.round(cropRect.x),
-					top: Math.round(cropRect.y),
-					width: evenWidth,
-					height: evenHeight
-				}
+				crop: { left: Math.round(cropRect.x), top: Math.round(cropRect.y), width: evenWidth, height: evenHeight }
 			};
 		}
 
 		const conversion = await Conversion.init(conversionOptions);
 		if (!conversion.isValid) throw new Error('Could not create a valid conversion for cutting.');
-
-		conversion.onProgress = (progress) => {
-			showStatusMessage(`Cutting clip... (${Math.round(progress * 100)}%)`);
-		};
-
+		conversion.onProgress = (progress) => showStatusMessage(`Cutting clip... (${Math.round(progress * 100)}%)`);
 		await conversion.execute();
 
 		const originalName = (currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
@@ -2459,26 +2465,51 @@ const setupEventListeners = () => {
 			showInfo("Panning path recorded. The crop will now remain fixed. You can now use 'Cut Clip'.");
 		}
 	});
+	const spotlightEffectToggle = $('spotlightEffectToggle');
+	const maxSizeOptionContainer = $('maxSizeOptionContainer');
 	const useMaxSizeToggle = $('useMaxSizeToggle');
-    const scaleOptionContainer = $('scaleOptionContainer');
-    const scaleWithRatioToggle = $('scaleWithRatioToggle');
+	const scaleOptionContainer = $('scaleOptionContainer');
+	const scaleWithRatioToggle = $('scaleWithRatioToggle');
 
-    if (useMaxSizeToggle && scaleOptionContainer && scaleWithRatioToggle) {
-        useMaxSizeToggle.onchange = (e) => {
-            useMaxSize = e.target.checked;
-            // Show the scaling option only when max size is enabled
-            scaleOptionContainer.style.display = useMaxSize ? 'flex' : 'none';
-            // If we disable max size, also disable scaling
-            if (!useMaxSize) {
-                scaleWithRatioToggle.checked = false;
-                scaleWithRatio = false;
-            }
-        };
+	if (spotlightEffectToggle && useMaxSizeToggle && scaleOptionContainer && scaleWithRatioToggle) {
 
-        scaleWithRatioToggle.onchange = (e) => {
-            scaleWithRatio = e.target.checked;
-        };
-    }
+		spotlightEffectToggle.onchange = (e) => {
+			useSpotlightEffect = e.target.checked;
+			// If spotlight is on, hide and disable the max size option.
+			if (useSpotlightEffect) {
+				maxSizeOptionContainer.style.display = 'none';
+				useMaxSizeToggle.checked = false;
+				useMaxSize = false;
+				// Also hide the scaling option
+				scaleOptionContainer.style.display = 'none';
+				scaleWithRatioToggle.checked = false;
+				scaleWithRatio = false;
+			} else {
+				maxSizeOptionContainer.style.display = 'flex';
+			}
+		};
+
+		useMaxSizeToggle.onchange = (e) => {
+			useMaxSize = e.target.checked;
+			// If max size is on, hide and disable the spotlight option.
+			if (useMaxSize) {
+				spotlightEffectToggle.style.display = 'none';
+			} else {
+				spotlightEffectToggle.style.display = 'flex';
+			}
+
+			// Keep the existing logic for the scaling option
+			scaleOptionContainer.style.display = useMaxSize ? 'flex' : 'none';
+			if (!useMaxSize) {
+				scaleWithRatioToggle.checked = false;
+				scaleWithRatio = false;
+			}
+		};
+
+		scaleWithRatioToggle.onchange = (e) => {
+			scaleWithRatio = e.target.checked;
+		};
+	}
 };
 
 document.addEventListener('DOMContentLoaded', () => {
