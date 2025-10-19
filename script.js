@@ -2738,7 +2738,7 @@ const setupEventListeners = () => {
 	});
 };
 
-document.addEventListener('DOMContentLoaded', () => {
+// document.addEventListener('DOMContentLoaded', () => {
 	setupEventListeners();
 	renderLoop();
 
@@ -2824,4 +2824,4 @@ document.addEventListener('DOMContentLoaded', () => {
 			resetAllConfigs()
 		}
 	});
-});
+// });

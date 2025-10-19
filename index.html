@@ -241,6 +241,7 @@
 	<input type="file" id="fileInput" multiple accept="video/*,audio/*">
 	<input type="file" id="folderInput" webkitdirectory multiple>
 	<script type="module">
+	document.addEventListener('DOMContentLoaded', () => {
 		const urlParams = new URLSearchParams(window.location.search);
 		const modular = urlParams.get('modular') === 'true';
 
@@ -248,14 +249,22 @@
 			import('./main.js')
 				.then(module => {
 					console.log('Loaded main.js');
+				})
+				.catch(err => {
+					console.error('Failed to load main.js', err);
 				});
 		} else {
 			import('./script.js')
 				.then(module => {
 					console.log('Loaded script.js');
+				})
+				.catch(err => {
+					console.error('Failed to load script.js', err);
 				});
 		}
-	</script>
+	});
+</script>
+
 
 </body>
 
