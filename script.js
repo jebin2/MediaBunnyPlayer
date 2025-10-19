@@ -52,6 +52,7 @@ const urlModal = $('urlModal');
 const urlInput = $('urlInput');
 const loadUrlBtn = $('loadUrlBtn');
 const cancelUrlBtn = $('cancelUrlBtn');
+const showMessage = document.querySelector('.showMessage');
 const ctx = canvas.getContext('2d', {
 	alpha: false,
 	desynchronized: true
@@ -1132,22 +1133,28 @@ const formatTime = s => {
 const showLoading = show => loading.classList.toggle('hidden', !show);
 
 const showError = msg => {
-	if (document.querySelector('.error-message')) return;
+	showMessage.innerHTML = "";
+	showMessage.className = "showMessage error-message"
 
 	const el = document.createElement('div');
-	el.className = 'error-message';
 	el.textContent = msg;
-	document.body.appendChild(el);
-	setTimeout(() => el.remove(), 4000);
+	showMessage.appendChild(el);
+	setTimeout(() => {
+		showMessage.innerHTML = ""
+		showMessage.className = "showMessage hidden"
+	}, 4000);
 };
 const showInfo = msg => {
-	if (document.querySelector('.error-message')) return;
+	showMessage.innerHTML = "";
+	showMessage.className = "showMessage"
 
 	const el = document.createElement('div');
-	el.className = 'showInfo';
 	el.textContent = msg;
-	document.body.appendChild(el);
-	setTimeout(() => el.remove(), 4000);
+	showMessage.appendChild(el);
+	setTimeout(() => {
+		showMessage.innerHTML = ""
+		showMessage.className = "showMessage hidden"
+	}, 4000);
 };
 
 const showPlayerUI = () => {
