@@ -660,11 +660,11 @@ const handleCutAction = async () => {
 		conversion.onProgress = (progress) => showStatusMessage(`Cutting clip... (${Math.round(progress * 100)}%)`);
 		await conversion.execute();
 		const originalName = (currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
-		const clipName = `${originalName}_${formatTime(start)}-${formatTime(end)}_edited.mp4`.replace(/:/g, '_');
+		const clipName = `${originalName}_${new Date().getTime()}_${formatTime(start)}-${formatTime(end)}_edited.mp4`.replace(/:/g, '_');
 		const cutClipFile = new File([output.target.buffer], clipName, { type: 'video/mp4' });
 		playlist.push({ type: 'file', name: clipName, file: cutClipFile, isCutClip: true });
 		updatePlaylistUIOptimized();
-		if (cropFuncToReset) cropFuncToReset(null, true);
+		// if (cropFuncToReset) cropFuncToReset(null, true);
 		showStatusMessage('Clip added to playlist!');
 		setTimeout(hideStatusMessage, 2000);
 	} catch (error) {
@@ -1521,9 +1521,12 @@ const setPlaybackSpeed = (newSpeed) => {
 const toggleStaticCrop = (e, reset = false) => {
 	isCropping = !reset && !isCropping;
 	isPanning = false; // Ensure panning is off
-	panScanBtn.textContent = 'Dynamic Crop';
-	cropBtn.textContent = isCropping ? 'Cropping...' : 'Crop';
+
+	panScanBtn.textContent = 'Dynamic ✂️';
+	cropBtn.textContent = isCropping ? 'Cropping...' : '✂️';
+
 	cropCanvas.classList.toggle('hidden', !isCropping);
+	panScanBtn.classList.toggle('hover_highlight', isPanning);
 	cropBtn.classList.toggle('hover_highlight');
 
 	if (isCropping) {
@@ -1544,10 +1547,14 @@ const toggleStaticCrop = (e, reset = false) => {
 const togglePanning = (e, reset = false) => {
 	isPanning = !reset && !isPanning;
 	isCropping = false; // Ensure static cropping is off
-	cropBtn.textContent = 'Crop';
-	panScanBtn.textContent = isPanning ? 'Recording... (Press R to lock)' : 'Dynamic Crop';
+
+	cropBtn.textContent = '✂️';
+	panScanBtn.textContent = isPanning ? 'Recording... (Press R to lock)' : 'Dynamic ✂️';
+
 	cropCanvas.classList.toggle('hidden', !isPanning);
+	cropBtn.classList.toggle('hover_highlight', isCropping);
 	panScanBtn.classList.toggle('hover_highlight');
+
 	panKeyframes = [];
 	panRectSize = null;
 
