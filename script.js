@@ -562,7 +562,7 @@ const handleCutAction = async () => {
 		return;
 	}
 	hideTrackMenus();
-	showStatusMessage('Cutting clip...');
+	showStatusMessage('Creating clip...');
 	let input;
 	let processCanvas = null;
 	let processCtx = null;
@@ -579,7 +579,7 @@ const handleCutAction = async () => {
 
 			// =================== START OF NEW SMOOTHING LOGIC ===================
 			// If the smooth path option is checked, preprocess the keyframes.
-			if (smoothPath) {
+			if (smoothPath || dynamicCropMode == 'none') {
 				showStatusMessage('Smoothing path...'); // Optional feedback for the user
 				// Replace the jerky keyframes with the new, smoothed version.
 				panKeyframes = smoothPathWithMovingAverage(panKeyframes, 15);
@@ -638,7 +638,7 @@ const handleCutAction = async () => {
 						}
 
 						let destX, destY, destWidth, destHeight;
-						if (dynamicCropMode === 'max-size' && scaleWithRatio) {
+						if (dynamicCropMode == 'none' || (dynamicCropMode === 'max-size' && scaleWithRatio)) {
 							const sourceAspectRatio = safeCropRect.width / safeCropRect.height; const outputAspectRatio = outputWidth / outputHeight;
 							if (sourceAspectRatio > outputAspectRatio) { destWidth = outputWidth; destHeight = destWidth / sourceAspectRatio; } else { destHeight = outputHeight; destWidth = destHeight * sourceAspectRatio; }
 							destX = (outputWidth - destWidth) / 2; destY = (outputHeight - destHeight) / 2;
@@ -659,7 +659,7 @@ const handleCutAction = async () => {
 
 		const conversion = await Conversion.init(conversionOptions);
 		if (!conversion.isValid) throw new Error('Could not create a valid conversion for cutting.');
-		conversion.onProgress = (progress) => showStatusMessage(`Cutting clip... (${Math.round(progress * 100)}%)`);
+		conversion.onProgress = (progress) => showStatusMessage(`Creating clip... (${Math.round(progress * 100)}%)`);
 		await conversion.execute();
 		const originalName = (currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
 		const clipName = `${originalName}_${new Date().getTime()}_${formatTime(start)}-${formatTime(end)}_edited.mp4`.replace(/:/g, '_');
@@ -667,7 +667,7 @@ const handleCutAction = async () => {
 		playlist.push({ type: 'file', name: clipName, file: cutClipFile, isCutClip: true });
 		updatePlaylistUIOptimized();
 		// if (cropFuncToReset) cropFuncToReset(null, true);
-		showStatusMessage('Clip added to playlist!');
+		showStatusMessage('Clip adding to playlist!');
 		setTimeout(hideStatusMessage, 2000);
 	} catch (error) {
 		console.error("Error during cutting:", error);
@@ -675,6 +675,7 @@ const handleCutAction = async () => {
 		hideStatusMessage();
 	} finally {
 		if (input) input.dispose();
+		guidedPanleInfo("");
 	}
 };
 
@@ -1529,7 +1530,7 @@ const updateShortcutKeysVisibility = () => {
     
     // The panel should be visible if either static or dynamic cropping is active.
     const shouldBeVisible = isCropping || isPanning;
-    panel.classList.toggle('hidden', !shouldBeVisible);
+    // panel.classList.toggle('hidden', !shouldBeVisible);
 };
 
 // Function to enter/exit Static Cropping mode
@@ -1869,7 +1870,7 @@ const toggleCropFixed = () => {
 				lastFrame.rect = clampRectToVideoBounds(lastFrame.rect);
 			}
 		}
-		guidedPanleInfo("Size Locked! Now, play the video and move the box to record the camera path. Press 'R' when you're done.");
+		guidedPanleInfo("Size Locked! Now, play the video and move the box to record the camera path. Use SHIFT + scroll up/down to perform zooming effect. Press 'R' when you're done.");
 	} else {
 		// Redraw with handles
 		if (isCropping && cropRect) {
@@ -2012,7 +2013,12 @@ const setupEventListeners = () => {
 		fileLoaded = false;
 		$('fileInput').click();
 	};
-	$('togglePlaylistBtn').onclick = () => playerArea.classList.toggle('playlist-visible');
+	$('togglePlaylistBtn').onclick = () => {
+		playerArea.classList.toggle('playlist-visible');
+		setTimeout(() => {
+			cropCanvasDimensions = positionCropCanvas();
+		}, 200);
+	}
 
 	$('fileInput').onclick = (e) => e.target.value = null;
 	$('fileInput').onchange = (e) => handleFiles(e.target.files);
@@ -2676,7 +2682,7 @@ const setupEventListeners = () => {
 			// Exit panning mode
 			isPanning = false; // Stop listening to mouse moves
 			panScanBtn.textContent = 'Path Recorded!';
-			showInfo("Panning path recorded. The crop will now remain fixed. You can now use 'Cut Clip'.");
+			guidedPanleInfo("Path recorded. The crop will now remain fixed. You can now use 'Process Clip' or Press 'c' to create a clip.");
 		}
 	});
 
