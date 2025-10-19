@@ -929,12 +929,12 @@ body::after {
 }
 #cropCanvas {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
     cursor: crosshair;
     z-index: 10;
+    pointer-events: auto;
+    border: 2px solid var(--accent-neon);
+    box-shadow: var(--glow-effect);
+    /* Width and height will be set dynamically by JavaScript */
 }
 
 .hidden {

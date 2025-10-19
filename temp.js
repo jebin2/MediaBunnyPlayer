@@ -702,12 +702,82 @@ const handleCutAction = async () => {
 	}
 };
 
+const positionCropCanvas = () => {
+	if (!canvas.width || !canvas.height) {
+		console.warn('Video dimensions not available yet');
+		return null;
+	}
+
+	const container = videoContainer;
+	const containerRect = container.getBoundingClientRect();
+	
+	// Get video dimensions
+	const videoWidth = canvas.width;
+	const videoHeight = canvas.height;
+	
+	// Calculate aspect ratios
+	const videoAspect = videoWidth / videoHeight;
+	const containerAspect = containerRect.width / containerRect.height;
+	
+	let renderWidth, renderHeight, offsetX, offsetY;
+	
+	// Calculate actual rendered video dimensions (object-fit: contain behavior)
+	if (containerAspect > videoAspect) {
+		// Container is wider - video is constrained by height
+		renderHeight = containerRect.height;
+		renderWidth = renderHeight * videoAspect;
+		offsetX = (containerRect.width - renderWidth) / 2;
+		offsetY = 0;
+	} else {
+		// Container is taller - video is constrained by width
+		renderWidth = containerRect.width;
+		renderHeight = renderWidth / videoAspect;
+		offsetX = 0;
+		offsetY = (containerRect.height - renderHeight) / 2;
+	}
+	
+	// Position and size the crop canvas to match the video
+	cropCanvas.style.left = `${offsetX}px`;
+	cropCanvas.style.top = `${offsetY}px`;
+	cropCanvas.style.width = `${renderWidth}px`;
+	cropCanvas.style.height = `${renderHeight}px`;
+	
+	// Keep the canvas internal resolution at video resolution for accuracy
+	// (We already set cropCanvas.width/height to match canvas.width/height elsewhere)
+	
+	return {
+		renderWidth,
+		renderHeight,
+		offsetX,
+		offsetY,
+		videoWidth,
+		videoHeight,
+		scaleX: videoWidth / renderWidth,
+		scaleY: videoHeight / renderHeight
+	};
+};
+
+/**
+ * Stores the current crop canvas dimensions for coordinate conversion
+ */
+let cropCanvasDimensions = null;
+
 const getScaledCoordinates = (e) => {
 	const rect = cropCanvas.getBoundingClientRect();
-	const scaleX = cropCanvas.width / rect.width;
-	const scaleY = cropCanvas.height / rect.height;
+	
+	// Get canvas internal resolution
+	const canvasWidth = cropCanvas.width;
+	const canvasHeight = cropCanvas.height;
+	
+	// Get displayed size
+	const displayWidth = rect.width;
+	const displayHeight = rect.height;
+	
+	// Calculate scale factors
+	const scaleX = canvasWidth / displayWidth;
+	const scaleY = canvasHeight / displayHeight;
 
-	// Use e.clientX/Y for broader browser compatibility and accuracy
+	// Calculate mouse position relative to canvas
 	const x = (e.clientX - rect.left) * scaleX;
 	const y = (e.clientY - rect.top) * scaleY;
 
@@ -1474,7 +1544,7 @@ const setPlaybackSpeed = (newSpeed) => {
 };
 
 // Function to enter/exit Static Cropping mode
-const toggleStaticCrop = (e, reset=false) => {
+const toggleStaticCrop = (e, reset = false) => {
 	isCropping = !reset && !isCropping;
 	isPanning = false; // Ensure panning is off
 	panScanBtn.textContent = 'Dynamic Crop';
@@ -1482,14 +1552,18 @@ const toggleStaticCrop = (e, reset=false) => {
 	cropCanvas.classList.toggle('hidden', !isCropping);
 	cropBtn.classList.toggle('hover_highlight');
 
-	if (!isCropping) {
+	if (isCropping) {
+		// Position the crop canvas when entering crop mode
+		cropCanvasDimensions = positionCropCanvas();
+	} else {
 		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
 		cropRect = null;
+		cropCanvasDimensions = null;
 	}
 };
 
 // Function to enter/exit Dynamic Pan/Crop mode
-const togglePanning = (e, reset=false) => {
+const togglePanning = (e, reset = false) => {
 	isPanning = !reset && !isPanning;
 	isCropping = false; // Ensure static cropping is off
 	cropBtn.textContent = 'Crop';
@@ -1500,9 +1574,12 @@ const togglePanning = (e, reset=false) => {
 	panRectSize = null;
 
 	if (isPanning) {
+		// Position the crop canvas when entering panning mode
+		cropCanvasDimensions = positionCropCanvas();
 		showInfo("Draw a rectangle to define the crop size. Playback will start and the rectangle will follow your cursor. Press 'R' to lock its position.");
 	} else {
 		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+		cropCanvasDimensions = null;
 	}
 };
 
@@ -2015,4 +2092,14 @@ document.addEventListener('DOMContentLoaded', () => {
 		navigator.serviceWorker.register('service-worker.js')
 			.catch(err => console.log('ServiceWorker registration failed:', err));
 	}
+
+let resizeTimeout;
+window.addEventListener('resize', () => {
+	clearTimeout(resizeTimeout);
+	resizeTimeout = setTimeout(() => {
+		if ((isCropping || isPanning) && !cropCanvas.classList.contains('hidden')) {
+			cropCanvasDimensions = positionCropCanvas();
+		}
+	}, 100); // Debounce resize events
+});
 });
