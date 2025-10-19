@@ -668,6 +668,7 @@ const handleCutAction = async () => {
 		playlist.push({ type: 'file', name: clipName, file: cutClipFile, isCutClip: true });
 		updatePlaylistUIOptimized();
 		// if (cropFuncToReset) cropFuncToReset(null, true);
+		showStatusMessage('Clip adding to playlist!');
 		guidedPanleInfo('Clip adding to playlist!');
 		setTimeout(hideStatusMessage, 2000);
 	} catch (error) {
