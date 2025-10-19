@@ -28,10 +28,18 @@
 			</div>
 
 			<div class="controls-header">
-				<button class="btn" id="openUrlBtn">Open URL</button>
-				<button class="btn" id="openFileBtn">Open File</button>
-				<button class="btn" id="addFileBtn">Add File(s)</button>
-				<button class="btn" id="addFolderBtn">Add Folder</button>
+				<div class="split-btn-group" id="openActionsContainer">
+					<button class="btn" id="mainActionBtn">Open File</button>
+					<button class="btn btn-dropdown" id="dropdownActionBtn" title="More open options">▼</button>
+				</div>
+
+				<!-- This is the popup menu -->
+				<div class="action-dropdown-menu hidden" id="actionDropdownMenu">
+					<button class="btn" data-action="open-url">Open URL</button>
+					<button class="btn" data-action="open-file">Open File</button>
+					<button class="btn" data-action="add-file">Add File(s)</button>
+					<button class="btn" data-action="add-folder">Add Folder</button>
+				</div>
 
 				<!-- New Split Button for Playlist -->
 				<div class="split-btn-group">
@@ -110,9 +118,11 @@
 								<div class="track-menu-content">
 									<h4>Time Range</h4>
 									<div class="trim-menu-controls">
-										<input type="text" id="startTime" class="time-input" placeholder="00:00" title="Start Time">
+										<input type="text" id="startTime" class="time-input" placeholder="00:00"
+											title="Start Time">
 										<span>-</span>
-										<input type="text" id="endTime" class="time-input" placeholder="00:00" title="End Time">
+										<input type="text" id="endTime" class="time-input" placeholder="00:00"
+											title="End Time">
 									</div>
 									<h4>Actions</h4>
 									<div class="trim-menu-actions">
@@ -132,15 +142,18 @@
 										<fieldset class="trim-mode-selector">
 											<legend>Dynamic Crop Mode</legend>
 											<div>
-												<input type="radio" id="cropModeNone" name="cropMode" value="none" checked>
+												<input type="radio" id="cropModeNone" name="cropMode" value="none"
+													checked>
 												<label for="cropModeNone">Default</label>
 											</div>
 											<div>
-												<input type="radio" id="cropModeSpotlight" name="cropMode" value="spotlight">
+												<input type="radio" id="cropModeSpotlight" name="cropMode"
+													value="spotlight">
 												<label for="cropModeSpotlight">Spotlight</label>
 											</div>
 											<div>
-												<input type="radio" id="cropModeMaxSize" name="cropMode" value="max-size">
+												<input type="radio" id="cropModeMaxSize" name="cropMode"
+													value="max-size">
 												<label for="cropModeMaxSize">Max Size</label>
 											</div>
 										</fieldset>

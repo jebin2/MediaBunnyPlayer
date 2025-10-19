@@ -978,3 +978,24 @@ body::after {
 	display: flex;
 	align-items: center;
 }
+
+/* Style the popup menu */
+.action-dropdown-menu {
+	position: absolute;
+	top: 52px;
+	background-color: var(--bg-mid);
+	border: 1px solid var(--border-color);
+	border-radius: 4px;
+	z-index: 1001;
+	/* Ensure it's above other controls */
+	padding: 7px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.action-dropdown-menu button {
+	display: block;
+	width: 100%;
+	text-align: left;
+	border: none;
+	color: var(--text-primary);
+}

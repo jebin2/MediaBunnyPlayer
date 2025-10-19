@@ -48,7 +48,6 @@ const playbackSpeedInput = $('playbackSpeedInput');
 let currentPlaybackRate = 1.0;
 const autoplayToggle = $('autoplayToggle');
 let isAutoplayEnabled = true;
-const openUrlBtn = $('openUrlBtn');
 const urlModal = $('urlModal');
 const urlInput = $('urlInput');
 const loadUrlBtn = $('loadUrlBtn');
@@ -105,6 +104,7 @@ let scaleWithRatio = false;
 // let useSpotlightEffect = false;
 let useBlurBackground = false;
 let smoothPath = false;
+let currentOpenFileAction = 'open-file';
 let dynamicCropMode = 'none'; // Can be 'none', 'spotlight', or 'max-size'
 let isShiftPressed = false;
 
@@ -1852,56 +1852,50 @@ const toggleCropFixed = () => {
  * @returns {Array} A new array of smoothed keyframes.
  */
 const smoothPathWithMovingAverage = (keyframes, windowSize = 15) => {
-    if (keyframes.length < windowSize) {
-        return keyframes; // Not enough data to smooth
-    }
+	if (keyframes.length < windowSize) {
+		return keyframes; // Not enough data to smooth
+	}
 
-    const smoothedKeyframes = [];
-    const halfWindow = Math.floor(windowSize / 2);
+	const smoothedKeyframes = [];
+	const halfWindow = Math.floor(windowSize / 2);
 
-    for (let i = 0; i < keyframes.length; i++) {
-        // Define the bounds for the moving window, clamping at the edges
-        const start = Math.max(0, i - halfWindow);
-        const end = Math.min(keyframes.length - 1, i + halfWindow);
-        
-        let sumX = 0, sumY = 0, sumWidth = 0, sumHeight = 0;
-        
-        // Sum the properties of the keyframes within the window
-        for (let j = start; j <= end; j++) {
-            sumX += keyframes[j].rect.x;
-            sumY += keyframes[j].rect.y;
-            sumWidth += keyframes[j].rect.width;
-            sumHeight += keyframes[j].rect.height;
-        }
+	for (let i = 0; i < keyframes.length; i++) {
+		// Define the bounds for the moving window, clamping at the edges
+		const start = Math.max(0, i - halfWindow);
+		const end = Math.min(keyframes.length - 1, i + halfWindow);
 
-        const count = (end - start) + 1;
-        
-        // Create the new smoothed keyframe
-        const newKeyframe = {
-            timestamp: keyframes[i].timestamp, // Keep original timestamp
-            rect: {
-                x: sumX / count,
-                y: sumY / count,
-                width: sumWidth / count,
-                height: sumHeight / count,
-            }
-        };
+		let sumX = 0, sumY = 0, sumWidth = 0, sumHeight = 0;
 
-        smoothedKeyframes.push(newKeyframe);
-    }
+		// Sum the properties of the keyframes within the window
+		for (let j = start; j <= end; j++) {
+			sumX += keyframes[j].rect.x;
+			sumY += keyframes[j].rect.y;
+			sumWidth += keyframes[j].rect.width;
+			sumHeight += keyframes[j].rect.height;
+		}
 
-    return smoothedKeyframes;
+		const count = (end - start) + 1;
+
+		// Create the new smoothed keyframe
+		const newKeyframe = {
+			timestamp: keyframes[i].timestamp, // Keep original timestamp
+			rect: {
+				x: sumX / count,
+				y: sumY / count,
+				width: sumWidth / count,
+				height: sumHeight / count,
+			}
+		};
+
+		smoothedKeyframes.push(newKeyframe);
+	}
+
+	return smoothedKeyframes;
 };
 
 const setupEventListeners = () => {
-	$('addFileBtn').onclick = () => $('fileInput').click();
-	$('addFolderBtn').onclick = () => $('folderInput').click();
 	$('clearPlaylistBtn').onclick = clearPlaylist;
 	$('chooseFileBtn').onclick = () => {
-		fileLoaded = false;
-		$('fileInput').click();
-	};
-	$('openFileBtn').onclick = () => {
 		fileLoaded = false;
 		$('fileInput').click();
 	};
@@ -1937,6 +1931,64 @@ const setupEventListeners = () => {
 		setVolume(volumeSlider.value);
 	};
 
+	const mainActionBtn = $('mainActionBtn');
+	const dropdownActionBtn = $('dropdownActionBtn');
+	const actionDropdownMenu = $('actionDropdownMenu');
+
+	// Helper function to execute the chosen action
+	const executeOpenFileAction = (action) => {
+		switch (action) {
+			case 'open-url':
+				urlModal.classList.remove('hidden');
+				urlInput.focus();
+				break;
+			case 'open-file':
+				fileLoaded = false;
+				$('fileInput').click();
+				break;
+			case 'add-file':
+				$('fileInput').click();
+				break;
+			case 'add-folder':
+				$('folderInput').click();
+				break;
+		}
+	};
+
+	// 1. Main button executes the currently selected action
+	if (mainActionBtn) {
+		mainActionBtn.onclick = () => {
+			executeOpenFileAction(currentOpenFileAction);
+		};
+	}
+
+	// 2. Dropdown button shows/hides the menu
+	if (dropdownActionBtn) {
+		dropdownActionBtn.onclick = (e) => {
+			e.stopPropagation();
+			actionDropdownMenu.classList.toggle('hidden');
+		};
+	}
+
+	// 3. Clicks inside the dropdown menu set the action and execute it
+	if (actionDropdownMenu) {
+		actionDropdownMenu.addEventListener('click', (e) => {
+			const target = e.target.closest('button[data-action]');
+			if (!target) return;
+
+			const action = target.dataset.action;
+
+			// Update state
+			currentOpenFileAction = action;
+
+			// Update UI
+			mainActionBtn.textContent = target.textContent;
+
+			// Hide menu and execute
+			actionDropdownMenu.classList.add('hidden');
+			executeOpenFileAction(action);
+		});
+	}
 	$('audioTrackCtrlBtn').onclick = (e) => {
 		e.stopPropagation();
 		const menu = $('audioTrackMenu');
@@ -1963,8 +2015,10 @@ const setupEventListeners = () => {
 
 	// === PERFORMANCE OPTIMIZATION: Event delegation for playlist ===
 	document.addEventListener('click', (e) => {
-		if (!e.target.closest('.track-menu') && !e.target.closest('.control-btn')) {
+		// Find the existing listener and add a check for our new container
+		if (!e.target.closest('.track-menu') && !e.target.closest('.control-btn') && !e.target.closest('.split-action-btn')) {
 			hideTrackMenus();
+			if (actionDropdownMenu) actionDropdownMenu.classList.add('hidden'); // Also hide the action menu
 		}
 	});
 
@@ -2211,11 +2265,6 @@ const setupEventListeners = () => {
 		isAutoplayEnabled = autoplayToggle.checked;
 	};
 	// --- Add URL Modal Logic Here ---
-	openUrlBtn.onclick = () => {
-		urlInput.value = ''; // Clear previous input
-		urlModal.classList.remove('hidden');
-		urlInput.focus();
-	};
 
 	const hideUrlModal = () => {
 		urlModal.classList.add('hidden');
@@ -2328,9 +2377,9 @@ const setupEventListeners = () => {
 				}
 			} else if (isPanning && panRectSize && isCropFixed) {
 				// Live panning with fixed size
-            const lastRectSize = panKeyframes.length > 0
-                ? { width: panKeyframes[panKeyframes.length - 1].rect.width, height: panKeyframes[panKeyframes.length - 1].rect.height }
-                : panRectSize;
+				const lastRectSize = panKeyframes.length > 0
+					? { width: panKeyframes[panKeyframes.length - 1].rect.width, height: panKeyframes[panKeyframes.length - 1].rect.height }
+					: panRectSize;
 				let currentRect = {
 					x: coords.x - lastRectSize.width / 2,
 					y: coords.y - lastRectSize.height / 2,
@@ -2523,7 +2572,7 @@ const setupEventListeners = () => {
 	const scaleWithRatioToggle = $('scaleWithRatioToggle');
 	const blurOptionContainer = $('blurOptionContainer');
 	const smoothOptionContainer = $('smoothOptionContainer');
-	const smoothPathToggle = $('smoothPathToggle'); 
+	const smoothPathToggle = $('smoothPathToggle');
 	const blurBackgroundToggle = $('blurBackgroundToggle');
 
 	// Helper function to update the visibility of sub-options based on the selected mode
