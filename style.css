@@ -1002,57 +1002,59 @@ body::after {
 .shortcut-keys-panel {
 	position: absolute;
 	top: 0;
-	/* Give it some space from the top edge */
-	width: 380px;
+	width: 420px;
 	z-index: 50;
-	/* Ensure it's above the canvas but below menus */
-
-	/* CRITICAL FIX: Provide a semi-transparent background for the blur to work */
-	background-color: rgba(0, 0, 0, 0.4);
+	background-color: rgba(10, 0, 20, 0.7);
 	backdrop-filter: blur(8px);
 	-webkit-backdrop-filter: blur(8px);
-	/* For Safari */
-
-	border: 1px solid rgba(255, 255, 255, 0.2);
+	border: 1px solid var(--border-color);
 	border-radius: 8px;
-	box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-
-	/* Smooth transition for appearing/disappearing */
+	box-shadow: var(--soft-shadow);
 	opacity: 1;
 	transition: opacity 0.3s ease, transform 0.3s ease;
+	font-family: 'Press Start 2P', monospace;
+	font-size: 0.6rem;
 }
 
 .shortcut-keys-panel.hidden {
 	opacity: 0;
 	pointer-events: none;
-	/* Prevent interaction when hidden */
 	transform: translateX(-50%) translateY(-20px);
-	/* Add a slide effect */
+}
+
+.shortcut-title {
+	padding: 8px 15px;
+	text-align: center;
+	color: var(--accent-neon);
+	border-bottom: 1px solid var(--border-color);
+	text-shadow: var(--glow-effect);
 }
 
 .shortcut-list {
 	list-style: none;
 	padding: 10px 15px;
 	margin: 0;
-	font-family: sans-serif;
 }
 
 .shortcut-list li {
 	display: flex;
 	align-items: center;
-	padding: 6px 0;
+	padding: 5px 0;
+	gap: 0.5rem;
 }
 
 .shortcut-list kbd {
-	background-color: #333;
-	border: 1px solid #555;
+	background-color: var(--bg-light);
+	border: 1px solid var(--border-color);
 	border-radius: 4px;
-	padding: 2px 6px;
-	margin-right: 8px;
-	font-size: 0.9em;
-	box-shadow: 1px 1px 0 #555;
-	color: #fff;
-	font-weight: bold;
+	padding: 3px 7px;
+	color: var(--accent-neon);
+	text-shadow: var(--glow-effect);
+}
+
+.shortcut-list span {
+	color: var(--text-primary);
+	text-shadow: none;
 }
 
 .error-message {
@@ -1085,4 +1087,26 @@ body::after {
 	opacity: 1;
 	transition: opacity 0.3s ease, transform 0.3s ease;
 	font-family: sans-serif;
+}
+.guide_panel {
+	top: 15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: fit-content;
+    font-size: 0.8rem;
+    text-align: center;
+    animation: glowPulse 2s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+    0%, 100% {
+        box-shadow: 0 0 6px rgba(255, 255, 255, 0.2),
+                    0 0 12px rgba(255, 255, 255, 0.1);
+        opacity: 0.7;
+    }
+    50% {
+        box-shadow: 0 0 16px rgba(255, 255, 255, 0.8),
+                    0 0 24px rgba(255, 255, 255, 0.5);
+        opacity: 1;
+    }
 }

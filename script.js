@@ -1567,7 +1567,7 @@ const togglePanning = (e, reset = false) => {
 	isCropping = false; // Ensure static cropping is off
 
 	cropBtn.textContent = '✂️';
-	panScanBtn.textContent = isPanning ? 'Recording... (Press l to lock)' : 'Dynamic ✂️';
+	panScanBtn.textContent = isPanning ? 'Cropping...' : 'Dynamic ✂️';
 
 	cropCanvas.classList.toggle('hidden', !isPanning);
 	cropBtn.classList.toggle('hover_highlight', isCropping);
@@ -1584,6 +1584,7 @@ const togglePanning = (e, reset = false) => {
 		cropCanvasDimensions = positionCropCanvas();
 		isCropFixed = false; // Reset fixed state
 		updateFixSizeButton();
+		guidedPanleInfo("Click and drag on the video to draw your crop area.");
 	} else {
 		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
 		cropCanvasDimensions = null;
@@ -1591,6 +1592,18 @@ const togglePanning = (e, reset = false) => {
 		updateFixSizeButton();
 	}
 };
+
+const guidedPanleInfo = (info) => {
+	const guide_panel = document.getElementById('guide_panel');
+	const guide_info = document.getElementById('guide_info');
+	if(info) {
+		guide_panel.classList.remove('hidden');
+		guide_info.innerText = info
+	} else {
+		guide_panel.classList.add('hidden');
+		guide_info.innerText = info
+	}
+}
 
 // ============================================================================
 // ADD NEW VARIABLES for crop resize/move functionality
@@ -1632,6 +1645,7 @@ const drawCropWithHandles = (rect) => {
 
 	// Draw resize handles if crop is not fixed
 	if (!isCropFixed) {
+		guidedPanleInfo("Adjust the rectangle to your desired size. When ready, press 'L' to lock the size and begin recording.")
 		cropCtx.fillStyle = '#00ffff';
 		cropCtx.strokeStyle = '#ffffff';
 		cropCtx.lineWidth = 1;
@@ -1855,11 +1869,8 @@ const toggleCropFixed = () => {
 				lastFrame.rect = clampRectToVideoBounds(lastFrame.rect);
 			}
 		}
-		showInfo(isPanning ?
-			"Size locked! Move the crop area with your cursor during playback." :
-			"Size locked! The crop is now fixed.");
+		guidedPanleInfo("Size Locked! Now, play the video and move the box to record the camera path. Press 'R' when you're done.");
 	} else {
-		showInfo("You can now resize or move the crop area.");
 		// Redraw with handles
 		if (isCropping && cropRect) {
 			drawCropWithHandles(cropRect);
@@ -1970,7 +1981,10 @@ const resetAllConfigs = () => {
     loopBtn.textContent = 'Loop';
     loopBtn.classList.remove('hover_highlight');
 
-    // 7. Give user feedback
+	// 8. Remove Guided Panel
+	guidedPanleInfo("")
+
+    // 9. Give user feedback
     showInfo("All configurations have been reset.");
 };
 
