@@ -103,6 +103,7 @@ let panRectSize = null; // Stores the locked size of the panning rectangle
 let useMaxSize = false;
 let scaleWithRatio = false;
 let useSpotlightEffect = false;
+let useBlurBackground = false;
 
 // === PERFORMANCE OPTIMIZATION: Cache DOM elements for playlist ===
 let playlistElementCache = new Map(); // Maps path -> DOM element
@@ -577,65 +578,52 @@ const handleCutAction = async () => {
 
 		if (panKeyframes.length > 1 && panRectSize) {
 			cropFuncToReset = togglePanning;
-
 			const videoTrack = await input.getPrimaryVideoTrack();
 			if (!videoTrack) throw new Error("No video track found for dynamic cropping.");
 
-			// =================== START OF NEW TOP-LEVEL LOGIC ===================
-
 			if (useSpotlightEffect) {
 				// --- LOGIC FOR SPOTLIGHT EFFECT ---
-
-				// 1. The output video size is the original video's size.
 				const outputWidth = videoTrack.codedWidth;
 				const outputHeight = videoTrack.codedHeight;
-
 				conversionOptions.video = {
-					track: videoTrack,
-					codec: 'avc',
-					bitrate: QUALITY_HIGH,
-					processedWidth: outputWidth,
-					processedHeight: outputHeight,
+					track: videoTrack, codec: 'avc', bitrate: QUALITY_HIGH,
+					processedWidth: outputWidth, processedHeight: outputHeight,
 					forceTranscode: true,
-
 					process: (sample) => {
 						const cropRect = getInterpolatedCropRect(sample.timestamp);
 						if (!cropRect) return sample;
 						const safeCropRect = clampRectToVideoBounds(cropRect);
 						if (safeCropRect.width <= 0 || safeCropRect.height <= 0) return sample;
-
 						if (!processCanvas) {
 							processCanvas = new OffscreenCanvas(outputWidth, outputHeight);
 							processCtx = processCanvas.getContext('2d', { alpha: false });
 						}
-
 						const videoFrame = sample._data || sample;
 
-						// 2. Fill the entire canvas with black.
-						processCtx.fillStyle = 'black';
-						processCtx.fillRect(0, 0, outputWidth, outputHeight);
+						// === CONDITIONAL SPOTLIGHT BACKGROUND ===
+						if (useBlurBackground) {
+							// 1. Draw the full-size frame as the background
+							processCtx.drawImage(videoFrame, 0, 0, outputWidth, outputHeight);
+							// 2. Apply blur
+							processCtx.filter = 'blur(15px)';
+							processCtx.drawImage(processCanvas, 0, 0);
+							processCtx.filter = 'none';
+						} else {
+							// 1. Fallback to a black background
+							processCtx.fillStyle = 'black';
+							processCtx.fillRect(0, 0, outputWidth, outputHeight);
+						}
 
-						// 3. Draw the cropped part of the source video onto the exact same
-						//    coordinates on our black canvas, creating the "spotlight".
-						processCtx.drawImage(
-							videoFrame,
-							Math.round(safeCropRect.x),
-							Math.round(safeCropRect.y),
-							Math.round(safeCropRect.width),
-							Math.round(safeCropRect.height),
-							Math.round(safeCropRect.x),      // Destination X is the same as Source X
-							Math.round(safeCropRect.y),      // Destination Y is the same as Source Y
-							Math.round(safeCropRect.width),
-							Math.round(safeCropRect.height)
+						// 3. Draw the sharp "spotlight" crop on top
+						processCtx.drawImage(videoFrame,
+							Math.round(safeCropRect.x), Math.round(safeCropRect.y), Math.round(safeCropRect.width), Math.round(safeCropRect.height),
+							Math.round(safeCropRect.x), Math.round(safeCropRect.y), Math.round(safeCropRect.width), Math.round(safeCropRect.height)
 						);
-
 						return processCanvas;
 					}
 				};
-
 			} else {
-				// --- FALLBACK TO PREVIOUS LOGIC (MAX SIZE, SCALING, OR DEFAULT) ---
-
+				// --- LOGIC FOR MAX SIZE / SCALING / DEFAULT ---
 				let outputWidth, outputHeight;
 				if (useMaxSize && panKeyframes.length > 0) {
 					const maxWidth = Math.max(...panKeyframes.map(kf => kf.rect.width));
@@ -646,13 +634,9 @@ const handleCutAction = async () => {
 					outputWidth = Math.round(panRectSize.width / 2) * 2;
 					outputHeight = Math.round(panRectSize.height / 2) * 2;
 				}
-
 				conversionOptions.video = {
-					track: videoTrack,
-					codec: 'avc',
-					bitrate: QUALITY_HIGH,
-					processedWidth: outputWidth,
-					processedHeight: outputHeight,
+					track: videoTrack, codec: 'avc', bitrate: QUALITY_HIGH,
+					processedWidth: outputWidth, processedHeight: outputHeight,
 					forceTranscode: true,
 					process: (sample) => {
 						const cropRect = getInterpolatedCropRect(sample.timestamp);
@@ -663,59 +647,63 @@ const handleCutAction = async () => {
 							processCanvas = new OffscreenCanvas(outputWidth, outputHeight);
 							processCtx = processCanvas.getContext('2d', { alpha: false });
 						}
-						processCtx.fillStyle = 'black';
-						processCtx.fillRect(0, 0, outputWidth, outputHeight);
 						const videoFrame = sample._data || sample;
+
+						// === CONDITIONAL PADDING BACKGROUND ===
+						if (useBlurBackground && useMaxSize) { // Blur only applies if there is padding
+							// 1. Draw stretched frame as background
+							processCtx.drawImage(videoFrame, 0, 0, outputWidth, outputHeight);
+							// 2. Apply blur
+							processCtx.filter = 'blur(15px)';
+							processCtx.drawImage(processCanvas, 0, 0);
+							processCtx.filter = 'none';
+						} else {
+							// 1. Fallback to black background
+							processCtx.fillStyle = 'black';
+							processCtx.fillRect(0, 0, outputWidth, outputHeight);
+						}
+
+						// 3. Calculate destination for the sharp foreground
 						let destX, destY, destWidth, destHeight;
 						if (useMaxSize && scaleWithRatio) {
 							const sourceAspectRatio = safeCropRect.width / safeCropRect.height;
 							const outputAspectRatio = outputWidth / outputHeight;
-							if (sourceAspectRatio > outputAspectRatio) {
-								destWidth = outputWidth;
-								destHeight = destWidth / sourceAspectRatio;
-							} else {
-								destHeight = outputHeight;
-								destWidth = destHeight * sourceAspectRatio;
-							}
-							destX = (outputWidth - destWidth) / 2;
-							destY = (outputHeight - destHeight) / 2;
+							if (sourceAspectRatio > outputAspectRatio) { destWidth = outputWidth; destHeight = destWidth / sourceAspectRatio; }
+							else { destHeight = outputHeight; destWidth = destHeight * sourceAspectRatio; }
+							destX = (outputWidth - destWidth) / 2; destY = (outputHeight - destHeight) / 2;
 						} else {
-							destWidth = safeCropRect.width;
-							destHeight = safeCropRect.height;
-							destX = (outputWidth - destWidth) / 2;
-							destY = (outputHeight - destHeight) / 2;
+							destWidth = safeCropRect.width; destHeight = safeCropRect.height;
+							destX = (outputWidth - destWidth) / 2; destY = (outputHeight - destHeight) / 2;
 						}
-						processCtx.drawImage(videoFrame, Math.round(safeCropRect.x), Math.round(safeCropRect.y), Math.round(safeCropRect.width), Math.round(safeCropRect.height), destX, destY, destWidth, destHeight);
+
+						// 4. Draw the sharp foreground on top
+						processCtx.drawImage(videoFrame,
+							Math.round(safeCropRect.x), Math.round(safeCropRect.y), Math.round(safeCropRect.width), Math.round(safeCropRect.height),
+							destX, destY, destWidth, destHeight
+						);
 						return processCanvas;
 					}
 				};
 			}
-			// =================== END OF NEW TOP-LEVEL LOGIC =====================
-
 		} else if (cropRect && cropRect.width > 0) {
 			cropFuncToReset = toggleStaticCrop;
 			const evenWidth = Math.round(cropRect.width / 2) * 2;
 			const evenHeight = Math.round(cropRect.height / 2) * 2;
-			conversionOptions.video = {
-				crop: { left: Math.round(cropRect.x), top: Math.round(cropRect.y), width: evenWidth, height: evenHeight }
-			};
+			conversionOptions.video = { crop: { left: Math.round(cropRect.x), top: Math.round(cropRect.y), width: evenWidth, height: evenHeight } };
 		}
 
 		const conversion = await Conversion.init(conversionOptions);
 		if (!conversion.isValid) throw new Error('Could not create a valid conversion for cutting.');
 		conversion.onProgress = (progress) => showStatusMessage(`Cutting clip... (${Math.round(progress * 100)}%)`);
 		await conversion.execute();
-
 		const originalName = (currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
 		const clipName = `${originalName}_${formatTime(start)}-${formatTime(end)}_edited.mp4`.replace(/:/g, '_');
 		const cutClipFile = new File([output.target.buffer], clipName, { type: 'video/mp4' });
-
 		playlist.push({ type: 'file', name: clipName, file: cutClipFile, isCutClip: true });
 		updatePlaylistUIOptimized();
 		if (cropFuncToReset) cropFuncToReset(null, true);
 		showStatusMessage('Clip added to playlist!');
 		setTimeout(hideStatusMessage, 2000);
-
 	} catch (error) {
 		console.error("Error during cutting:", error);
 		showError(`Failed to cut the clip: ${error.message}`);
@@ -2470,45 +2458,60 @@ const setupEventListeners = () => {
 	const useMaxSizeToggle = $('useMaxSizeToggle');
 	const scaleOptionContainer = $('scaleOptionContainer');
 	const scaleWithRatioToggle = $('scaleWithRatioToggle');
+	const blurOptionContainer = $('blurOptionContainer');
+	const blurBackgroundToggle = $('blurBackgroundToggle');
 
-	if (spotlightEffectToggle && useMaxSizeToggle && scaleOptionContainer && scaleWithRatioToggle) {
+	if (spotlightEffectToggle && useMaxSizeToggle && scaleOptionContainer && scaleWithRatioToggle && blurOptionContainer && blurBackgroundToggle) {
+
+		// A helper function to manage the complex UI dependencies
+		const updateTrimOptionsVisibility = () => {
+			// Spotlight and Max Size are mutually exclusive
+			maxSizeOptionContainer.style.display = useSpotlightEffect ? 'none' : 'flex';
+			spotlightEffectToggle.parentElement.style.display = useMaxSize ? 'none' : 'flex';
+
+			// Scale option depends on Max Size being active
+			scaleOptionContainer.style.display = useMaxSize ? 'flex' : 'none';
+
+			// Blur option is visible if *either* Spotlight or Max Size is active
+			blurOptionContainer.style.display = (useSpotlightEffect || useMaxSize) ? 'flex' : 'none';
+		};
 
 		spotlightEffectToggle.onchange = (e) => {
 			useSpotlightEffect = e.target.checked;
-			// If spotlight is on, hide and disable the max size option.
+			// If we turn on spotlight, we must turn off the conflicting options
 			if (useSpotlightEffect) {
-				maxSizeOptionContainer.style.display = 'none';
 				useMaxSizeToggle.checked = false;
 				useMaxSize = false;
-				// Also hide the scaling option
-				scaleOptionContainer.style.display = 'none';
 				scaleWithRatioToggle.checked = false;
 				scaleWithRatio = false;
-			} else {
-				maxSizeOptionContainer.style.display = 'flex';
 			}
+			updateTrimOptionsVisibility();
 		};
 
 		useMaxSizeToggle.onchange = (e) => {
 			useMaxSize = e.target.checked;
-			// If max size is on, hide and disable the spotlight option.
+			// If we turn on max size, turn off spotlight
 			if (useMaxSize) {
-				spotlightEffectToggle.style.display = 'none';
+				spotlightEffectToggle.checked = false;
+				useSpotlightEffect = false;
 			} else {
-				spotlightEffectToggle.style.display = 'flex';
-			}
-
-			// Keep the existing logic for the scaling option
-			scaleOptionContainer.style.display = useMaxSize ? 'flex' : 'none';
-			if (!useMaxSize) {
+				// If we turn off max size, also turn off its dependent options
 				scaleWithRatioToggle.checked = false;
 				scaleWithRatio = false;
 			}
+			updateTrimOptionsVisibility();
 		};
 
 		scaleWithRatioToggle.onchange = (e) => {
 			scaleWithRatio = e.target.checked;
 		};
+
+		blurBackgroundToggle.onchange = (e) => {
+			useBlurBackground = e.target.checked;
+		};
+
+		// Call it once on setup to ensure the UI is in the correct initial state
+		updateTrimOptionsVisibility();
 	}
 };
 
