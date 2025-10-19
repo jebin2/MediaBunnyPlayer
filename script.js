@@ -101,6 +101,7 @@ let isPanning = false; // Are we in "Dynamic Crop" recording mode?
 let panKeyframes = []; // Stores the recorded path: [{ timestamp, rect }, ...]
 let panRectSize = null; // Stores the locked size of the panning rectangle
 let useMaxSize = false;
+let scaleWithRatio = false;
 
 // === PERFORMANCE OPTIMIZATION: Cache DOM elements for playlist ===
 let playlistElementCache = new Map(); // Maps path -> DOM element
@@ -556,7 +557,7 @@ const handleCutAction = async () => {
 	hideTrackMenus();
 	showStatusMessage('Cutting clip...');
 	let input;
-	let processCanvas = null; // Canvas for offscreen processing
+	let processCanvas = null;
 	let processCtx = null;
 
 	try {
@@ -581,96 +582,102 @@ const handleCutAction = async () => {
 		};
 
 		let cropFuncToReset = null;
-		// --- THIS IS THE KEY PART ---
 		if (panKeyframes.length > 1 && panRectSize) {
 			cropFuncToReset = togglePanning;
 
-			// =================== START OF NEW LOGIC ===================
-
-			// 1. Determine the final output dimensions for the video.
 			let outputWidth, outputHeight;
 
 			if (useMaxSize && panKeyframes.length > 0) {
-				// If the option is checked, find the max width and height from all recorded frames.
 				const maxWidth = Math.max(...panKeyframes.map(kf => kf.rect.width));
 				const maxHeight = Math.max(...panKeyframes.map(kf => kf.rect.height));
-
-				// Use these max values and ensure they are even for codec compatibility.
 				outputWidth = Math.round(maxWidth / 2) * 2;
 				outputHeight = Math.round(maxHeight / 2) * 2;
 			} else {
-				// Otherwise, use the default behavior (the size of the last-drawn rectangle).
 				outputWidth = Math.round(panRectSize.width / 2) * 2;
 				outputHeight = Math.round(panRectSize.height / 2) * 2;
 			}
 
-			// =================== END OF NEW LOGIC =====================
-
-
-			// Get the source video track to read its properties
 			const videoTrack = await input.getPrimaryVideoTrack();
+			if (!videoTrack) throw new Error("No video track found for dynamic cropping.");
 
-			if (!videoTrack) {
-				throw new Error("No video track found for dynamic cropping.");
-			}
-
-			// DYNAMIC PAN/CROP LOGIC
 			conversionOptions.video = {
 				track: videoTrack,
 				codec: 'avc',
 				bitrate: QUALITY_HIGH,
-
-				// CRITICAL: Use the calculated output dimensions
 				processedWidth: outputWidth,
 				processedHeight: outputHeight,
-
 				forceTranscode: true,
 
-				// =================== START OF MODIFIED PROCESS FUNCTION ===================
 				process: (sample) => {
 					const cropRect = getInterpolatedCropRect(sample.timestamp);
 					if (!cropRect) return sample;
 
 					const safeCropRect = clampRectToVideoBounds(cropRect);
-					if (safeCropRect.width <= 0 || safeCropRect.height <= 0) {
-						return sample;
-					}
+					if (safeCropRect.width <= 0 || safeCropRect.height <= 0) return sample;
 
 					if (!processCanvas) {
-						// This canvas is now created with the final output dimensions.
 						processCanvas = new OffscreenCanvas(outputWidth, outputHeight);
 						processCtx = processCanvas.getContext('2d', { alpha: false });
 					}
 
-					// 2. Fill the entire canvas with black. This creates the background padding.
 					processCtx.fillStyle = 'black';
 					processCtx.fillRect(0, 0, processCanvas.width, processCanvas.height);
 
 					const videoFrame = sample._data || sample;
 
-					// 3. Calculate where to place the (potentially smaller) cropped image to center it.
-					const destX = (outputWidth - safeCropRect.width) / 2;
-					const destY = (outputHeight - safeCropRect.height) / 2;
+					// =================== START OF NEW SCALING LOGIC ===================
+					
+					let destX, destY, destWidth, destHeight;
 
-					// 4. Draw the cropped portion of the source video onto the center of our black canvas.
+					// Check if both max size and scaling options are enabled
+					if (useMaxSize && scaleWithRatio) {
+						// Calculate aspect ratios
+						const sourceAspectRatio = safeCropRect.width / safeCropRect.height;
+						const outputAspectRatio = outputWidth / outputHeight;
+
+						// Determine the scaled dimensions to fit inside the output canvas while maintaining the source ratio
+						if (sourceAspectRatio > outputAspectRatio) {
+							// Source is wider than the destination canvas ratio (letterbox)
+							destWidth = outputWidth;
+							destHeight = destWidth / sourceAspectRatio;
+						} else {
+							// Source is taller or same ratio as the destination (pillarbox)
+							destHeight = outputHeight;
+							destWidth = destHeight * sourceAspectRatio;
+						}
+						
+						// Center the scaled image
+						destX = (outputWidth - destWidth) / 2;
+						destY = (outputHeight - destHeight) / 2;
+
+					} else {
+						// This is the previous logic for when scaling is disabled
+						// The destination size is the same as the source crop size
+						destWidth = safeCropRect.width;
+						destHeight = safeCropRect.height;
+						// Center the unscaled crop
+						destX = (outputWidth - destWidth) / 2;
+						destY = (outputHeight - destHeight) / 2;
+					}
+					
+					// =================== END OF NEW SCALING LOGIC =====================
+
 					processCtx.drawImage(
 						videoFrame,
-						Math.round(safeCropRect.x),      // Source X from video
-						Math.round(safeCropRect.y),      // Source Y from video
+						Math.round(safeCropRect.x),      // Source X
+						Math.round(safeCropRect.y),      // Source Y
 						Math.round(safeCropRect.width),  // Source Width
 						Math.round(safeCropRect.height), // Source Height
-						destX,                           // Destination X on black canvas
-						destY,                           // Destination Y on black canvas
-						safeCropRect.width,              // Destination Width on black canvas
-						safeCropRect.height              // Destination Height on black canvas
+						destX,                           // Destination X
+						destY,                           // Destination Y
+						destWidth,                       // Destination Width (now potentially scaled)
+						destHeight                       // Destination Height (now potentially scaled)
 					);
 
 					return processCanvas;
 				}
-				// =================== END OF MODIFIED PROCESS FUNCTION =====================
 			};
 		} else if (cropRect && cropRect.width > 0) {
-			// (The static crop logic remains unchanged)
 			cropFuncToReset = toggleStaticCrop;
 			const evenWidth = Math.round(cropRect.width / 2) * 2;
 			const evenHeight = Math.round(cropRect.height / 2) * 2;
@@ -685,10 +692,7 @@ const handleCutAction = async () => {
 		}
 
 		const conversion = await Conversion.init(conversionOptions);
-
-		if (!conversion.isValid) {
-			throw new Error('Could not create a valid conversion for cutting.');
-		}
+		if (!conversion.isValid) throw new Error('Could not create a valid conversion for cutting.');
 
 		conversion.onProgress = (progress) => {
 			showStatusMessage(`Cutting clip... (${Math.round(progress * 100)}%)`);
@@ -698,12 +702,11 @@ const handleCutAction = async () => {
 
 		const originalName = (currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
 		const clipName = `${originalName}_${formatTime(start)}-${formatTime(end)}_edited.mp4`.replace(/:/g, '_');
-
 		const cutClipFile = new File([output.target.buffer], clipName, { type: 'video/mp4' });
 
 		playlist.push({ type: 'file', name: clipName, file: cutClipFile, isCutClip: true });
 		updatePlaylistUIOptimized();
-		if (cropFuncToReset) cropFuncToReset(null, true); // Use if to avoid errors
+		if (cropFuncToReset) cropFuncToReset(null, true);
 		showStatusMessage('Clip added to playlist!');
 		setTimeout(hideStatusMessage, 2000);
 
@@ -2457,11 +2460,25 @@ const setupEventListeners = () => {
 		}
 	});
 	const useMaxSizeToggle = $('useMaxSizeToggle');
-	if (useMaxSizeToggle) {
-		useMaxSizeToggle.onchange = (e) => {
-			useMaxSize = e.target.checked;
-		};
-	}
+    const scaleOptionContainer = $('scaleOptionContainer');
+    const scaleWithRatioToggle = $('scaleWithRatioToggle');
+
+    if (useMaxSizeToggle && scaleOptionContainer && scaleWithRatioToggle) {
+        useMaxSizeToggle.onchange = (e) => {
+            useMaxSize = e.target.checked;
+            // Show the scaling option only when max size is enabled
+            scaleOptionContainer.style.display = useMaxSize ? 'flex' : 'none';
+            // If we disable max size, also disable scaling
+            if (!useMaxSize) {
+                scaleWithRatioToggle.checked = false;
+                scaleWithRatio = false;
+            }
+        };
+
+        scaleWithRatioToggle.onchange = (e) => {
+            scaleWithRatio = e.target.checked;
+        };
+    }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
