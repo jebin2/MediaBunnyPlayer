@@ -1137,7 +1137,6 @@ const showError = msg => {
 	const el = document.createElement('div');
 	el.className = 'error-message';
 	el.textContent = msg;
-	el.style.cssText = "position:fixed; top:20px; right:20px; background:rgba(200,0,0,0.8); color:white; padding:10px; border-radius:4px; z-index:10000;";
 	document.body.appendChild(el);
 	setTimeout(() => el.remove(), 4000);
 };
@@ -1145,9 +1144,8 @@ const showInfo = msg => {
 	if (document.querySelector('.error-message')) return;
 
 	const el = document.createElement('div');
-	el.className = 'error-message';
+	el.className = 'showInfo';
 	el.textContent = msg;
-	el.style.cssText = "position:fixed; top:20px; right:20px; background:var(--bg-mid); color:white; padding:10px; border-radius:4px; z-index:10000;";
 	document.body.appendChild(el);
 	setTimeout(() => el.remove(), 4000);
 };
@@ -1518,6 +1516,15 @@ const setPlaybackSpeed = (newSpeed) => {
 	startVideoIterator();
 };
 
+const updateShortcutKeysVisibility = () => {
+    const panel = $('shortcutKeysPanel');
+    if (!panel) return;
+    
+    // The panel should be visible if either static or dynamic cropping is active.
+    const shouldBeVisible = isCropping || isPanning;
+    panel.classList.toggle('hidden', !shouldBeVisible);
+};
+
 // Function to enter/exit Static Cropping mode
 const toggleStaticCrop = (e, reset = false) => {
 	isCropping = !reset && !isCropping;
@@ -1530,6 +1537,8 @@ const toggleStaticCrop = (e, reset = false) => {
 	panScanBtn.classList.toggle('hover_highlight', isPanning);
 	cropBtn.classList.toggle('hover_highlight');
 	if (reset) cropBtn.classList.remove('hover_highlight');
+
+	updateShortcutKeysVisibility();
 
 	if (isCropping) {
 		// Position the crop canvas when entering crop mode
@@ -1551,12 +1560,14 @@ const togglePanning = (e, reset = false) => {
 	isCropping = false; // Ensure static cropping is off
 
 	cropBtn.textContent = '✂️';
-	panScanBtn.textContent = isPanning ? 'Recording... (Press R to lock)' : 'Dynamic ✂️';
+	panScanBtn.textContent = isPanning ? 'Recording... (Press l to lock)' : 'Dynamic ✂️';
 
 	cropCanvas.classList.toggle('hidden', !isPanning);
 	cropBtn.classList.toggle('hover_highlight', isCropping);
 	panScanBtn.classList.toggle('hover_highlight');
 	if (reset) panScanBtn.classList.remove('hover_highlight');
+
+	updateShortcutKeysVisibility();
 
 	panKeyframes = [];
 	panRectSize = null;
@@ -1566,7 +1577,6 @@ const togglePanning = (e, reset = false) => {
 		cropCanvasDimensions = positionCropCanvas();
 		isCropFixed = false; // Reset fixed state
 		updateFixSizeButton();
-		showInfo("Draw a rectangle to define the crop size. Playback will start and the rectangle will follow your cursor. Press 'R' to lock its position.");
 	} else {
 		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
 		cropCanvasDimensions = null;
@@ -1937,15 +1947,6 @@ const resetAllConfigs = () => {
     if (blurBackgroundToggle) blurBackgroundToggle.checked = false;
     if (blurAmountInput) {
         blurAmountInput.value = 15;
-    }
-
-    // Trigger the UI visibility update
-    const cropModeRadios = document.querySelectorAll('input[name="cropMode"]');
-    if(cropModeRadios.length > 0) {
-        // Find the event listener's helper function to call it directly
-        // Note: This assumes updateDynamicCropOptionsUI is available in this scope.
-        // It's better to define it outside the event listener if it's not.
-        updateDynamicCropOptionsUI(); 
     }
 
 
@@ -2657,6 +2658,14 @@ const setupEventListeners = () => {
 		smoothOptionContainer.style.display = (dynamicCropMode !== 'none') ? 'flex' : 'none';
 	};
 
+    // Trigger the UI visibility update
+    if(cropModeRadios.length > 0) {
+        // Find the event listener's helper function to call it directly
+        // Note: This assumes updateDynamicCropOptionsUI is available in this scope.
+        // It's better to define it outside the event listener if it's not.
+        updateDynamicCropOptionsUI(); 
+    }
+
 	if (smoothPathToggle) {
 		smoothPathToggle.onchange = (e) => {
 			smoothPath = e.target.checked;
@@ -2714,6 +2723,12 @@ const setupEventListeners = () => {
         resetAllBtn.onclick = resetAllConfigs; // Simply call our powerful new function
     }
 	updateDynamicCropOptionsUI();
+
+	document.getElementById('settingsMenu').addEventListener('mouseleave', () => {
+		if (isCropping || isPanning || isLooping) {
+			settingsMenu.classList.add('hidden');
+		}
+	});
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -2774,6 +2789,13 @@ document.addEventListener('DOMContentLoaded', () => {
 			e.stopPropagation();
 			toggleCropFixed();
 		};
+		// Update the 'R' key handler for panning mode
+		document.addEventListener('keydown', (e) => {
+			if (e.key.toLowerCase() === 'l') {
+				e.stopPropagation();
+				toggleCropFixed();
+			}
+		});
 	}
 
 	// Update the 'R' key handler for panning mode
@@ -2784,6 +2806,15 @@ document.addEventListener('DOMContentLoaded', () => {
 			if (isCropFixed && !playing) {
 				play(); // Auto-start playback when fixing size in pan mode
 			}
+		} else if (e.key.toLowerCase() === 's') {
+			e.preventDefault();
+			takeScreenshot()
+		} else if (e.key.toLowerCase() === 'c') {
+			e.preventDefault();
+			handleCutAction()
+		} else if (e.key.toLowerCase() === 'escape') {
+			e.preventDefault();
+			resetAllConfigs()
 		}
 	});
 });
