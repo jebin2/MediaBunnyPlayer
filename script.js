@@ -562,7 +562,7 @@ const handleCutAction = async () => {
 		return;
 	}
 	hideTrackMenus();
-	showStatusMessage('Creating clip...');
+	guidedPanleInfo('Creating clip...');
 	let input;
 	let processCanvas = null;
 	let processCtx = null;
@@ -580,10 +580,11 @@ const handleCutAction = async () => {
 			// =================== START OF NEW SMOOTHING LOGIC ===================
 			// If the smooth path option is checked, preprocess the keyframes.
 			if (smoothPath || dynamicCropMode == 'none') {
-				showStatusMessage('Smoothing path...'); // Optional feedback for the user
+				guidedPanleInfo('Smoothing path...');
 				// Replace the jerky keyframes with the new, smoothed version.
 				panKeyframes = smoothPathWithMovingAverage(panKeyframes, 15);
 			}
+			guidedPanleInfo('Processing... and will be added to playlist');
 			// =================== END OF NEW SMOOTHING LOGIC =====================
 			const videoTrack = await input.getPrimaryVideoTrack();
 			if (!videoTrack) throw new Error("No video track found for dynamic cropping.");
@@ -667,7 +668,7 @@ const handleCutAction = async () => {
 		playlist.push({ type: 'file', name: clipName, file: cutClipFile, isCutClip: true });
 		updatePlaylistUIOptimized();
 		// if (cropFuncToReset) cropFuncToReset(null, true);
-		showStatusMessage('Clip adding to playlist!');
+		guidedPanleInfo('Clip adding to playlist!');
 		setTimeout(hideStatusMessage, 2000);
 	} catch (error) {
 		console.error("Error during cutting:", error);
@@ -1984,7 +1985,7 @@ const resetAllConfigs = () => {
     loopBtn.classList.remove('hover_highlight');
 
 	// 8. Remove Guided Panel
-	guidedPanleInfo("")
+	guidedPanleInfo("");
 
     // 9. Give user feedback
     showInfo("All configurations have been reset.");
@@ -2204,6 +2205,9 @@ const setupEventListeners = () => {
 
 	// === PERFORMANCE OPTIMIZATION: Event delegation for playlist clicks ===
 	playlistContent.addEventListener('click', (e) => {
+		setTimeout(() => {
+			cropCanvasDimensions = positionCropCanvas();
+		}, 200);
 		const removeButton = e.target.closest('.remove-item');
 		if (removeButton) {
 			e.stopPropagation();
