@@ -33,8 +33,8 @@ const sidebar = $('sidebar'),
 const progressHandle = $('progressHandle');
 const startTimeInput = $('startTime');
 const endTimeInput = $('endTime');
-const trimMenuBtn = $('trimMenuBtn');
-const trimMenu = $('trimMenu');
+const settingsCtrlBtn = $('settingsCtrlBtn');
+const settingsMenu = $('settingsMenu');
 const loopBtn = $('loopBtn');
 const cutBtn = $('cutBtn');
 const screenshotBtn = $('screenshotBtn');
@@ -1098,7 +1098,7 @@ const updateSubtitlesOptimized = (currentTime) => {
 const hideTrackMenus = () => {
 	$('audioTrackMenu').classList.add('hidden');
 	$('subtitleTrackMenu').classList.add('hidden');
-	$('trimMenu').classList.add('hidden');
+	$('settingsMenu').classList.add('hidden');
 };
 
 const playNext = () => {
@@ -1926,7 +1926,7 @@ const setupEventListeners = () => {
 		setVolume(volumeSlider.value);
 	};
 
-	$('audioTrackBtn').onclick = (e) => {
+	$('audioTrackCtrlBtn').onclick = (e) => {
 		e.stopPropagation();
 		const menu = $('audioTrackMenu');
 		const isHidden = menu.classList.contains('hidden');
@@ -1934,7 +1934,7 @@ const setupEventListeners = () => {
 		if (isHidden) menu.classList.remove('hidden');
 	};
 
-	$('subtitleTrackBtn').onclick = (e) => {
+	$('subtitleTrackCtrlBtn').onclick = (e) => {
 		e.stopPropagation();
 		const menu = $('subtitleTrackMenu');
 		const isHidden = menu.classList.contains('hidden');
@@ -1942,9 +1942,17 @@ const setupEventListeners = () => {
 		if (isHidden) menu.classList.remove('hidden');
 	};
 
+	// $('editMenuBtn').onclick = (e) => {
+	// 	e.stopPropagation();
+	// 	const menu = $('settingsMenu');
+	// 	const isHidden = menu.classList.contains('hidden');
+	// 	hideTrackMenus();
+	// 	if (isHidden) menu.classList.remove('hidden');
+	// };
+
 	// === PERFORMANCE OPTIMIZATION: Event delegation for playlist ===
 	document.addEventListener('click', (e) => {
-		if (!e.target.closest('.track-menu') && !e.target.closest('.track-controls')) {
+		if (!e.target.closest('.track-menu') && !e.target.closest('.control-btn')) {
 			hideTrackMenus();
 		}
 	});
@@ -2122,12 +2130,12 @@ const setupEventListeners = () => {
 		}
 	};
 
-	trimMenuBtn.onclick = (e) => {
+	settingsCtrlBtn.onclick = (e) => {
 		e.stopPropagation();
-		const isHidden = trimMenu.classList.contains('hidden');
+		const isHidden = settingsMenu.classList.contains('hidden');
 		hideTrackMenus();
 		if (isHidden) {
-			trimMenu.classList.remove('hidden');
+			settingsMenu.classList.remove('hidden');
 		}
 	};
 
@@ -2453,6 +2461,7 @@ const setupEventListeners = () => {
 			showInfo("Panning path recorded. The crop will now remain fixed. You can now use 'Cut Clip'.");
 		}
 	});
+
 	const spotlightEffectToggle = $('spotlightEffectToggle');
 	const maxSizeOptionContainer = $('maxSizeOptionContainer');
 	const useMaxSizeToggle = $('useMaxSizeToggle');
@@ -2461,41 +2470,37 @@ const setupEventListeners = () => {
 	const blurOptionContainer = $('blurOptionContainer');
 	const blurBackgroundToggle = $('blurBackgroundToggle');
 
-	if (spotlightEffectToggle && useMaxSizeToggle && scaleOptionContainer && scaleWithRatioToggle && blurOptionContainer && blurBackgroundToggle) {
+	// A helper function to manage the complex UI dependencies
+	const updateTrimOptionsVisibility = () => {
+		// Ensure elements exist before trying to access style
+		if (maxSizeOptionContainer) maxSizeOptionContainer.style.display = useSpotlightEffect ? 'none' : 'flex';
+		if (spotlightEffectToggle) spotlightEffectToggle.parentElement.style.display = useMaxSize ? 'none' : 'flex';
+		if (scaleOptionContainer) scaleOptionContainer.style.display = useMaxSize ? 'flex' : 'none';
+		if (blurOptionContainer) blurOptionContainer.style.display = (useSpotlightEffect || useMaxSize) ? 'flex' : 'none';
+	};
 
-		// A helper function to manage the complex UI dependencies
-		const updateTrimOptionsVisibility = () => {
-			// Spotlight and Max Size are mutually exclusive
-			maxSizeOptionContainer.style.display = useSpotlightEffect ? 'none' : 'flex';
-			spotlightEffectToggle.parentElement.style.display = useMaxSize ? 'none' : 'flex';
-
-			// Scale option depends on Max Size being active
-			scaleOptionContainer.style.display = useMaxSize ? 'flex' : 'none';
-
-			// Blur option is visible if *either* Spotlight or Max Size is active
-			blurOptionContainer.style.display = (useSpotlightEffect || useMaxSize) ? 'flex' : 'none';
-		};
-
+	// Group 1: Spotlight (Independent, but affects others)
+	if (spotlightEffectToggle) {
 		spotlightEffectToggle.onchange = (e) => {
 			useSpotlightEffect = e.target.checked;
-			// If we turn on spotlight, we must turn off the conflicting options
 			if (useSpotlightEffect) {
-				useMaxSizeToggle.checked = false;
+				if (useMaxSizeToggle) useMaxSizeToggle.checked = false;
 				useMaxSize = false;
-				scaleWithRatioToggle.checked = false;
+				if (scaleWithRatioToggle) scaleWithRatioToggle.checked = false;
 				scaleWithRatio = false;
 			}
 			updateTrimOptionsVisibility();
 		};
+	}
 
+	// Group 2: Max Size and its dependent, Scale (Interdependent)
+	if (useMaxSizeToggle && scaleWithRatioToggle && spotlightEffectToggle) {
 		useMaxSizeToggle.onchange = (e) => {
 			useMaxSize = e.target.checked;
-			// If we turn on max size, turn off spotlight
 			if (useMaxSize) {
 				spotlightEffectToggle.checked = false;
 				useSpotlightEffect = false;
 			} else {
-				// If we turn off max size, also turn off its dependent options
 				scaleWithRatioToggle.checked = false;
 				scaleWithRatio = false;
 			}
@@ -2505,13 +2510,13 @@ const setupEventListeners = () => {
 		scaleWithRatioToggle.onchange = (e) => {
 			scaleWithRatio = e.target.checked;
 		};
+	}
 
+	// Group 3: Blur (Independent state, but visibility is dependent)
+	if (blurBackgroundToggle) {
 		blurBackgroundToggle.onchange = (e) => {
 			useBlurBackground = e.target.checked;
 		};
-
-		// Call it once on setup to ensure the UI is in the correct initial state
-		updateTrimOptionsVisibility();
 	}
 };
 

@@ -81,28 +81,11 @@
 						</div>
 						<div class="controls-right">
 							<div class="track-controls">
-								<div class="trim-option">
-									<input type="checkbox" id="spotlightEffectToggle">
-									<label for="spotlightEffectToggle"
-										title="Keeps original video size and blacks out everything outside the crop area.">Use
-										Spotlight Effect</label>
-								</div>
-								<div class="trim-option" id="maxSizeOptionContainer">
-									<input type="checkbox" id="useMaxSizeToggle">
-									<label for="useMaxSizeToggle">Use Max Crop Size & Pad</label>
-								</div>
-								<div class="trim-option" id="scaleOptionContainer" style="display: none;">
-									<input type="checkbox" id="scaleWithRatioToggle">
-									<label for="scaleWithRatioToggle">Scale Smaller Crops to Fit</label>
-								</div>
-								<div class="trim-option" id="blurOptionContainer" style="display: none;">
-									<input type="checkbox" id="blurBackgroundToggle">
-									<label for="blurBackgroundToggle">Use Blurred Background</label>
-								</div>
 								<button class="btn track-btn" id="fixSizeBtn" style="display: none;">Fix Size</button>
-								<button class="btn track-btn" id="audioTrackBtn">Audio</button>
-								<button class="btn track-btn" id="subtitleTrackBtn">Subtitles</button>
-								<button class="btn track-btn" id="trimMenuBtn">⚙️</button>
+								<!-- <button class="btn track-btn" id="editMenuBtn" title="Trim, Crop & Edit">✂️</button> -->
+								<button class="btn track-btn" id="audioTrackCtrlBtn" title="Audio Tracks">🔊</button>
+								<button class="btn track-btn" id="subtitleTrackCtrlBtn" title="Subtitles">CC</button>
+								<button class="btn track-btn" id="settingsCtrlBtn" title="Advance Settings">⚙️</button>
 							</div>
 
 							<!-- Add these dropdown menus after the video-controls div: -->
@@ -123,22 +106,44 @@
 									</ul>
 								</div>
 							</div>
-							<div class="track-menu hidden" id="trimMenu">
+							<div class="track-menu hidden" id="settingsMenu">
 								<div class="track-menu-content">
-									<h4>Configs</h4>
+									<h4>Time Range</h4>
 									<div class="trim-menu-controls">
-										<input type="text" id="startTime" class="time-input" placeholder="00:00">
+										<input type="text" id="startTime" class="time-input" placeholder="00:00" title="Start Time">
 										<span>-</span>
-										<input type="text" id="endTime" class="time-input" placeholder="00:00">
+										<input type="text" id="endTime" class="time-input" placeholder="00:00" title="End Time">
 									</div>
+									<h4>Actions</h4>
 									<div class="trim-menu-actions">
-										<button class="btn" id="loopBtn">Loop</button>
-										<button class="btn" id="cutBtn">Cut Clip</button>
-										<button class="btn" id="cropBtn">Crop</button>
-										<button class="btn" id="panScanBtn">Dynamic Crop</button>
+										<button id="loopBtn" class="control-btn track-btn btn">Loop</button>
+										<button id="cutBtn" class="control-btn track-btn btn">Cut Clip</button>
+										<button id="screenshotBtn" class="control-btn track-btn btn">Screenshot</button>
 									</div>
-									<div class="trim-menu-actions screenshot">
-										<button class="btn" id="screenshotBtn">Screenshot</button>
+									<hr class="menu-divider">
+									<h4>Cropping</h4>
+									<div class="trim-menu-actions">
+										<button id="cropBtn" class="control-btn track-btn btn">✂️</button>
+										<button id="panScanBtn" class="control-btn track-btn btn">Dynamic ✂️</button>
+									</div>
+									<!-- All our dynamic options are now neatly organized here -->
+									<div id="dynamicCropOptionsContainer">
+										<div class="trim-option">
+											<input type="checkbox" id="spotlightEffectToggle">
+											<label for="spotlightEffectToggle" title="Blacks out everything outside the crop area.">Spotlight Effect</label>
+										</div>
+										<div class="trim-option" id="maxSizeOptionContainer">
+											<input type="checkbox" id="useMaxSizeToggle">
+											<label for="useMaxSizeToggle">Use Max Crop Size</label>
+										</div>
+										<div class="trim-option" id="scaleOptionContainer" style="display: none;">
+											<input type="checkbox" id="scaleWithRatioToggle">
+											<label for="scaleWithRatioToggle">Scale to Fit</label>
+										</div>
+										<div class="trim-option" id="blurOptionContainer" style="display: none;">
+											<input type="checkbox" id="blurBackgroundToggle">
+											<label for="blurBackgroundToggle">Blurred Background</label>
+										</div>
 									</div>
 								</div>
 							</div>

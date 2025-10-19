@@ -33,8 +33,8 @@ const sidebar = $('sidebar'),
 const progressHandle = $('progressHandle');
 const startTimeInput = $('startTime');
 const endTimeInput = $('endTime');
-const trimMenuBtn = $('trimMenuBtn');
-const trimMenu = $('trimMenu');
+const settingsCtrlBtn = $('settingsCtrlBtn');
+const settingsMenu = $('settingsMenu');
 const loopBtn = $('loopBtn');
 const cutBtn = $('cutBtn');
 const screenshotBtn = $('screenshotBtn');
@@ -1087,7 +1087,7 @@ const updateSubtitlesOptimized = (currentTime) => {
 const hideTrackMenus = () => {
 	$('audioTrackMenu').classList.add('hidden');
 	$('subtitleTrackMenu').classList.add('hidden');
-	$('trimMenu').classList.add('hidden');
+	$('settingsMenu').classList.add('hidden');
 };
 
 const playNext = () => {
@@ -1627,7 +1627,7 @@ const setupEventListeners = () => {
 		setVolume(volumeSlider.value);
 	};
 
-	$('audioTrackBtn').onclick = (e) => {
+	$('audioTrackCtrlBtn').onclick = (e) => {
 		e.stopPropagation();
 		const menu = $('audioTrackMenu');
 		const isHidden = menu.classList.contains('hidden');
@@ -1635,7 +1635,7 @@ const setupEventListeners = () => {
 		if (isHidden) menu.classList.remove('hidden');
 	};
 
-	$('subtitleTrackBtn').onclick = (e) => {
+	$('subtitleTrackCtrlBtn').onclick = (e) => {
 		e.stopPropagation();
 		const menu = $('subtitleTrackMenu');
 		const isHidden = menu.classList.contains('hidden');
@@ -1823,12 +1823,12 @@ const setupEventListeners = () => {
 		}
 	};
 
-	trimMenuBtn.onclick = (e) => {
+	settingsCtrlBtn.onclick = (e) => {
 		e.stopPropagation();
-		const isHidden = trimMenu.classList.contains('hidden');
+		const isHidden = settingsMenu.classList.contains('hidden');
 		hideTrackMenus();
 		if (isHidden) {
-			trimMenu.classList.remove('hidden');
+			settingsMenu.classList.remove('hidden');
 		}
 	};
 
