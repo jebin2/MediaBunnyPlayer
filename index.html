@@ -128,14 +128,24 @@
 									</div>
 									<!-- All our dynamic options are now neatly organized here -->
 									<div id="dynamicCropOptionsContainer">
-										<div class="trim-option">
-											<input type="checkbox" id="spotlightEffectToggle">
-											<label for="spotlightEffectToggle" title="Blacks out everything outside the crop area.">Spotlight Effect</label>
-										</div>
-										<div class="trim-option" id="maxSizeOptionContainer">
-											<input type="checkbox" id="useMaxSizeToggle">
-											<label for="useMaxSizeToggle">Use Max Crop Size</label>
-										</div>
+										<!-- This is our new mode selector -->
+										<fieldset class="trim-mode-selector">
+											<legend>Dynamic Crop Mode</legend>
+											<div>
+												<input type="radio" id="cropModeNone" name="cropMode" value="none" checked>
+												<label for="cropModeNone">Default</label>
+											</div>
+											<div>
+												<input type="radio" id="cropModeSpotlight" name="cropMode" value="spotlight">
+												<label for="cropModeSpotlight">Spotlight</label>
+											</div>
+											<div>
+												<input type="radio" id="cropModeMaxSize" name="cropMode" value="max-size">
+												<label for="cropModeMaxSize">Max Size</label>
+											</div>
+										</fieldset>
+
+										<!-- The sub-options are now separate and will be shown/hidden as needed -->
 										<div class="trim-option" id="scaleOptionContainer" style="display: none;">
 											<input type="checkbox" id="scaleWithRatioToggle">
 											<label for="scaleWithRatioToggle">Scale to Fit</label>
@@ -144,6 +154,7 @@
 											<input type="checkbox" id="blurBackgroundToggle">
 											<label for="blurBackgroundToggle">Blurred Background</label>
 										</div>
+
 									</div>
 								</div>
 							</div>

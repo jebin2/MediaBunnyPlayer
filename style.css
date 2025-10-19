@@ -942,16 +942,39 @@ body::after {
 .hidden {
 	display: none;
 }
+
 .trim-option {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-top: 8px;
-    gap: 6px;
-    font-size: 0.9em;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin-top: 8px;
+	gap: 6px;
+	font-size: 0.9em;
 }
+
 .menu-divider {
-    border: none;
-    border-top: 1px solid rgba(255, 255, 255, 0.15);
-    margin: 10px 0;
+	border: none;
+	border-top: 1px solid rgba(255, 255, 255, 0.15);
+	margin: 10px 0;
+}
+
+.trim-mode-selector {
+	border: 1px solid rgba(255, 255, 255, 0.2);
+	border-radius: 4px;
+	padding: 5px 10px;
+	margin-bottom: 10px;
+	display: flex;
+	justify-content: space-around;
+	font-size: 0.9em;
+}
+
+.trim-mode-selector legend {
+	padding: 0 5px;
+	font-size: 0.8em;
+	opacity: 0.7;
+}
+
+.trim-mode-selector div {
+	display: flex;
+	align-items: center;
 }
