@@ -1,8 +1,8 @@
 ### MediaBunnyPlayer
 
-A powerful, browser-based media player built with the `media-bunny` library. This player goes beyond simple playback, offering a suite of in-browser editing tools.
+A powerful, browser-based media player built with the `mediabunny` library. This player goes beyond simple playback, offering a suite of in-browser editing tools.
 
-**Powered by:** [media-bunny](https://github.com/media-bunny/media-bunny) and the WebCodecs API.
+**Powered by:** [mediabunny](https://mediabunny.dev/).
 
 ### Functionality
 
