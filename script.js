@@ -110,6 +110,7 @@ let blurAmount = 15;
 let dynamicCropMode = 'none'; // Can be 'none', 'spotlight', or 'max-size'
 let isShiftPressed = false;
 let buffer = '';
+let videoTrack = null; // To store video track info for frame-by-frame seeking
 
 // === PERFORMANCE OPTIMIZATION: Cache DOM elements for playlist ===
 let playlistElementCache = new Map(); // Maps path -> DOM element
@@ -810,6 +811,7 @@ const stopAndClear = async () => {
 	videoSink = null;
 	audioSink = null;
 	subtitleRenderer = null;
+	videoTrack = null; // Reset video track info
 	removeSubtitleOverlay();
 
 	availableAudioTracks = [];
@@ -855,7 +857,7 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 			formats: ALL_FORMATS
 		});
 
-		const videoTrack = await input.getPrimaryVideoTrack();
+		videoTrack = await input.getPrimaryVideoTrack(); // Assign to global videoTrack
 		const audioTracks = await input.getAudioTracks();
 		const firstAudioTrack = audioTracks.length > 0 ? audioTracks[0] : null;
 
@@ -902,6 +904,8 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 		setVolume(volumeSlider.value);
 
 		if (videoTrack) {
+			const packetStats = await videoTrack.computePacketStats();
+			videoTrack.frameRate = packetStats.averagePacketRate;
 			videoSink = new CanvasSink(videoTrack, {
 				poolSize: 2
 			});
@@ -2265,6 +2269,25 @@ const setupEventListeners = () => {
 
 	document.onkeydown = (e) => {
 		if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || !fileLoaded) return;
+
+		// Handle frame-by-frame seeking when paused
+		if (!playing && videoTrack && videoTrack.frameRate > 0) {
+			if (e.code === 'KeyN') { // 'n' for next frame
+				e.preventDefault();
+				const newTime = getPlaybackTime() + (1 / videoTrack.frameRate);
+				seekToTime(newTime);
+				showControlsTemporarily();
+				return; // Stop further execution for this key press
+			}
+			if (e.code === 'KeyP') { // 'p' for previous frame
+				e.preventDefault();
+				const newTime = getPlaybackTime() - (1 / videoTrack.frameRate);
+				seekToTime(newTime);
+				showControlsTemporarily();
+				return; // Stop further execution for this key press
+			}
+		}
+
 		const actions = {
 			'Space': () => togglePlay(),
 			'KeyK': () => togglePlay(),
@@ -2852,9 +2875,6 @@ const setupEventListeners = () => {
     // Check for double slash
     if (buffer === '//') {
       updateShortcutKeysVisibility();
-      setTimeout(() => {
-        updateShortcutKeysVisibility();
-      }, 2000);
       buffer = ''; // reset buffer after trigger
     }
   } else if (e.key === 'Backspace') {
