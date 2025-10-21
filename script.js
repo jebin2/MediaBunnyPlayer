@@ -47,11 +47,8 @@ const screenshotPreviewImg = $('screenshotPreviewImg');
 const closeScreenshotBtn = $('closeScreenshotBtn');
 const copyScreenshotBtn = $('copyScreenshotBtn');
 const downloadScreenshotBtn = $('downloadScreenshotBtn');
-let currentScreenshotBlob = null;
 const playbackSpeedInput = $('playbackSpeedInput');
-let currentPlaybackRate = 1.0;
 const autoplayToggle = $('autoplayToggle');
-let isAutoplayEnabled = true;
 const urlModal = $('urlModal');
 const urlInput = $('urlInput');
 const loadUrlBtn = $('loadUrlBtn');
@@ -68,6 +65,13 @@ const blurAmountInput = $('blurAmountInput');
 const HANDLE_SIZE = 12;
 const HANDLE_HALF = HANDLE_SIZE / 2;
 const fixSizeBtn = document.getElementById('fixSizeBtn');
+const prevBtn = $('prevBtn');
+const nextBtn = $('nextBtn');
+const cropBtn = $('cropBtn');
+const cropCanvas = $('cropCanvas');
+const cropCtx = cropCanvas.getContext('2d');
+const queuedAudioNodes = new Set();
+const panScanBtn = $('panScanBtn');
 
 const ctx = canvas.getContext('2d', {
 	alpha: false,
@@ -84,7 +88,6 @@ let totalDuration = 0,
 let audioContextStartTime = 0,
 	playbackTimeAtStart = 0;
 let videoFrameIterator, audioBufferIterator, nextFrame = null;
-const queuedAudioNodes = new Set();
 let asyncId = 0;
 let hideControlsTimeout;
 let availableAudioTracks = [];
@@ -96,21 +99,14 @@ let isLooping = false;
 let loopStartTime = 0;
 let loopEndTime = 0;
 let playbackLogicInterval = null;
-const prevBtn = $('prevBtn');
-const nextBtn = $('nextBtn');
-
-const cropBtn = $('cropBtn');
-const cropCanvas = $('cropCanvas');
-const cropCtx = cropCanvas.getContext('2d');
-
+let currentScreenshotBlob = null;
+let currentPlaybackRate = 1.0;
+let isAutoplayEnabled = true;
 let isCropping = false;
 let isDrawingCrop = false;
 let cropStart = { x: 0, y: 0 };
 let cropEnd = { x: 0, y: 0 };
 let cropRect = null; // Will store the final crop dimensions
-
-// ... after your other element selectors
-const panScanBtn = $('panScanBtn');
 
 // ... after your other state variables
 let isPanning = false; // Are we in "Dynamic Crop" recording mode?
