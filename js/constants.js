@@ -1,44 +1,51 @@
-// js/constants.js
+// ============================================================================
+// constants.js
+// ============================================================================
 
 export const MEDIABUNNY_URL = 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
+export const HANDLE_SIZE = 12;
+export const HANDLE_HALF = HANDLE_SIZE / 2;
+
+// Helper function for getElementById
 export const $ = document.getElementById.bind(document);
 
-// Main Layout
+// DOM Elements - Player Container
 export const playerArea = $('playerArea');
 export const videoContainer = $('videoContainer');
 export const canvas = $('videoCanvas');
 export const dropZone = $('dropZone');
 export const loading = $('loading');
-export const showMessage = document.querySelector('.showMessage');
 
-// Player Controls
+// DOM Elements - Playback Controls
 export const playBtn = $('playBtn');
-export const prevBtn = $('prevBtn');
-export const nextBtn = $('nextBtn');
 export const timeDisplay = $('timeDisplay');
 export const progressContainer = $('progressContainer');
 export const progressBar = $('progressBar');
-export const progressHandle = $('progressHandle');
 export const volumeSlider = $('volumeSlider');
 export const muteBtn = $('muteBtn');
 export const fullscreenBtn = $('fullscreenBtn');
-export const videoControls = $('videoControls');
-export const playbackSpeedInput = $('playbackSpeedInput');
-export const autoplayToggle = $('autoplayToggle');
+export const prevBtn = $('prevBtn');
+export const nextBtn = $('nextBtn');
 
-// Editing Controls
-export const loopBtn = $('loopBtn');
-export const cutBtn = $('cutBtn');
-export const cropBtn = $('cropBtn');
-export const panScanBtn = $('panScanBtn');
-export const cropCanvas = $('cropCanvas');
+// DOM Elements - Sidebar & Playlist
+export const sidebar = $('sidebar');
+export const playlistContent = $('playlistContent');
+export const videoControls = $('videoControls');
+
+// DOM Elements - Progress & Time
+export const progressHandle = $('progressHandle');
 export const startTimeInput = $('startTime');
 export const endTimeInput = $('endTime');
-export const fixSizeBtn = $('fixSizeBtn');
-export const resetAllBtn = $('resetAllBtn');
-export const shortcutKeysPanel = $('shortcutKeysPanel');
 
-// Screenshot Feature
+// DOM Elements - Settings & Menu
+export const settingsCtrlBtn = $('settingsCtrlBtn');
+export const settingsMenu = $('settingsMenu');
+
+// DOM Elements - Loop & Cut Controls
+export const loopBtn = $('loopBtn');
+export const cutBtn = $('cutBtn');
+
+// DOM Elements - Screenshot Controls
 export const screenshotBtn = $('screenshotBtn');
 export const screenshotOverlay = $('screenshotOverlay');
 export const screenshotPreviewImg = $('screenshotPreviewImg');
@@ -46,37 +53,26 @@ export const closeScreenshotBtn = $('closeScreenshotBtn');
 export const copyScreenshotBtn = $('copyScreenshotBtn');
 export const downloadScreenshotBtn = $('downloadScreenshotBtn');
 
-// Playlist
-export const sidebar = $('sidebar');
-export const playlistContent = $('playlistContent');
-export const clearPlaylistBtn = $('clearPlaylistBtn');
-export const chooseFileBtn = $('chooseFileBtn');
-export const togglePlaylistBtn = $('togglePlaylistBtn');
-export const fileInput = $('fileInput');
-export const folderInput = $('folderInput');
+// DOM Elements - Playback Speed & Autoplay
+export const playbackSpeedInput = $('playbackSpeedInput');
+export const autoplayToggle = $('autoplayToggle');
 
-// URL Modal
+// DOM Elements - URL Modal
 export const urlModal = $('urlModal');
 export const urlInput = $('urlInput');
 export const loadUrlBtn = $('loadUrlBtn');
 export const cancelUrlBtn = $('cancelUrlBtn');
 
-// Action Buttons
-export const mainActionBtn = $('mainActionBtn');
-export const dropdownActionBtn = $('dropdownActionBtn');
-export const actionDropdownMenu = $('actionDropdownMenu');
+// DOM Elements - Messages
+export const showMessage = document.querySelector('.showMessage');
 
-// Menus
-export const settingsCtrlBtn = $('settingsCtrlBtn');
-export const settingsMenu = $('settingsMenu');
-export const audioTrackCtrlBtn = $('audioTrackCtrlBtn');
-export const subtitleTrackCtrlBtn = $('subtitleTrackCtrlBtn');
-export const audioTrackMenu = $('audioTrackMenu');
-export const subtitleTrackMenu = $('subtitleTrackMenu');
-export const audioTrackList = $('audioTrackList');
-export const subtitleTrackList = $('subtitleTrackList');
+// DOM Elements - Crop Controls
+export const cropBtn = $('cropBtn');
+export const cropCanvas = $('cropCanvas');
+export const panScanBtn = $('panScanBtn');
+export const fixSizeBtn = document.getElementById('fixSizeBtn');
 
-// Dynamic Crop Options
+// DOM Elements - Dynamic Crop Options
 export const cropModeRadios = document.querySelectorAll('input[name="cropMode"]');
 export const scaleOptionContainer = $('scaleOptionContainer');
 export const scaleWithRatioToggle = $('scaleWithRatioToggle');
@@ -87,5 +83,11 @@ export const blurBackgroundToggle = $('blurBackgroundToggle');
 export const blurAmountInput = $('blurAmountInput');
 
 // Canvas Contexts
-export const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+export const ctx = canvas.getContext('2d', {
+    alpha: false,
+    desynchronized: true
+});
 export const cropCtx = cropCanvas.getContext('2d');
+
+// Audio Nodes Set
+export const queuedAudioNodes = new Set();

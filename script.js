@@ -1,5 +1,5 @@
-import * as constant from './js/constants.js';
-import { state, updateState } from './js/state.js';
+import { $, MEDIABUNNY_URL, playerArea, videoContainer, canvas, dropZone, loading, playBtn, timeDisplay, progressContainer, progressBar, volumeSlider, muteBtn, fullscreenBtn, sidebar, playlistContent, videoControls, progressHandle, startTimeInput, endTimeInput, settingsCtrlBtn, settingsMenu, loopBtn, cutBtn, screenshotBtn, screenshotOverlay, screenshotPreviewImg, closeScreenshotBtn, copyScreenshotBtn, downloadScreenshotBtn, playbackSpeedInput, autoplayToggle, urlModal, urlInput, loadUrlBtn, cancelUrlBtn, showMessage, cropModeRadios, scaleOptionContainer, scaleWithRatioToggle, blurOptionContainer, smoothOptionContainer, smoothPathToggle, blurBackgroundToggle, blurAmountInput, HANDLE_SIZE, HANDLE_HALF, fixSizeBtn, prevBtn, nextBtn, cropBtn, cropCanvas, cropCtx, queuedAudioNodes, panScanBtn, ctx } from './js/constants.js';
+import { state } from './js/state.js';
 
 import {
 	Input,
@@ -18,65 +18,6 @@ import {
 // ============================================================================
 // GLOBAL VARIABLES & CONSTANTS
 // ============================================================================
-const $ = document.getElementById.bind(document);
-const playerArea = $('playerArea'),
-	videoContainer = $('videoContainer'),
-	canvas = $('videoCanvas'),
-	dropZone = $('dropZone'),
-	loading = $('loading');
-const playBtn = $('playBtn'),
-	timeDisplay = $('timeDisplay'),
-	progressContainer = $('progressContainer');
-const progressBar = $('progressBar'),
-	volumeSlider = $('volumeSlider'),
-	muteBtn = $('muteBtn'),
-	fullscreenBtn = $('fullscreenBtn');
-const sidebar = $('sidebar'),
-	playlistContent = $('playlistContent'),
-	videoControls = $('videoControls');
-const progressHandle = $('progressHandle');
-const startTimeInput = $('startTime');
-const endTimeInput = $('endTime');
-const settingsCtrlBtn = $('settingsCtrlBtn');
-const settingsMenu = $('settingsMenu');
-const loopBtn = $('loopBtn');
-const cutBtn = $('cutBtn');
-const screenshotBtn = $('screenshotBtn');
-const screenshotOverlay = $('screenshotOverlay');
-const screenshotPreviewImg = $('screenshotPreviewImg');
-const closeScreenshotBtn = $('closeScreenshotBtn');
-const copyScreenshotBtn = $('copyScreenshotBtn');
-const downloadScreenshotBtn = $('downloadScreenshotBtn');
-const playbackSpeedInput = $('playbackSpeedInput');
-const autoplayToggle = $('autoplayToggle');
-const urlModal = $('urlModal');
-const urlInput = $('urlInput');
-const loadUrlBtn = $('loadUrlBtn');
-const cancelUrlBtn = $('cancelUrlBtn');
-const showMessage = document.querySelector('.showMessage');
-const cropModeRadios = document.querySelectorAll('input[name="cropMode"]');
-const scaleOptionContainer = $('scaleOptionContainer');
-const scaleWithRatioToggle = $('scaleWithRatioToggle');
-const blurOptionContainer = $('blurOptionContainer');
-const smoothOptionContainer = $('smoothOptionContainer');
-const smoothPathToggle = $('smoothPathToggle');
-const blurBackgroundToggle = $('blurBackgroundToggle');
-const blurAmountInput = $('blurAmountInput');
-const HANDLE_SIZE = 12;
-const HANDLE_HALF = HANDLE_SIZE / 2;
-const fixSizeBtn = document.getElementById('fixSizeBtn');
-const prevBtn = $('prevBtn');
-const nextBtn = $('nextBtn');
-const cropBtn = $('cropBtn');
-const cropCanvas = $('cropCanvas');
-const cropCtx = cropCanvas.getContext('2d');
-const queuedAudioNodes = new Set();
-const panScanBtn = $('panScanBtn');
-
-const ctx = canvas.getContext('2d', {
-	alpha: false,
-	desynchronized: true
-});
 
 let playlist = [],
 	currentPlayingFile = null,
@@ -574,7 +515,7 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 const ensureSubtitleRenderer = async () => {
 	if (!SubtitleRendererConstructor) {
 		try {
-			const module = await import(constant.MEDIABUNNY_URL);
+			const module = await import(MEDIABUNNY_URL);
 			SubtitleRendererConstructor = module.SubtitleRenderer;
 		} catch (e) {
 			console.error("Failed to load SubtitleRenderer module:", e);

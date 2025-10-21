@@ -1,30 +1,36 @@
-// js/state.js
+// ============================================================================
+// state.js
+// ============================================================================
 
 export const state = {
-    // Media & Playback State
+    // Playlist State
     playlist: [],
     currentPlayingFile: null,
     fileLoaded: false,
+
+    // Audio/Video State
     audioContext: null,
     gainNode: null,
     videoSink: null,
     audioSink: null,
+
+    // Playback State
     totalDuration: 0,
     playing: false,
     isSeeking: false,
     audioContextStartTime: 0,
     playbackTimeAtStart: 0,
+
+    // Iterator State
     videoFrameIterator: null,
     audioBufferIterator: null,
     nextFrame: null,
-    queuedAudioNodes: new Set(),
+
+    // Async & Timeout State
     asyncId: 0,
     hideControlsTimeout: null,
-    playbackLogicInterval: null,
-    currentPlaybackRate: 1.0,
-    isAutoplayEnabled: true,
 
-    // Track State
+    // Track Management State
     availableAudioTracks: [],
     availableSubtitleTracks: [],
     currentAudioTrack: null,
@@ -32,45 +38,64 @@ export const state = {
     subtitleRenderer: null,
     SubtitleRendererConstructor: null,
 
-    // Editing State
+    // Loop State
     isLooping: false,
     loopStartTime: 0,
     loopEndTime: 0,
+    playbackLogicInterval: null,
+
+    // Screenshot State
+    currentScreenshotBlob: null,
+
+    // Playback Control State
+    currentPlaybackRate: 1.0,
+    isAutoplayEnabled: true,
+
+    // Static Crop State
     isCropping: false,
     isDrawingCrop: false,
     cropStart: { x: 0, y: 0 },
     cropEnd: { x: 0, y: 0 },
     cropRect: null,
+
+    // Dynamic Crop (Pan/Scan) State
     isPanning: false,
     panKeyframes: [],
     panRectSize: null,
-    dynamicCropMode: 'none',
+
+    // Crop Configuration State
     scaleWithRatio: false,
     useBlurBackground: false,
     smoothPath: false,
     blurAmount: 15,
+    dynamicCropMode: 'none',
+
+    // UI Action State
+    currentOpenFileAction: 'open-file',
+
+    // Keyboard State
     isShiftPressed: false,
+    buffer: '',
+
+    // Video Track State
+    videoTrack: null,
+
+    // Crop Manipulation State
+    cropCanvasDimensions: null,
     isCropFixed: false,
     isDraggingCrop: false,
     isResizingCrop: false,
     resizeHandle: null,
     dragStartPos: { x: 0, y: 0 },
     originalCropRect: null,
-    cropCanvasDimensions: null,
-    currentScreenshotBlob: null,
 
-    // UI State
-    currentOpenFileAction: 'open-file',
-
-    // Performance/Cache State
+    // Performance Optimization State
     playlistElementCache: new Map(),
     lastRenderedPlaylist: null,
     subtitleOverlayElement: null,
     lastSubtitleText: null,
     progressUpdateScheduled: false,
-};
 
-// Helper to update multiple state properties
-export function updateState(newState) {
-    Object.assign(state, newState);
-}
+    // Resize Timeout
+    resizeTimeout: null
+};
