@@ -177,11 +177,11 @@ const renderLoop = () => {
 };
 
 const scheduleProgressUpdate = (time) => {
-	if (progressUpdateScheduled) return;
-	progressUpdateScheduled = true;
+	if (state.progressUpdateScheduled) return;
+	state.progressUpdateScheduled = true;
 	requestAnimationFrame(() => {
 		updateProgressBarUI(time);
-		progressUpdateScheduled = false;
+		state.progressUpdateScheduled = false;
 	});
 };
 
@@ -513,17 +513,17 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 };
 
 const ensureSubtitleRenderer = async () => {
-	if (!SubtitleRendererConstructor) {
+	if (!state.SubtitleRendererConstructor) {
 		try {
 			const module = await import(MEDIABUNNY_URL);
-			SubtitleRendererConstructor = module.SubtitleRenderer;
+			state.SubtitleRendererConstructor = module.SubtitleRenderer;
 		} catch (e) {
 			console.error("Failed to load SubtitleRenderer module:", e);
 			showError("Failed to load subtitle support.");
 			throw e;
 		}
 	}
-	return SubtitleRendererConstructor;
+	return state.SubtitleRendererConstructor;
 };
 
 // ============================================================================
@@ -1177,13 +1177,13 @@ const toggleStaticCrop = (e, reset = false) => {
 	if (isCropping) {
 		// Position the crop canvas when entering crop mode
 		cropCanvasDimensions = positionCropCanvas();
-		isCropFixed = false; // Reset fixed state
+		state.isCropFixed = false; // Reset fixed state
 		updateFixSizeButton();
 	} else {
 		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
 		cropRect = null;
 		cropCanvasDimensions = null;
-		isCropFixed = false;
+		state.isCropFixed = false;
 		updateFixSizeButton();
 	}
 };
@@ -1312,13 +1312,13 @@ const togglePanning = (e, reset = false) => {
 	if (isPanning) {
 		// Position the crop canvas when entering panning mode
 		cropCanvasDimensions = positionCropCanvas();
-		isCropFixed = false; // Reset fixed state
+		state.isCropFixed = false; // Reset fixed state
 		updateFixSizeButton();
 		guidedPanleInfo("Click and drag on the video to draw your crop area.");
 	} else {
 		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
 		cropCanvasDimensions = null;
-		isCropFixed = false;
+		state.isCropFixed = false;
 		updateFixSizeButton();
 	}
 };
@@ -1449,7 +1449,7 @@ const drawCropWithHandles = (rect) => {
 	cropCtx.strokeRect(rect.x, rect.y, rect.width, rect.height);
 
 	// Draw resize handles if crop is not fixed
-	if (!isCropFixed) {
+	if (!state.isCropFixed) {
 		guidedPanleInfo("Adjust the rectangle to your desired size. When ready, press 'L' to lock the size and begin recording.")
 		cropCtx.fillStyle = '#00ffff';
 		cropCtx.strokeStyle = '#ffffff';
@@ -1504,7 +1504,7 @@ const drawCropWithHandles = (rect) => {
 };
 
 const getResizeHandle = (x, y, rect) => {
-	if (!rect || isCropFixed) return null;
+	if (!rect || state.isCropFixed) return null;
 
 	const handles = [
 		{ name: 'nw', x: rect.x, y: rect.y },
@@ -1605,10 +1605,10 @@ const applyResize = (handle, deltaX, deltaY, originalRect) => {
 };
 
 const toggleCropFixed = () => {
-	isCropFixed = !isCropFixed;
+	state.isCropFixed = !state.isCropFixed;
 	updateFixSizeButton();
 
-	if (isCropFixed) {
+	if (state.isCropFixed) {
 		// When fixing, ensure even dimensions for video processing
 		if (isCropping && cropRect) {
 			cropRect.width = Math.round(cropRect.width / 2) * 2;
@@ -1649,8 +1649,8 @@ const updateFixSizeButton = () => {
 
 	if (shouldShow) {
 		fixSizeBtn.style.display = 'inline-block';
-		fixSizeBtn.textContent = isCropFixed ? 'Resize' : 'Fix Size';
-		if (isCropFixed) {
+		fixSizeBtn.textContent = state.isCropFixed ? 'Resize' : 'Fix Size';
+		if (state.isCropFixed) {
 			fixSizeBtn.classList.add('hover_highlight');
 		} else {
 			fixSizeBtn.classList.remove('hover_highlight');
@@ -2438,29 +2438,29 @@ const setupEventListeners = () => {
 		const currentRect = isCropping ? cropRect :
 			(panKeyframes.length > 0 ? panKeyframes[panKeyframes.length - 1].rect : null);
 
-		if (currentRect && !isCropFixed) {
+		if (currentRect && !state.isCropFixed) {
 			// Check if clicking on a resize handle
-			resizeHandle = getResizeHandle(coords.x, coords.y, currentRect);
+			state.resizeHandle = getResizeHandle(coords.x, coords.y, currentRect);
 
-			if (resizeHandle) {
-				isResizingCrop = true;
-				originalCropRect = { ...currentRect };
-				dragStartPos = coords;
+			if (state.resizeHandle) {
+				state.isResizingCrop = true;
+				state.originalCropRect = { ...currentRect };
+				state.dragStartPos = coords;
 			} else if (isInsideCropRect(coords.x, coords.y, currentRect)) {
 				// Clicking inside crop area - start dragging
-				isDraggingCrop = true;
-				originalCropRect = { ...currentRect };
-				dragStartPos = coords;
+				state.isDraggingCrop = true;
+				state.originalCropRect = { ...currentRect };
+				state.dragStartPos = coords;
 			} else {
 				// Clicking outside - start drawing new rect
 				isDrawingCrop = true;
 				cropStart = coords;
 				cropEnd = coords;
 			}
-		} else if (currentRect && isCropFixed && isPanning) {
+		} else if (currentRect && state.isCropFixed && isPanning) {
 			// In panning mode with fixed size, any click starts recording movement
-			isDraggingCrop = true;
-			dragStartPos = coords;
+			state.isDraggingCrop = true;
+			state.dragStartPos = coords;
 		} else {
 			// No existing rect - start drawing
 			isDrawingCrop = true;
@@ -2473,11 +2473,11 @@ const setupEventListeners = () => {
 		const coords = getScaledCoordinates(e);
 
 		// Update cursor based on position
-		if (!isDrawingCrop && !isDraggingCrop && !isResizingCrop) {
+		if (!isDrawingCrop && !state.isDraggingCrop && !state.isResizingCrop) {
 			const currentRect = isCropping ? cropRect :
 				(panKeyframes.length > 0 ? panKeyframes[panKeyframes.length - 1].rect : null);
 
-			if (currentRect && !isCropFixed) {
+			if (currentRect && !state.isCropFixed) {
 				const handle = getResizeHandle(coords.x, coords.y, currentRect);
 				if (handle) {
 					cropCanvas.style.cursor = getCursorForHandle(handle);
@@ -2486,7 +2486,7 @@ const setupEventListeners = () => {
 				} else {
 					cropCanvas.style.cursor = 'crosshair';
 				}
-			} else if (isPanning && panRectSize && isCropFixed) {
+			} else if (isPanning && panRectSize && state.isCropFixed) {
 				// Live panning with fixed size
 				const lastRectSize = panKeyframes.length > 0
 					? { width: panKeyframes[panKeyframes.length - 1].rect.width, height: panKeyframes[panKeyframes.length - 1].rect.height }
@@ -2520,12 +2520,12 @@ const setupEventListeners = () => {
 		}
 
 		// Handle resizing
-		if (isResizingCrop && originalCropRect) {
+		if (state.isResizingCrop && state.originalCropRect) {
 			e.preventDefault();
-			const deltaX = coords.x - dragStartPos.x;
-			const deltaY = coords.y - dragStartPos.y;
+			const deltaX = coords.x - state.dragStartPos.x;
+			const deltaY = coords.y - state.dragStartPos.y;
 
-			const newRect = applyResize(resizeHandle, deltaX, deltaY, originalCropRect);
+			const newRect = applyResize(state.resizeHandle, deltaX, deltaY, state.originalCropRect);
 
 			if (isCropping) {
 				cropRect = newRect;
@@ -2539,16 +2539,16 @@ const setupEventListeners = () => {
 		}
 
 		// Handle dragging/moving
-		if (isDraggingCrop && originalCropRect) {
+		if (state.isDraggingCrop && state.originalCropRect) {
 			e.preventDefault();
-			const deltaX = coords.x - dragStartPos.x;
-			const deltaY = coords.y - dragStartPos.y;
+			const deltaX = coords.x - state.dragStartPos.x;
+			const deltaY = coords.y - state.dragStartPos.y;
 
 			let newRect = {
-				x: originalCropRect.x + deltaX,
-				y: originalCropRect.y + deltaY,
-				width: originalCropRect.width,
-				height: originalCropRect.height
+				x: state.originalCropRect.x + deltaX,
+				y: state.originalCropRect.y + deltaY,
+				width: state.originalCropRect.width,
+				height: state.originalCropRect.height
 			};
 
 			newRect = clampRectToVideoBounds(newRect);
@@ -2556,7 +2556,7 @@ const setupEventListeners = () => {
 			if (isCropping) {
 				cropRect = newRect;
 			} else if (isPanning) {
-				if (isCropFixed) {
+				if (state.isCropFixed) {
 					// Record keyframe while dragging in fixed mode
 					panKeyframes.push({ timestamp: getPlaybackTime(), rect: newRect });
 				} else if (panKeyframes.length > 0) {
@@ -2570,7 +2570,7 @@ const setupEventListeners = () => {
 	};
 
 	cropCanvas.onpointerup = (e) => {
-		if (!isDrawingCrop && !isDraggingCrop && !isResizingCrop) return;
+		if (!isDrawingCrop && !state.isDraggingCrop && !state.isResizingCrop) return;
 		e.preventDefault();
 		cropCanvas.releasePointerCapture(e.pointerId);
 
@@ -2599,10 +2599,10 @@ const setupEventListeners = () => {
 		}
 
 		isDrawingCrop = false;
-		isDraggingCrop = false;
-		isResizingCrop = false;
-		resizeHandle = null;
-		originalCropRect = null;
+		state.isDraggingCrop = false;
+		state.isResizingCrop = false;
+		state.resizeHandle = null;
+		state.originalCropRect = null;
 		cropCanvas.style.cursor = 'crosshair';
 
 		updateFixSizeButton();
@@ -2759,8 +2759,8 @@ updatePlaylistUIOptimized();
 registerServiceWorker();
 
 window.addEventListener('resize', () => {
-	clearTimeout(resizeTimeout);
-	resizeTimeout = setTimeout(() => {
+	clearTimeout(state.resizeTimeout);
+	state.resizeTimeout = setTimeout(() => {
 		if ((isCropping || isPanning) && !cropCanvas.classList.contains('hidden')) {
 			cropCanvasDimensions = positionCropCanvas();
 			// Redraw current crop
@@ -2780,10 +2780,10 @@ fixSizeBtn.onclick = (e) => {
 
 // Update the 'R' key handler for panning mode
 document.addEventListener('keydown', (e) => {
-	if (isPanning && panRectSize && e.key.toLowerCase() === 'r' && !isCropFixed) {
+	if (isPanning && panRectSize && e.key.toLowerCase() === 'r' && !state.isCropFixed) {
 		e.preventDefault();
 		toggleCropFixed();
-		if (isCropFixed && !playing) {
+		if (state.isCropFixed && !playing) {
 			play(); // Auto-start playback when fixing size in pan mode
 		}
 	} else if (e.key.toLowerCase() === 's') {
@@ -2795,6 +2795,11 @@ document.addEventListener('keydown', (e) => {
 	} else if (e.key.toLowerCase() === 'escape') {
 		e.preventDefault();
 		resetAllConfigs()
+	} else if (e.key === 'Backspace') {
+		buffer = buffer.slice(0, -1);
+	} else if (e.key.toLowerCase() === 'l') {
+		e.stopPropagation();
+		toggleCropFixed();
 	} else if (e.key.length === 1) {
 		buffer += e.key;
 
@@ -2806,11 +2811,6 @@ document.addEventListener('keydown', (e) => {
 			updateShortcutKeysVisibility();
 			buffer = ''; // reset buffer after trigger
 		}
-	} else if (e.key === 'Backspace') {
-		buffer = buffer.slice(0, -1);
-	} else if (e.key.toLowerCase() === 'l') {
-		e.stopPropagation();
-		toggleCropFixed();
 	}
 });
 // });
