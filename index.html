@@ -252,7 +252,7 @@
 	<script type="module">
 	document.addEventListener('DOMContentLoaded', () => {
 		const urlParams = new URLSearchParams(window.location.search);
-		const modular = urlParams.get('modular') === 'true';
+		const modular = urlParams.get('modular') !== 'true';
 
 		if (modular) {
 			import('./js/main.js')

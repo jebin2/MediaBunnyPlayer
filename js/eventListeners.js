@@ -1,219 +1,852 @@
-// js/eventListeners.js
+// ============================================================================
+// EVENT LISTENERS & HANDLERS
+// ============================================================================
 
-import * as C from './constants.js';
-import { state, updateState } from './state.js';
-import * as UI from './ui.js';
 import {
-	togglePlay, seekToTime, getPlaybackTime, playPrevious, playNext, setVolume,
-	setPlaybackSpeed, loadMedia, stopAndClear, play
-} from './player.js';
-import { handleFiles, findFileByPath, removeItemFromPath, clearPlaylist } from './playlist.js';
-import {
-	toggleStaticCrop, togglePanning, handleCutAction, takeScreenshot, resetAllConfigs,
-	toggleCropFixed, getScaledCoordinates, getResizeHandle, isInsideCropRect,
-	getCursorForHandle, applyResize, clampRectToVideoBounds
-} from './editing.js';
-import { parseTime, formatTime } from './utils.js';
+	Input,
+	ALL_FORMATS,
+	BlobSource,
+	UrlSource,
+	AudioBufferSink,
+	CanvasSink,
+	Conversion,
+	Output,
+	Mp4OutputFormat,
+	BufferTarget,
+	QUALITY_HIGH
+} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
 
-export function setupEventListeners() {
-    // --- File & Playlist ---
-    C.clearPlaylistBtn.onclick = clearPlaylist;
-    C.togglePlaylistBtn.onclick = () => C.playerArea.classList.toggle('playlist-visible');
-    const setupInput = (input, isFolder) => {
-        input.onclick = (e) => e.target.value = null;
-        input.onchange = (e) => handleFiles(e.target.files);
-    };
-    setupInput(C.fileInput, false);
-    setupInput(C.folderInput, true);
-	C.playlistContent.addEventListener('click', (e) => {
-		const fileEl = e.target.closest('.playlist-file');
-		const removeBtn = e.target.closest('.remove-item');
-        const actionBtn = e.target.closest('.clip-action-btn');
-		if (removeBtn) {
+import { $, MEDIABUNNY_URL, playerArea, videoContainer, canvas, dropZone, loading, playBtn, timeDisplay, progressContainer, progressBar, volumeSlider, muteBtn, fullscreenBtn, sidebar, playlistContent, videoControls, progressHandle, startTimeInput, endTimeInput, settingsCtrlBtn, settingsMenu, loopBtn, cutBtn, screenshotBtn, screenshotOverlay, screenshotPreviewImg, closeScreenshotBtn, copyScreenshotBtn, downloadScreenshotBtn, playbackSpeedInput, autoplayToggle, urlModal, urlInput, loadUrlBtn, cancelUrlBtn, showMessage, cropModeRadios, scaleOptionContainer, scaleWithRatioToggle, blurOptionContainer, smoothOptionContainer, smoothPathToggle, blurBackgroundToggle, blurAmountInput, HANDLE_SIZE, HANDLE_HALF, fixSizeBtn, prevBtn, nextBtn, cropBtn, cropCanvas, cropCtx, queuedAudioNodes, panScanBtn, ctx } from './constants.js';
+import { state } from './state.js';
+import { resetAllConfigs, updateDynamicCropOptionsUI } from './config.js'
+import { applyResize, clampRectToVideoBounds, drawCropOverlay,drawCropWithHandles, getCursorForHandle, getInterpolatedCropRect, getResizeHandle, getScaledCoordinates, isInsideCropRect, positionCropCanvas, smoothPathWithMovingAverage, toggleCropFixed, togglePanning, toggleStaticCrop, updateFixSizeButton } from './crop.js'
+import { handleCutAction } from './editing.js'
+import { dynamicVideoUrl, escapeHTML, formatTime, guidedPanleInfo, parseTime, registerServiceWorker, updateShortcutKeysVisibility, } from './utility.js'
+import { checkPlaybackState, ensureSubtitleRenderer, getPlaybackTime, handleConversion, hideTrackMenus, loadMedia, pause, play, playNext, playPrevious, removeSubtitleOverlay, renderLoop, runAudioIterator, scheduleProgressUpdate, seekToTime, setPlaybackSpeed, setVolume, startVideoIterator, stopAndClear, switchAudioTrack, switchSubtitleTrack, toggleLoop, togglePlay, updateNextFrame, updateSubtitlesOptimized, updateTrackMenus } from './player.js'
+import { clearPlaylist, findFileByPath, handleFiles, handleFolderSelection, removeItemFromPath, updatePlaylistUIOptimized } from './playlist.js'
+import { takeScreenshot } from './screenshot.js'
+import { hideStatusMessage, showControlsTemporarily, showDropZoneUI, showError, showInfo, showLoading, showPlayerUI, showStatusMessage, updateProgressBarUI, updateTimeInputs } from './ui.js'
+
+export const setupEventListeners = () => {
+	$('clearPlaylistBtn').onclick = clearPlaylist;
+	$('chooseFileBtn').onclick = () => {
+		state.fileLoaded = false;
+		$('fileInput').click();
+	};
+	$('togglePlaylistBtn').onclick = () => {
+		playerArea.classList.toggle('playlist-visible');
+		setTimeout(() => {
+			state.cropCanvasDimensions = positionCropCanvas();
+		}, 200);
+	}
+
+	$('fileInput').onclick = (e) => e.target.value = null;
+	$('fileInput').onchange = (e) => handleFiles(e.target.files);
+
+	$('folderInput').onclick = (e) => e.target.value = null;
+	$('folderInput').onchange = handleFolderSelection;
+
+	playBtn.onclick = (e) => {
+		e.stopPropagation();
+		togglePlay();
+	};
+	prevBtn.onclick = (e) => {
+		e.stopPropagation();
+		playPrevious();
+	};
+
+	nextBtn.onclick = (e) => {
+		e.stopPropagation();
+		playNext();
+	};
+	muteBtn.onclick = (e) => {
+		e.stopPropagation();
+		if (parseFloat(volumeSlider.value) > 0) {
+			volumeSlider.dataset.lastVolume = volumeSlider.value;
+			volumeSlider.value = 0;
+		} else {
+			volumeSlider.value = volumeSlider.dataset.lastVolume || 1;
+		}
+		setVolume(volumeSlider.value);
+	};
+
+	const mainActionBtn = $('mainActionBtn');
+	const dropdownActionBtn = $('dropdownActionBtn');
+	const actionDropdownMenu = $('actionDropdownMenu');
+
+	// Helper function to execute the chosen action
+	const executeOpenFileAction = (action) => {
+		switch (action) {
+			case 'open-url':
+				urlModal.classList.remove('hidden');
+				urlInput.focus();
+				break;
+			case 'open-file':
+				state.fileLoaded = false;
+				$('fileInput').click();
+				break;
+			case 'add-file':
+				$('fileInput').click();
+				break;
+			case 'add-folder':
+				$('folderInput').click();
+				break;
+		}
+	};
+
+	// 1. Main button executes the currently selected action
+	if (mainActionBtn) {
+		mainActionBtn.onclick = () => {
+			executeOpenFileAction(state.currentOpenFileAction);
+		};
+	}
+
+	// 2. Dropdown button shows/hides the menu
+	if (dropdownActionBtn) {
+		dropdownActionBtn.onclick = (e) => {
 			e.stopPropagation();
-			const path = removeBtn.dataset.path;
-			if (findFileByPath(state.playlist, path) === state.currentPlayingFile) stopAndClear();
-			removeItemFromPath(state.playlist, path);
-			UI.updatePlaylistUIOptimized();
-		} else if (actionBtn) {
-            e.stopPropagation();
-			const file = findFileByPath(state.playlist, actionBtn.dataset.path);
-			if (file instanceof Blob) {
-				if (actionBtn.dataset.action === 'download') {
-					const url = URL.createObjectURL(file); const a = document.createElement('a');
-					a.href = url; a.download = file.name; a.click(); URL.revokeObjectURL(url);
-				} else if (actionBtn.dataset.action === 'copy') {
-					navigator.clipboard.write([new ClipboardItem({ [file.type]: file })])
-                        .then(() => UI.showInfo('Clip copied!'), () => UI.showError('Copy failed.'));
-				}
-			}
-        } else if (fileEl) {
-			const fileToPlay = findFileByPath(state.playlist, fileEl.dataset.path);
-			if (fileToPlay && fileToPlay !== state.currentPlayingFile) loadMedia(fileToPlay);
+			actionDropdownMenu.classList.toggle('hidden');
+		};
+	}
+
+	// 3. Clicks inside the dropdown menu set the action and execute it
+	if (actionDropdownMenu) {
+		actionDropdownMenu.addEventListener('click', (e) => {
+			const target = e.target.closest('button[data-action]');
+			if (!target) return;
+
+			const action = target.dataset.action;
+
+			// Update state
+			state.currentOpenFileAction = action;
+
+			// Update UI
+			mainActionBtn.textContent = target.textContent;
+
+			// Hide menu and execute
+			actionDropdownMenu.classList.add('hidden');
+			executeOpenFileAction(action);
+		});
+	}
+	$('audioTrackCtrlBtn').onclick = (e) => {
+		e.stopPropagation();
+		const menu = $('audioTrackMenu');
+		const isHidden = menu.classList.contains('hidden');
+		hideTrackMenus();
+		if (isHidden) menu.classList.remove('hidden');
+	};
+
+	$('subtitleTrackCtrlBtn').onclick = (e) => {
+		e.stopPropagation();
+		const menu = $('subtitleTrackMenu');
+		const isHidden = menu.classList.contains('hidden');
+		hideTrackMenus();
+		if (isHidden) menu.classList.remove('hidden');
+	};
+
+	// $('editMenuBtn').onclick = (e) => {
+	// 	e.stopPropagation();
+	// 	const menu = $('settingsMenu');
+	// 	const isHidden = menu.classList.contains('hidden');
+	// 	hideTrackMenus();
+	// 	if (isHidden) menu.classList.remove('hidden');
+	// };
+
+	// === PERFORMANCE OPTIMIZATION: Event delegation for playlist ===
+	document.addEventListener('click', (e) => {
+		// Find the existing listener and add a check for our new container
+		if (!e.target.closest('.track-menu') && !e.target.closest('.control-btn') && !e.target.closest('.split-action-btn')) {
+			hideTrackMenus();
+			if (actionDropdownMenu) actionDropdownMenu.classList.add('hidden'); // Also hide the action menu
 		}
 	});
 
-    // --- Player Controls ---
-    C.playBtn.onclick = (e) => { e.stopPropagation(); togglePlay(); };
-    C.prevBtn.onclick = (e) => { e.stopPropagation(); playPrevious(); };
-    C.nextBtn.onclick = (e) => { e.stopPropagation(); playNext(); };
-    C.muteBtn.onclick = (e) => {
-		e.stopPropagation();
-		C.volumeSlider.value = parseFloat(C.volumeSlider.value) > 0 ? 0 : (C.volumeSlider.dataset.lastVolume || 1);
-		setVolume(C.volumeSlider.value);
-	};
-    C.volumeSlider.oninput = (e) => { C.volumeSlider.dataset.lastVolume = e.target.value; setVolume(e.target.value); };
-    C.fullscreenBtn.onclick = (e) => {
+	volumeSlider.onclick = (e) => e.stopPropagation();
+	volumeSlider.oninput = (e) => setVolume(e.target.value);
+
+	fullscreenBtn.onclick = (e) => {
 		e.stopPropagation();
 		if (document.fullscreenElement) document.exitFullscreen();
-		else C.playerArea.requestFullscreen();
+		else if (videoContainer.requestFullscreen) videoContainer.requestFullscreen();
 	};
-    C.playbackSpeedInput.oninput = () => setPlaybackSpeed(parseFloat(C.playbackSpeedInput.value) || 1.0);
-    C.autoplayToggle.onchange = () => updateState({ isAutoplayEnabled: C.autoplayToggle.checked });
-    C.canvas.onclick = () => { if (state.audioContext?.state === 'suspended') state.audioContext.resume(); togglePlay(); };
 
-    // --- Seeking ---
-	const handleSeekLine = (e) => (Math.max(0, Math.min(1, (e.clientX - C.progressContainer.getBoundingClientRect().left) / C.progressContainer.clientWidth))) * state.totalDuration;
-	C.progressContainer.onpointerdown = (e) => {
+	const handleSeekLine = (e) => {
+		const rect = progressContainer.getBoundingClientRect();
+		const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+		return percent * state.totalDuration;
+	};
+
+	progressContainer.onpointerdown = (e) => {
 		if (!state.fileLoaded) return;
-		e.preventDefault(); updateState({ isSeeking: true });
-		C.progressContainer.setPointerCapture(e.pointerId);
-		UI.updateProgressBarUI(handleSeekLine(e));
-	};
-	C.progressContainer.onpointermove = (e) => {
-		if (state.isSeeking) UI.updateProgressBarUI(handleSeekLine(e));
-        else UI.showControlsTemporarily();
-	};
-	C.progressContainer.onpointerup = (e) => {
-		if (!state.isSeeking) return;
-		updateState({ isSeeking: false });
-		C.progressContainer.releasePointerCapture(e.pointerId);
-		seekToTime(handleSeekLine(e));
-	};
-
-    // --- Menus ---
-    const setupMenuToggle = (btn, menu) => {
-        btn.onclick = (e) => {
-            e.stopPropagation();
-            const isHidden = menu.classList.contains('hidden');
-            UI.hideTrackMenus();
-            if(isHidden) menu.classList.remove('hidden');
-        };
-    };
-    setupMenuToggle(C.audioTrackCtrlBtn, C.audioTrackMenu);
-    setupMenuToggle(C.subtitleTrackCtrlBtn, C.subtitleTrackMenu);
-    setupMenuToggle(C.settingsCtrlBtn, C.settingsMenu);
-    document.addEventListener('click', (e) => { if (!e.target.closest('.track-menu, .control-btn, .split-action-btn')) UI.hideTrackMenus(); });
-
-    // --- Editing & Settings ---
-    C.loopBtn.onclick = () => {
-        if (state.isLooping) { updateState({ isLooping: false }); }
-        else {
-            const start = parseTime(C.startTimeInput.value), end = parseTime(C.endTimeInput.value);
-            if (isNaN(start) || isNaN(end) || start >= end) return UI.showError("Invalid loop times.");
-            updateState({ isLooping: true, loopStartTime: start, loopEndTime: end });
-            const currentTime = getPlaybackTime();
-            if (currentTime < start || currentTime > end) seekToTime(start);
-            if (!state.playing) play();
-        }
-        C.loopBtn.classList.toggle('hover_highlight', state.isLooping);
-        C.loopBtn.textContent = state.isLooping ? 'Looping...' : 'Loop';
-    };
-    C.cutBtn.onclick = handleCutAction;
-    C.screenshotBtn.onclick = takeScreenshot;
-    C.cropBtn.onclick = toggleStaticCrop;
-	C.panScanBtn.onclick = togglePanning;
-    if (C.fixSizeBtn) C.fixSizeBtn.onclick = (e) => { e.stopPropagation(); toggleCropFixed(); };
-    if (C.resetAllBtn) C.resetAllBtn.onclick = resetAllConfigs;
-
-    // --- Crop Canvas ---
-    C.cropCanvas.onpointerdown = (e) => {
-        if (!state.isCropping && !state.isPanning) return;
-		e.preventDefault(); C.cropCanvas.setPointerCapture(e.pointerId);
-		const coords = getScaledCoordinates(e);
-		const currentRect = state.isCropping ? state.cropRect : state.panKeyframes.at(-1)?.rect;
-		if (currentRect && !state.isCropFixed) {
-			const handle = getResizeHandle(coords.x, coords.y, currentRect);
-			if (handle) updateState({ isResizingCrop: true, originalCropRect: { ...currentRect }, dragStartPos: coords, resizeHandle: handle });
-			else if (isInsideCropRect(coords.x, coords.y, currentRect)) updateState({ isDraggingCrop: true, originalCropRect: { ...currentRect }, dragStartPos: coords });
-			else updateState({ isDrawingCrop: true, cropStart: coords, cropEnd: coords, cropRect: null });
-		} else if (currentRect && state.isCropFixed && state.isPanning) {
-			updateState({ isDraggingCrop: true, dragStartPos: coords });
-		} else {
-			updateState({ isDrawingCrop: true, cropStart: coords, cropEnd: coords, cropRect: null });
-		}
-    };
-    C.cropCanvas.onpointermove = (e) => {
-        const coords = getScaledCoordinates(e);
-        const currentRect = state.isCropping ? state.cropRect : state.panKeyframes.at(-1)?.rect;
-        if (!state.isDrawingCrop && !state.isDraggingCrop && !state.isResizingCrop) {
-            if (currentRect && !state.isCropFixed) {
-                const handle = getResizeHandle(coords.x, coords.y, currentRect);
-                C.cropCanvas.style.cursor = getCursorForHandle(handle || (isInsideCropRect(coords.x, coords.y, currentRect) ? 'move' : null));
-            } else if (state.isPanning && state.panRectSize && state.isCropFixed) {
-                let rect = { ...state.panRectSize, x: coords.x - state.panRectSize.width / 2, y: coords.y - state.panRectSize.height / 2 };
-                rect = clampRectToVideoBounds(rect); state.panKeyframes.push({ timestamp: getPlaybackTime(), rect });
-                UI.drawCropWithHandles(rect);
-            }
-            return;
-        }
-        e.preventDefault();
-        let newRect;
-        if (state.isDrawingCrop) {
-            newRect = { x: Math.min(state.cropStart.x, coords.x), y: Math.min(state.cropStart.y, coords.y), width: Math.abs(state.cropStart.x - coords.x), height: Math.abs(state.cropStart.y - coords.y) };
-            updateState({ cropRect: newRect });
-        } else if (state.isResizingCrop) {
-            newRect = applyResize(state.resizeHandle, coords.x - state.dragStartPos.x, coords.y - state.dragStartPos.y, state.originalCropRect);
-            if (state.isCropping) updateState({ cropRect: newRect });
-            else if (state.isPanning) { state.panKeyframes.at(-1).rect = newRect; updateState({ panRectSize: { width: newRect.width, height: newRect.height } }); }
-        } else if (state.isDraggingCrop) {
-            newRect = { ...state.originalCropRect, x: state.originalCropRect.x + (coords.x - state.dragStartPos.x), y: state.originalCropRect.y + (coords.y - state.dragStartPos.y) };
-            newRect = clampRectToVideoBounds(newRect);
-            if (state.isCropping) updateState({ cropRect: newRect });
-            else if (state.isPanning) {
-                if (state.isCropFixed) state.panKeyframes.push({ timestamp: getPlaybackTime(), rect: newRect });
-                else state.panKeyframes.at(-1).rect = newRect;
-            }
-        }
-        UI.drawCropWithHandles(newRect || state.cropRect);
-    };
-    C.cropCanvas.onpointerup = (e) => {
-        if (!state.isDrawingCrop && !state.isDraggingCrop && !state.isResizingCrop) return;
-        e.preventDefault(); C.cropCanvas.releasePointerCapture(e.pointerId);
-        if (state.isDrawingCrop) {
-            if (state.cropRect.width < 10 || state.cropRect.height < 10) updateState({ cropRect: null });
-            else if (state.isPanning) {
-                updateState({ panRectSize: { width: state.cropRect.width, height: state.cropRect.height } });
-                state.panKeyframes.push({ timestamp: getPlaybackTime(), rect: state.cropRect });
-            }
-        }
-        updateState({ isDrawingCrop: false, isDraggingCrop: false, isResizingCrop: false, resizeHandle: null, originalCropRect: null });
-        C.cropCanvas.style.cursor = 'crosshair';
-        UI.updateFixSizeButton();
-    };
-    C.cropCanvas.addEventListener('wheel', (e) => {
-        if (!state.isPanning || !state.isShiftPressed || !state.panRectSize) return;
 		e.preventDefault();
-		const lastKeyframe = state.panKeyframes.at(-1); if (!lastKeyframe) return;
-		const coords = getScaledCoordinates(e);
-		const zoomFactor = e.deltaY < 0 ? 0.95 : 1.05;
-		const { width, height, x, y } = lastKeyframe.rect;
-		const newWidth = width * zoomFactor; const newHeight = height * zoomFactor;
-		lastKeyframe.rect = clampRectToVideoBounds({
-            width: newWidth, height: newHeight,
-            x: coords.x - (newWidth * ((coords.x - x) / width)),
-            y: coords.y - (newHeight * ((coords.y - y) / height))
-        });
-		UI.drawCropWithHandles(lastKeyframe.rect);
-    }, { passive: false });
+		state.isSeeking = true;
+		progressContainer.setPointerCapture(e.pointerId);
+		const seekTime = handleSeekLine(e);
+		updateProgressBarUI(seekTime);
+		updateTimeInputs(seekTime);
+	};
 
-    // --- Keyboard & Global Listeners ---
-    document.onkeydown = (e) => {
-        if (e.target.tagName === 'INPUT' || !state.fileLoaded) return;
-        const actions = { ' ': togglePlay, 'k': togglePlay, 'f': () => C.fullscreenBtn.click(), 'm': () => C.muteBtn.click(), 'ArrowLeft': () => seekToTime(getPlaybackTime() - 5), 'ArrowRight': () => seekToTime(getPlaybackTime() + 5), 'l': () => { if (state.isPanning) toggleCropFixed() }, 's': takeScreenshot, 'c': handleCutAction, 'Escape': resetAllConfigs };
-        if (actions[e.key]) { e.preventDefault(); actions[e.key](); UI.showControlsTemporarily(); }
-    };
-    document.addEventListener('keydown', (e) => { if (e.key === 'Shift') updateState({ isShiftPressed: true }); });
-    document.addEventListener('keyup', (e) => { if (e.key === 'Shift') updateState({ isShiftPressed: false }); });
-    window.addEventListener('resize', () => { if (state.isCropping || state.isPanning) UI.positionCropCanvas(); });
-}
+	progressContainer.onpointermove = (e) => {
+		if (!state.isSeeking) {
+			showControlsTemporarily();
+			return;
+		}
+		const seekTime = handleSeekLine(e);
+		updateProgressBarUI(seekTime);
+		updateTimeInputs(seekTime);
+	};
+
+	progressContainer.onpointerup = (e) => {
+		if (!state.isSeeking) return;
+		state.isSeeking = false;
+		progressContainer.releasePointerCapture(e.pointerId);
+
+		const finalSeekTime = handleSeekLine(e);
+		if (state.isLooping && (finalSeekTime < state.loopStartTime || finalSeekTime > state.loopEndTime)) {
+			state.isLooping = false;
+			loopBtn.textContent = 'Loop';
+		}
+		seekToTime(finalSeekTime);
+	};
+
+	const ddEvents = ['dragenter', 'dragover', 'dragleave', 'drop'];
+	ddEvents.forEach(name => document.body.addEventListener(name, p => p.preventDefault()));
+
+	dropZone.ondragenter = () => dropZone.classList.add('dragover');
+	dropZone.ondragover = () => dropZone.classList.add('dragover');
+	dropZone.ondragleave = (e) => {
+		if (e.target === dropZone) dropZone.classList.remove('dragover');
+	};
+	dropZone.ondrop = (e) => {
+		dropZone.classList.remove('dragover');
+		handleFiles(e.dataTransfer.files);
+	};
+
+	// === PERFORMANCE OPTIMIZATION: Event delegation for playlist clicks ===
+	playlistContent.addEventListener('click', (e) => {
+		setTimeout(() => {
+			state.cropCanvasDimensions = positionCropCanvas();
+		}, 200);
+		const removeButton = e.target.closest('.remove-item');
+		if (removeButton) {
+			e.stopPropagation();
+			const pathToRemove = removeButton.dataset.path;
+			const fileToRemove = findFileByPath(state.playlist, pathToRemove);
+
+			let isPlayingFile = false;
+			if (fileToRemove && state.currentPlayingFile) {
+				isPlayingFile = (fileToRemove instanceof File && state.currentPlayingFile instanceof File) ?
+					fileToRemove === state.currentPlayingFile :
+					fileToRemove === state.currentPlayingFile;
+			}
+
+			removeItemFromPath(state.playlist, pathToRemove);
+			updatePlaylistUIOptimized();
+
+			if (isPlayingFile) {
+				stopAndClear();
+				state.currentPlayingFile = null;
+				showDropZoneUI();
+			}
+			return;
+		}
+
+		const actionButton = e.target.closest('.clip-action-btn');
+		if (actionButton) {
+			e.stopPropagation();
+			const path = actionButton.dataset.path;
+			const blob = findFileByPath(state.playlist, path);
+			if (blob instanceof Blob) {
+				if (actionButton.dataset.action === 'download') {
+					const url = URL.createObjectURL(blob);
+					const a = document.createElement('a');
+					a.href = url;
+					a.download = path.split('/').pop();
+					a.click();
+					URL.revokeObjectURL(url);
+				} else if (actionButton.dataset.action === 'copy') {
+					navigator.clipboard.write([new ClipboardItem({
+						[blob.type]: blob
+					})]).then(() => {
+						showError('Clip copied to clipboard!');
+					}, (err) => {
+						showError('Copy failed. Browser may not support it.');
+						console.error('Copy failed:', err);
+					});
+				}
+			}
+			return;
+		}
+
+		const fileElement = e.target.closest('.playlist-file');
+		if (fileElement && (e.target.classList.contains('playlist-file-name') || e.target === fileElement)) {
+			const path = fileElement.dataset.path;
+			const fileToPlay = findFileByPath(state.playlist, path);
+			if (fileToPlay && fileToPlay !== state.currentPlayingFile) {
+				loadMedia(fileToPlay);
+			}
+		}
+	});
+
+	document.onkeydown = (e) => {
+		if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || !state.fileLoaded) return;
+
+		// Handle frame-by-frame seeking when paused
+		if (!state.playing && state.videoTrack && state.videoTrack.frameRate > 0) {
+			if (e.code === 'KeyN') { // 'n' for next frame
+				e.preventDefault();
+				const newTime = getPlaybackTime() + (1 / state.videoTrack.frameRate);
+				seekToTime(newTime);
+				showControlsTemporarily();
+				return; // Stop further execution for this key press
+			}
+			if (e.code === 'KeyP') { // 'p' for previous frame
+				e.preventDefault();
+				const newTime = getPlaybackTime() - (1 / state.videoTrack.frameRate);
+				seekToTime(newTime);
+				showControlsTemporarily();
+				return; // Stop further execution for this key press
+			}
+		}
+
+		const actions = {
+			'Space': () => togglePlay(),
+			'KeyK': () => togglePlay(),
+			'KeyF': () => fullscreenBtn.click(),
+			'KeyM': () => muteBtn.click(),
+			'ArrowLeft': () => seekToTime(getPlaybackTime() - 5),
+			'ArrowRight': () => seekToTime(getPlaybackTime() + 5),
+			'ArrowUp': () => {
+				volumeSlider.value = Math.min(1, parseFloat(volumeSlider.value) + 0.1);
+				setVolume(volumeSlider.value);
+			},
+			'ArrowDown': () => {
+				volumeSlider.value = Math.max(0, parseFloat(volumeSlider.value) - 0.1);
+				setVolume(volumeSlider.value);
+			}
+		};
+		if (actions[e.code]) {
+			e.preventDefault();
+			actions[e.code]();
+			showControlsTemporarily();
+		}
+	};
+
+	document.addEventListener('visibilitychange', () => {
+		if (document.visibilityState === 'visible' && state.playing && state.fileLoaded) {
+			const now = getPlaybackTime();
+			const videoTime = state.nextFrame ? state.nextFrame.timestamp : now;
+
+			if (now - videoTime > 0.25) {
+				startVideoIterator();
+			}
+		}
+	});
+
+	canvas.onclick = () => {
+		if (state.audioContext && state.audioContext.state === 'suspended') state.audioContext.resume();
+		togglePlay();
+	};
+
+	videoContainer.onpointermove = showControlsTemporarily;
+	videoContainer.onmouseleave = () => {
+		if (state.playing && !state.isSeeking) {
+			videoControls.classList.remove('show');
+			hideTrackMenus();
+		}
+	};
+
+	settingsCtrlBtn.onclick = (e) => {
+		e.stopPropagation();
+		const isHidden = settingsMenu.classList.contains('hidden');
+		hideTrackMenus();
+		if (isHidden) {
+			settingsMenu.classList.remove('hidden');
+		}
+	};
+
+	loopBtn.onclick = toggleLoop;
+	cutBtn.onclick = handleCutAction;
+	screenshotBtn.onclick = takeScreenshot;
+
+	const closeScreenshotModal = () => {
+		screenshotOverlay.classList.add('hidden');
+		if (screenshotPreviewImg.src && screenshotPreviewImg.src.startsWith('blob:')) {
+			URL.revokeObjectURL(screenshotPreviewImg.src);
+		}
+		state.currentScreenshotBlob = null;
+	};
+
+	closeScreenshotBtn.onclick = closeScreenshotModal;
+	screenshotOverlay.onclick = (e) => {
+		if (e.target === screenshotOverlay) {
+			closeScreenshotModal();
+		}
+	};
+
+	downloadScreenshotBtn.onclick = () => {
+		if (!state.currentScreenshotBlob) return;
+
+		const timestamp = formatTime(getPlaybackTime()).replace(/:/g, '-');
+		const originalName = (state.currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
+		const filename = `${originalName}_${timestamp}.png`;
+
+		const a = document.createElement('a');
+		a.href = screenshotPreviewImg.src;
+		a.download = filename;
+		document.body.appendChild(a);
+		a.click();
+		document.body.removeChild(a);
+	};
+
+	copyScreenshotBtn.onclick = () => {
+		if (!state.currentScreenshotBlob) return;
+
+		navigator.clipboard.write([
+			new ClipboardItem({
+				'image/png': state.currentScreenshotBlob
+			})
+		]).then(() => {
+			showError("Screenshot copied to clipboard!");
+		}).catch(err => {
+			console.error("Copy failed:", err);
+			showError("Copy failed. Your browser may not support this feature.");
+		});
+	};
+
+	playbackSpeedInput.oninput = () => {
+		let speed = parseFloat(playbackSpeedInput.value);
+		if (isNaN(speed)) speed = 1;
+		if (!isNaN(speed) && speed >= 0.25 && speed <= 4) {
+			setPlaybackSpeed(speed);
+		}
+	};
+
+	autoplayToggle.onchange = () => {
+		state.isAutoplayEnabled = autoplayToggle.checked;
+	};
+	// --- Add URL Modal Logic Here ---
+
+	const hideUrlModal = () => {
+		urlModal.classList.add('hidden');
+	};
+
+	cancelUrlBtn.onclick = hideUrlModal;
+
+	// Hide the modal if the user clicks on the background
+	urlModal.onclick = (e) => {
+		if (e.target === urlModal) {
+			hideUrlModal();
+		}
+	};
+
+	// Handle loading the URL
+	loadUrlBtn.onclick = () => {
+		const url = urlInput.value.trim();
+		if (url) {
+			// The existing loadMedia function already supports URLs!
+			loadMedia(url);
+			hideUrlModal();
+		} else {
+			showError("Please enter a valid URL.");
+		}
+	};
+
+	// Add keyboard shortcuts for the modal
+	urlInput.onkeydown = (e) => {
+		if (e.key === 'Enter') {
+			e.preventDefault(); // Prevent form submission
+			loadUrlBtn.click();
+		} else if (e.key === 'Escape') {
+			hideUrlModal();
+		}
+	};
+	// --- End of URL Modal Logic ---
+	cropBtn.onclick = toggleStaticCrop;
+	panScanBtn.onclick = togglePanning;
+
+	cropCanvas.onpointerdown = (e) => {
+		// This logic now applies to both modes
+		if (!state.isCropping && !state.isPanning) return;
+		e.preventDefault();
+		cropCanvas.setPointerCapture(e.pointerId);
+
+		state.isDrawingCrop = true;
+		const coords = getScaledCoordinates(e);
+		state.cropStart = coords;
+		state.cropEnd = coords;
+	};
+
+	cropCanvas.onpointerdown = (e) => {
+		if (!state.isCropping && !state.isPanning) return;
+		e.preventDefault();
+		cropCanvas.setPointerCapture(e.pointerId);
+
+		const coords = getScaledCoordinates(e);
+
+		// If we have an existing crop rect
+		const currentRect = state.isCropping ? state.cropRect :
+			(state.panKeyframes.length > 0 ? state.panKeyframes[state.panKeyframes.length - 1].rect : null);
+
+		if (currentRect && !state.isCropFixed) {
+			// Check if clicking on a resize handle
+			state.resizeHandle = getResizeHandle(coords.x, coords.y, currentRect);
+
+			if (state.resizeHandle) {
+				state.isResizingCrop = true;
+				state.originalCropRect = { ...currentRect };
+				state.dragStartPos = coords;
+			} else if (isInsideCropRect(coords.x, coords.y, currentRect)) {
+				// Clicking inside crop area - start dragging
+				state.isDraggingCrop = true;
+				state.originalCropRect = { ...currentRect };
+				state.dragStartPos = coords;
+			} else {
+				// Clicking outside - start drawing new rect
+				state.isDrawingCrop = true;
+				state.cropStart = coords;
+				state.cropEnd = coords;
+			}
+		} else if (currentRect && state.isCropFixed && state.isPanning) {
+			// In panning mode with fixed size, any click starts recording movement
+			state.isDraggingCrop = true;
+			state.dragStartPos = coords;
+		} else {
+			// No existing rect - start drawing
+			state.isDrawingCrop = true;
+			state.cropStart = coords;
+			state.cropEnd = coords;
+		}
+	};
+
+	cropCanvas.onpointermove = (e) => {
+		const coords = getScaledCoordinates(e);
+
+		// Update cursor based on position
+		if (!state.isDrawingCrop && !state.isDraggingCrop && !state.isResizingCrop) {
+			const currentRect = state.isCropping ? state.cropRect :
+				(state.panKeyframes.length > 0 ? state.panKeyframes[state.panKeyframes.length - 1].rect : null);
+
+			if (currentRect && !state.isCropFixed) {
+				const handle = getResizeHandle(coords.x, coords.y, currentRect);
+				if (handle) {
+					cropCanvas.style.cursor = getCursorForHandle(handle);
+				} else if (isInsideCropRect(coords.x, coords.y, currentRect)) {
+					cropCanvas.style.cursor = 'move';
+				} else {
+					cropCanvas.style.cursor = 'crosshair';
+				}
+			} else if (state.isPanning && state.panRectSize && state.isCropFixed) {
+				// Live panning with fixed size
+				const lastRectSize = state.panKeyframes.length > 0
+					? { width: state.panKeyframes[state.panKeyframes.length - 1].rect.width, height: state.panKeyframes[state.panKeyframes.length - 1].rect.height }
+					: state.panRectSize;
+				let currentRect = {
+					x: coords.x - lastRectSize.width / 2,
+					y: coords.y - lastRectSize.height / 2,
+					width: lastRectSize.width,
+					height: lastRectSize.height
+				};
+				currentRect = clampRectToVideoBounds(currentRect);
+				state.panKeyframes.push({ timestamp: getPlaybackTime(), rect: currentRect });
+				drawCropWithHandles(currentRect);
+				return;
+			}
+		}
+
+		// Handle drawing new rect
+		if (state.isDrawingCrop) {
+			e.preventDefault();
+			state.cropEnd = coords;
+
+			const rect = {
+				x: Math.min(state.cropStart.x, state.cropEnd.x),
+				y: Math.min(state.cropStart.y, state.cropEnd.y),
+				width: Math.abs(state.cropStart.x - state.cropEnd.x),
+				height: Math.abs(state.cropStart.y - state.cropEnd.y)
+			};
+			drawCropWithHandles(rect);
+			return;
+		}
+
+		// Handle resizing
+		if (state.isResizingCrop && state.originalCropRect) {
+			e.preventDefault();
+			const deltaX = coords.x - state.dragStartPos.x;
+			const deltaY = coords.y - state.dragStartPos.y;
+
+			const newRect = applyResize(state.resizeHandle, deltaX, deltaY, state.originalCropRect);
+
+			if (state.isCropping) {
+				state.cropRect = newRect;
+			} else if (state.isPanning && state.panKeyframes.length > 0) {
+				state.panKeyframes[state.panKeyframes.length - 1].rect = newRect;
+				state.panRectSize = { width: newRect.width, height: newRect.height };
+			}
+
+			drawCropWithHandles(newRect);
+			return;
+		}
+
+		// Handle dragging/moving
+		if (state.isDraggingCrop && state.originalCropRect) {
+			e.preventDefault();
+			const deltaX = coords.x - state.dragStartPos.x;
+			const deltaY = coords.y - state.dragStartPos.y;
+
+			let newRect = {
+				x: state.originalCropRect.x + deltaX,
+				y: state.originalCropRect.y + deltaY,
+				width: state.originalCropRect.width,
+				height: state.originalCropRect.height
+			};
+
+			newRect = clampRectToVideoBounds(newRect);
+
+			if (state.isCropping) {
+				state.cropRect = newRect;
+			} else if (state.isPanning) {
+				if (state.isCropFixed) {
+					// Record keyframe while dragging in fixed mode
+					state.panKeyframes.push({ timestamp: getPlaybackTime(), rect: newRect });
+				} else if (state.panKeyframes.length > 0) {
+					state.panKeyframes[state.panKeyframes.length - 1].rect = newRect;
+				}
+			}
+
+			drawCropWithHandles(newRect);
+			return;
+		}
+	};
+
+	cropCanvas.onpointerup = (e) => {
+		if (!state.isDrawingCrop && !state.isDraggingCrop && !state.isResizingCrop) return;
+		e.preventDefault();
+		cropCanvas.releasePointerCapture(e.pointerId);
+
+		// Finalize drawing new rect
+		if (state.isDrawingCrop) {
+			const finalRect = {
+				x: Math.min(state.cropStart.x, state.cropEnd.x),
+				y: Math.min(state.cropStart.y, state.cropEnd.y),
+				width: Math.abs(state.cropStart.x - state.cropEnd.x),
+				height: Math.abs(state.cropStart.y - state.cropEnd.y)
+			};
+
+			if (finalRect.width < 10 || finalRect.height < 10) {
+				state.cropRect = null;
+				state.panRectSize = null;
+				cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+			} else {
+				if (state.isPanning) {
+					state.panRectSize = { width: finalRect.width, height: finalRect.height };
+					state.panKeyframes.push({ timestamp: getPlaybackTime(), rect: finalRect });
+				} else if (state.isCropping) {
+					state.cropRect = finalRect;
+				}
+				drawCropWithHandles(finalRect);
+			}
+		}
+
+		state.isDrawingCrop = false;
+		state.isDraggingCrop = false;
+		state.isResizingCrop = false;
+		state.resizeHandle = null;
+		state.originalCropRect = null;
+		cropCanvas.style.cursor = 'crosshair';
+
+		updateFixSizeButton();
+	};
+
+	// 2. Add the wheel event listener for zooming
+	cropCanvas.addEventListener('wheel', (e) => {
+		if (!state.isPanning || !state.isShiftPressed || !state.panRectSize) return;
+		e.preventDefault();
+
+		const lastKeyframe = state.panKeyframes[state.panKeyframes.length - 1];
+		if (!lastKeyframe) return;
+
+		// === NEW: GET MOUSE POSITION FOR CENTERED ZOOM ===
+		const coords = getScaledCoordinates(e);
+		const ZOOM_SPEED = 0.05;
+
+		const currentRect = lastKeyframe.rect;
+		const zoomFactor = e.deltaY < 0 ? (1 - ZOOM_SPEED) : (1 + ZOOM_SPEED);
+		const aspectRatio = state.panRectSize.width / state.panRectSize.height;
+
+		// === NEW: CALCULATE MOUSE POSITION AS A RATIO WITHIN THE RECTANGLE ===
+		// This ensures the point under the cursor stays in the same relative position after zoom.
+		const ratioX = (coords.x - currentRect.x) / currentRect.width;
+		const ratioY = (coords.y - currentRect.y) / currentRect.height;
+
+		let newWidth = currentRect.width * zoomFactor;
+		let newHeight = newWidth / aspectRatio;
+
+		// === NEW: CALCULATE NEW TOP-LEFT CORNER BASED ON MOUSE POSITION ===
+		let newX = coords.x - (newWidth * ratioX);
+		let newY = coords.y - (newHeight * ratioY);
+
+		let newZoomedRect = { x: newX, y: newY, width: newWidth, height: newHeight };
+		newZoomedRect = clampRectToVideoBounds(newZoomedRect);
+
+		// === CRITICAL SMOOTHNESS FIX ===
+		// Instead of pushing a new keyframe, we UPDATE the last one.
+		// This prevents keyframe overload and makes the zoom feel smooth.
+		lastKeyframe.rect = newZoomedRect;
+
+		drawCropWithHandles(newZoomedRect);
+
+	}, { passive: false }); // { passive: false } is needed for preventDefault() to work reliably
+
+	// 1. Add global listeners to track the Shift key state
+	document.addEventListener('keydown', (e) => {
+		if (e.key === 'Shift') {
+			state.isShiftPressed = true;
+		}
+	});
+
+	document.addEventListener('keyup', (e) => {
+		if (e.key === 'Shift') {
+			state.isShiftPressed = false;
+			// When Shift is released, the next mouse move will automatically
+			// record a normal, un-zoomed keyframe, effectively "snapping back".
+		}
+	});
+	document.addEventListener('keydown', (e) => {
+		if (state.isPanning && state.panRectSize && e.key.toLowerCase() === 'r') {
+			e.preventDefault();
+			// Add one last keyframe at the release point
+			const lastKeyframe = state.panKeyframes[state.panKeyframes.length - 1];
+			if (lastKeyframe) {
+				state.panKeyframes.push({ timestamp: getPlaybackTime(), rect: lastKeyframe.rect });
+			}
+
+			// Exit panning mode
+			state.isPanning = false; // Stop listening to mouse moves
+			panScanBtn.textContent = 'Path Recorded!';
+			guidedPanleInfo("Path recorded. The crop will now remain fixed. You can now use 'Process Clip' or Press 'c' to create a clip.");
+		}
+	});
+
+	// Trigger the UI visibility update
+	if (cropModeRadios.length > 0) {
+		// Find the event listener's helper function to call it directly
+		// Note: This assumes updateDynamicCropOptionsUI is available in this scope.
+		// It's better to define it outside the event listener if it's not.
+		updateDynamicCropOptionsUI();
+	}
+
+	if (smoothPathToggle) {
+		smoothPathToggle.onchange = (e) => {
+			state.smoothPath = e.target.checked;
+		};
+	}
+
+	// Listen for changes on any of the radio buttons
+	cropModeRadios.forEach(radio => {
+		radio.addEventListener('change', (e) => {
+			// Update the main state variable with the new mode
+			state.dynamicCropMode = e.target.value;
+
+			// Reset sub-options when the mode changes to prevent leftover state
+			if (scaleWithRatioToggle) {
+				scaleWithRatioToggle.checked = false;
+				state.scaleWithRatio = false;
+			}
+			if (smoothPathToggle) {
+				smoothPathToggle.checked = false;
+				state.smoothPath = false;
+			}
+			if (blurBackgroundToggle) {
+				blurBackgroundToggle.checked = false;
+				state.useBlurBackground = false;
+				blurAmountInput.value = 15; // And reset its value
+				state.blurAmount = 15;
+			}
+
+			// Update the UI to show the correct sub-options
+			updateDynamicCropOptionsUI();
+		});
+	});
+
+	// Independent listeners for the sub-options
+	if (scaleWithRatioToggle) {
+		scaleWithRatioToggle.onchange = (e) => {
+			state.scaleWithRatio = e.target.checked;
+		};
+	}
+	if (blurBackgroundToggle && blurAmountInput) {
+		blurBackgroundToggle.onchange = (e) => {
+			state.useBlurBackground = e.target.checked;
+		};
+
+		blurAmountInput.oninput = (e) => {
+			// Update the state with the user's chosen blur amount
+			const amount = parseInt(e.target.value, 10);
+			if (!isNaN(amount)) {
+				state.blurAmount = Math.max(1, Math.min(100, amount)); // Clamp value between 1 and 100
+			}
+		};
+	}
+	const resetAllBtn = $('resetAllBtn'); // Find our new button ID
+	if (resetAllBtn) {
+		resetAllBtn.onclick = resetAllConfigs; // Simply call our powerful new function
+	}
+	updateDynamicCropOptionsUI();
+
+	document.getElementById('settingsMenu').addEventListener('mouseleave', () => {
+		if (state.isCropping || state.isPanning || state.isLooping) {
+			settingsMenu.classList.add('hidden');
+		}
+	});
+};
+
+window.addEventListener('resize', () => {
+    clearTimeout(state.resizeTimeout);
+    state.resizeTimeout = setTimeout(() => {
+        if ((state.isCropping || state.isPanning) && !cropCanvas.classList.contains('hidden')) {
+            state.cropCanvasDimensions = positionCropCanvas();
+            // Redraw current crop
+            const currentRect = state.isCropping ? state.cropRect :
+                (state.panKeyframes.length > 0 ? state.panKeyframes[state.panKeyframes.length - 1].rect : null);
+            if (currentRect) {
+                drawCropWithHandles(currentRect);
+            }
+        }
+    }, 100);
+});
+
+document.addEventListener('keydown', (e) => {
+	if (state.isPanning && state.panRectSize && e.key.toLowerCase() === 'r' && !state.isCropFixed) {
+		e.preventDefault();
+		toggleCropFixed();
+		if (state.isCropFixed && !state.playing) {
+			play(); // Auto-start playback when fixing size in pan mode
+		}
+	} else if (e.key.toLowerCase() === 's') {
+		e.preventDefault();
+		takeScreenshot()
+	} else if (e.key.toLowerCase() === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+		e.preventDefault();
+		handleCutAction()
+	} else if (e.key.toLowerCase() === 'escape') {
+		e.preventDefault();
+		resetAllConfigs()
+	} else if (e.key === 'Backspace') {
+		state.buffer = state.buffer.slice(0, -1);
+	} else if (e.key.toLowerCase() === 'l') {
+		e.stopPropagation();
+		toggleCropFixed();
+	} else if (e.key.length === 1) {
+		state.buffer += e.key;
+
+		// Keep only last 2 characters
+		if (state.buffer.length > 2) state.buffer = state.buffer.slice(-2);
+
+		// Check for double slash
+		if (state.buffer === '//') {
+			updateShortcutKeysVisibility();
+			state.buffer = ''; // reset buffer after trigger
+		}
+	}
+});
