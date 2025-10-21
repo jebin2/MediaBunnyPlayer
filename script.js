@@ -1,3 +1,6 @@
+import * as constant from './js/constants.js';
+import { state, updateState } from './js/state.js';
+
 import {
 	Input,
 	ALL_FORMATS,
@@ -12,11 +15,12 @@ import {
 	QUALITY_HIGH
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
 
-const MEDIABUNNY_URL = 'https://cdn.jsdelivr.net/npm/mediabunny@1.23.0/+esm';
-
 const urlParams = new URLSearchParams(window.location.search);
 const videoUrl = urlParams.get('video_url');
 
+// ============================================================================
+// GLOBAL VARIABLES & CONSTANTS
+// ============================================================================
 const $ = document.getElementById.bind(document);
 const playerArea = $('playerArea'),
 	videoContainer = $('videoContainer'),
@@ -577,7 +581,7 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 const ensureSubtitleRenderer = async () => {
 	if (!SubtitleRendererConstructor) {
 		try {
-			const module = await import(MEDIABUNNY_URL);
+			const module = await import(constant.MEDIABUNNY_URL);
 			SubtitleRendererConstructor = module.SubtitleRenderer;
 		} catch (e) {
 			console.error("Failed to load SubtitleRenderer module:", e);
