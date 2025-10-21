@@ -15,9 +15,6 @@ import {
 	QUALITY_HIGH
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
 
-const urlParams = new URLSearchParams(window.location.search);
-const videoUrl = urlParams.get('video_url');
-
 // ============================================================================
 // GLOBAL VARIABLES & CONSTANTS
 // ============================================================================
@@ -2007,6 +2004,38 @@ const updateShortcutKeysVisibility = () => {
 	panel.classList.toggle('hidden');
 };
 
+const dynamicVideoUrl = () => {
+	const urlParams = new URLSearchParams(window.location.search);
+	const videoUrl = urlParams.get('video_url');
+	if (videoUrl) {
+		try {
+			const decodedUrl = decodeURIComponent(videoUrl);
+			const urlPlayOverlay = $('urlPlayOverlay');
+			if (urlPlayOverlay) {
+				urlPlayOverlay.classList.remove('hidden');
+				const startBtn = urlPlayOverlay.querySelector('button') || urlPlayOverlay;
+				startBtn.addEventListener('click', () => {
+					urlPlayOverlay.classList.add('hidden');
+					loadMedia(decodedUrl);
+				}, {
+					once: true
+				});
+			} else {
+				loadMedia(decodedUrl);
+			}
+		} catch (e) {
+			console.error("Error parsing video_url:", e);
+		}
+	}
+}
+
+const registerServiceWorker = () => {
+	if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+	navigator.serviceWorker.register('service-worker.js')
+		.catch(err => console.log('ServiceWorker registration failed:', err));
+}
+}
+
 // ============================================================================
 // EVENT LISTENERS & HANDLERS
 // ============================================================================
@@ -2788,34 +2817,9 @@ const setupEventListeners = () => {
 // document.addEventListener('DOMContentLoaded', () => {
 setupEventListeners();
 renderLoop();
-
-if (videoUrl) {
-	try {
-		const decodedUrl = decodeURIComponent(videoUrl);
-		const urlPlayOverlay = $('urlPlayOverlay');
-		if (urlPlayOverlay) {
-			urlPlayOverlay.classList.remove('hidden');
-			const startBtn = urlPlayOverlay.querySelector('button') || urlPlayOverlay;
-			startBtn.addEventListener('click', () => {
-				urlPlayOverlay.classList.add('hidden');
-				loadMedia(decodedUrl);
-			}, {
-				once: true
-			});
-		} else {
-			loadMedia(decodedUrl);
-		}
-	} catch (e) {
-		console.error("Error parsing video_url:", e);
-	}
-}
-
+dynamicVideoUrl();
 updatePlaylistUIOptimized();
-
-if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-	navigator.serviceWorker.register('service-worker.js')
-		.catch(err => console.log('ServiceWorker registration failed:', err));
-}
+registerServiceWorker();
 
 window.addEventListener('resize', () => {
 	clearTimeout(resizeTimeout);
@@ -2832,19 +2836,10 @@ window.addEventListener('resize', () => {
 	}, 100);
 });
 
-if (fixSizeBtn) {
-	fixSizeBtn.onclick = (e) => {
-		e.stopPropagation();
-		toggleCropFixed();
-	};
-	// Update the 'R' key handler for panning mode
-	document.addEventListener('keydown', (e) => {
-		if (e.key.toLowerCase() === 'l') {
-			e.stopPropagation();
-			toggleCropFixed();
-		}
-	});
-}
+fixSizeBtn.onclick = (e) => {
+	e.stopPropagation();
+	toggleCropFixed();
+};
 
 // Update the 'R' key handler for panning mode
 document.addEventListener('keydown', (e) => {
@@ -2863,9 +2858,7 @@ document.addEventListener('keydown', (e) => {
 	} else if (e.key.toLowerCase() === 'escape') {
 		e.preventDefault();
 		resetAllConfigs()
-	}
-	// Only consider printable characters
-	if (e.key.length === 1) {
+	}else if (e.key.length === 1) {
 		buffer += e.key;
 
 		// Keep only last 2 characters
@@ -2878,6 +2871,9 @@ document.addEventListener('keydown', (e) => {
 		}
 	} else if (e.key === 'Backspace') {
 		buffer = buffer.slice(0, -1);
+	} else if (e.key.toLowerCase() === 'l') {
+		e.stopPropagation();
+		toggleCropFixed();
 	}
 });
 // });
