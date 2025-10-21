@@ -16,145 +16,74 @@ import {
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
 
 // ============================================================================
-// GLOBAL VARIABLES & CONSTANTS
-// ============================================================================
-
-let playlist = [],
-	currentPlayingFile = null,
-	fileLoaded = false;
-let audioContext, gainNode, videoSink, audioSink;
-let totalDuration = 0,
-	playing = false,
-	isSeeking = false;
-let audioContextStartTime = 0,
-	playbackTimeAtStart = 0;
-let videoFrameIterator, audioBufferIterator, nextFrame = null;
-let asyncId = 0;
-let hideControlsTimeout;
-let availableAudioTracks = [];
-let availableSubtitleTracks = [];
-let currentAudioTrack = null;
-let currentSubtitleTrack = null;
-let subtitleRenderer = null;
-let isLooping = false;
-let loopStartTime = 0;
-let loopEndTime = 0;
-let playbackLogicInterval = null;
-let currentScreenshotBlob = null;
-let currentPlaybackRate = 1.0;
-let isAutoplayEnabled = true;
-let isCropping = false;
-let isDrawingCrop = false;
-let cropStart = { x: 0, y: 0 };
-let cropEnd = { x: 0, y: 0 };
-let cropRect = null; // Will store the final crop dimensions
-
-// ... after your other state variables
-let isPanning = false; // Are we in "Dynamic Crop" recording mode?
-let panKeyframes = []; // Stores the recorded path: [{ timestamp, rect }, ...]
-let panRectSize = null; // Stores the locked size of the panning rectangle
-// let useMaxSize = false;
-let scaleWithRatio = false;
-// let useSpotlightEffect = false;
-let useBlurBackground = false;
-let smoothPath = false;
-let currentOpenFileAction = 'open-file';
-let blurAmount = 15;
-let dynamicCropMode = 'none'; // Can be 'none', 'spotlight', or 'max-size'
-let isShiftPressed = false;
-let buffer = '';
-let videoTrack = null; // To store video track info for frame-by-frame seeking
-
-// === PERFORMANCE OPTIMIZATION: Cache DOM elements for playlist ===
-let playlistElementCache = new Map(); // Maps path -> DOM element
-let lastRenderedPlaylist = null; // For deep equality check
-
-// === PERFORMANCE OPTIMIZATION: Subtitle overlay caching ===
-let subtitleOverlayElement = null;
-let lastSubtitleText = null;
-
-// === PERFORMANCE OPTIMIZATION: Debounced progress update ===
-let progressUpdateScheduled = false;
-
-let SubtitleRendererConstructor = null;
-let cropCanvasDimensions = null;
-let isCropFixed = false; // Is the crop size locked?
-let isDraggingCrop = false; // Are we moving the crop?
-let isResizingCrop = false; // Are we resizing the crop?
-let resizeHandle = null; // Which corner/edge is being resized
-let dragStartPos = { x: 0, y: 0 }; // Starting position for drag
-let originalCropRect = null; // Original crop rect before drag/resize
-let resizeTimeout;
-
-// ============================================================================
 // CORE PLAYER STATE & INITIALIZATION
 // ============================================================================
 const getPlaybackTime = () => {
-	if (!playing) {
-		return playbackTimeAtStart;
+	if (!state.playing) {
+		return state.playbackTimeAtStart;
 	}
-	const elapsedTime = audioContext.currentTime - audioContextStartTime;
-	return playbackTimeAtStart + (elapsedTime * currentPlaybackRate);
+	const elapsedTime = state.audioContext.currentTime - state.audioContextStartTime;
+	return state.playbackTimeAtStart + (elapsedTime * state.currentPlaybackRate);
 };
 
 const startVideoIterator = async () => {
-	if (!videoSink) return;
-	const currentAsyncId = asyncId;
+	if (!state.videoSink) return;
+	const currentAsyncId = state.asyncId;
 
 	try {
-		await videoFrameIterator?.return();
-		videoFrameIterator = videoSink.canvases(getPlaybackTime());
+		await state.videoFrameIterator?.return();
+		state.videoFrameIterator = state.videoSink.canvases(getPlaybackTime());
 
-		const firstResult = await videoFrameIterator.next();
-		if (currentAsyncId !== asyncId) return;
+		const firstResult = await state.videoFrameIterator.next();
+		if (currentAsyncId !== state.asyncId) return;
 
 		const firstFrame = firstResult.value ?? null;
 		if (firstFrame) {
 			ctx.drawImage(firstFrame.canvas, 0, 0, canvas.width, canvas.height);
 			updateNextFrame();
 		} else {
-			nextFrame = null;
+			state.nextFrame = null;
 		}
 	} catch (e) {
-		if (currentAsyncId === asyncId) console.error("Error starting video iteration:", e);
+		if (currentAsyncId === state.asyncId) console.error("Error starting video iteration:", e);
 	}
 };
 
 const updateNextFrame = async () => {
-	if (!videoFrameIterator) return;
-	const currentAsyncId = asyncId;
+	if (!state.videoFrameIterator) return;
+	const currentAsyncId = state.asyncId;
 	try {
-		const result = await videoFrameIterator.next();
-		if (currentAsyncId !== asyncId || result.done) {
-			nextFrame = null;
+		const result = await state.videoFrameIterator.next();
+		if (currentAsyncId !== state.asyncId || result.done) {
+			state.nextFrame = null;
 			return;
 		}
-		nextFrame = result.value;
+		state.nextFrame = result.value;
 	} catch (e) {
-		if (currentAsyncId === asyncId) console.error("Error decoding video frame:", e);
-		nextFrame = null;
+		if (currentAsyncId === state.asyncId) console.error("Error decoding video frame:", e);
+		state.nextFrame = null;
 	}
 };
 
 const checkPlaybackState = () => {
-	if (!playing || !state.fileLoaded) return;
+	if (!state.playing || !state.fileLoaded) return;
 
 	const currentTime = getPlaybackTime();
 
 	// 1. Handle looping
-	if (isLooping && currentTime >= loopEndTime) {
-		seekToTime(loopStartTime);
+	if (state.isLooping && currentTime >= state.loopEndTime) {
+		seekToTime(state.loopStartTime);
 		return; // Important: return here to prevent the next check from running immediately
 	}
 
 	// 2. Handle end-of-track and autoplay
-	if (currentTime >= totalDuration && totalDuration > 0 && !isLooping) {
+	if (currentTime >= state.totalDuration && state.totalDuration > 0 && !state.isLooping) {
 		pause();
-		if (isAutoplayEnabled) {
+		if (state.isAutoplayEnabled) {
 			playNext();
 		} else {
-			playbackTimeAtStart = totalDuration;
-			scheduleProgressUpdate(totalDuration);
+			state.playbackTimeAtStart = state.totalDuration;
+			scheduleProgressUpdate(state.totalDuration);
 		}
 	}
 };
@@ -163,15 +92,15 @@ const renderLoop = () => {
 	if (state.fileLoaded) {
 		const currentTime = getPlaybackTime();
 
-		if (playing) {
-			if (nextFrame && nextFrame.timestamp <= currentTime) {
-				ctx.drawImage(nextFrame.canvas, 0, 0, canvas.width, canvas.height);
-				nextFrame = null;
+		if (state.playing) {
+			if (state.nextFrame && state.nextFrame.timestamp <= currentTime) {
+				ctx.drawImage(state.nextFrame.canvas, 0, 0, canvas.width, canvas.height);
+				state.nextFrame = null;
 				updateNextFrame();
 			}
 		}
 		updateSubtitlesOptimized(currentTime);
-		if (!isSeeking) scheduleProgressUpdate(currentTime);
+		if (!state.isSeeking) scheduleProgressUpdate(currentTime);
 	}
 	requestAnimationFrame(renderLoop);
 };
@@ -186,29 +115,29 @@ const scheduleProgressUpdate = (time) => {
 };
 
 const play = async () => {
-	if (playing || !audioContext) return;
-	if (audioContext.state === 'suspended') await audioContext.resume();
+	if (state.playing || !state.audioContext) return;
+	if (state.audioContext.state === 'suspended') await state.audioContext.resume();
 
-	if (totalDuration > 0 && Math.abs(getPlaybackTime() - totalDuration) < 0.1) {
-		const time = isLooping ? loopStartTime : 0;
-		playbackTimeAtStart = time;
+	if (state.totalDuration > 0 && Math.abs(getPlaybackTime() - state.totalDuration) < 0.1) {
+		const time = state.isLooping ? state.loopStartTime : 0;
+		state.playbackTimeAtStart = time;
 		await seekToTime(time);
 	}
 
-	audioContextStartTime = audioContext.currentTime;
-	playing = true;
+	state.audioContextStartTime = state.audioContext.currentTime;
+	state.playing = true;
 
 	// Add these two lines to start the interval
-	if (playbackLogicInterval) clearInterval(playbackLogicInterval);
-	playbackLogicInterval = setInterval(checkPlaybackState, 100); // Check 10 times a second
+	if (state.playbackLogicInterval) clearInterval(state.playbackLogicInterval);
+	state.playbackLogicInterval = setInterval(checkPlaybackState, 100); // Check 10 times a second
 
-	if (audioSink) {
-		const currentAsyncId = asyncId;
-		await audioBufferIterator?.return();
-		if (currentAsyncId !== asyncId) return;
+	if (state.audioSink) {
+		const currentAsyncId = state.asyncId;
+		await state.audioBufferIterator?.return();
+		if (currentAsyncId !== state.asyncId) return;
 
 		const iteratorStartTime = getPlaybackTime();
-		audioBufferIterator = audioSink.buffers(iteratorStartTime);
+		state.audioBufferIterator = state.audioSink.buffers(iteratorStartTime);
 		runAudioIterator();
 	}
 
@@ -217,17 +146,17 @@ const play = async () => {
 };
 
 const pause = () => {
-	if (!playing) return;
-	playbackTimeAtStart = getPlaybackTime();
-	playing = false;
-	asyncId++;
+	if (!state.playing) return;
+	state.playbackTimeAtStart = getPlaybackTime();
+	state.playing = false;
+	state.asyncId++;
 
 	// Add these two lines to stop the interval
-	clearInterval(playbackLogicInterval);
-	playbackLogicInterval = null;
+	clearInterval(state.playbackLogicInterval);
+	state.playbackLogicInterval = null;
 
-	audioBufferIterator?.return().catch(() => { });
-	audioBufferIterator = null;
+	state.audioBufferIterator?.return().catch(() => { });
+	state.audioBufferIterator = null;
 
 	queuedAudioNodes.forEach(node => {
 		try {
@@ -238,42 +167,42 @@ const pause = () => {
 
 	playBtn.textContent = '▶';
 	videoContainer.classList.remove('hide-cursor');
-	clearTimeout(hideControlsTimeout);
+	clearTimeout(state.hideControlsTimeout);
 	videoControls.classList.add('show');
 };
 
-const togglePlay = () => playing ? pause() : play();
+const togglePlay = () => state.playing ? pause() : play();
 
 const seekToTime = async (seconds) => {
-	const wasPlaying = playing;
+	const wasPlaying = state.playing;
 	if (wasPlaying) pause();
 
-	seconds = Math.max(0, Math.min(seconds, totalDuration));
-	playbackTimeAtStart = seconds;
+	seconds = Math.max(0, Math.min(seconds, state.totalDuration));
+	state.playbackTimeAtStart = seconds;
 	updateProgressBarUI(seconds);
 	updateTimeInputs(seconds);
 
 	await startVideoIterator();
 
-	if (wasPlaying && playbackTimeAtStart < totalDuration) {
+	if (wasPlaying && state.playbackTimeAtStart < state.totalDuration) {
 		await play();
 	}
 };
 
 const setPlaybackSpeed = (newSpeed) => {
-	if (!playing) {
-		currentPlaybackRate = newSpeed;
+	if (!state.playing) {
+		state.currentPlaybackRate = newSpeed;
 		return;
 	}
 
-	if (newSpeed === currentPlaybackRate) {
+	if (newSpeed === state.currentPlaybackRate) {
 		return;
 	}
 
 	const currentTime = getPlaybackTime();
 
-	asyncId++;
-	audioBufferIterator?.return().catch(() => { });
+	state.asyncId++;
+	state.audioBufferIterator?.return().catch(() => { });
 	queuedAudioNodes.forEach(node => {
 		try {
 			node.stop();
@@ -281,13 +210,13 @@ const setPlaybackSpeed = (newSpeed) => {
 	});
 	queuedAudioNodes.clear();
 
-	currentPlaybackRate = newSpeed;
+	state.currentPlaybackRate = newSpeed;
 
-	playbackTimeAtStart = currentTime;
-	audioContextStartTime = audioContext.currentTime;
+	state.playbackTimeAtStart = currentTime;
+	state.audioContextStartTime = state.audioContext.currentTime;
 
-	if (audioSink) {
-		audioBufferIterator = audioSink.buffers(currentTime);
+	if (state.audioSink) {
+		state.audioBufferIterator = state.audioSink.buffers(currentTime);
 		runAudioIterator();
 	}
 
@@ -295,37 +224,37 @@ const setPlaybackSpeed = (newSpeed) => {
 };
 
 const stopAndClear = async () => {
-	if (playing) pause();
+	if (state.playing) pause();
 	state.fileLoaded = false;
-	isLooping = false;
+	state.isLooping = false;
 	loopBtn.textContent = 'Loop';
-	currentPlaybackRate = 1.0;
+	state.currentPlaybackRate = 1.0;
 	playbackSpeedInput.value = '1';
-	asyncId++;
+	state.asyncId++;
 
 	try {
-		await videoFrameIterator?.return();
+		await state.videoFrameIterator?.return();
 	} catch (e) { }
 	try {
-		await audioBufferIterator?.return();
+		await state.audioBufferIterator?.return();
 	} catch (e) { }
 
-	nextFrame = null;
-	videoSink = null;
-	audioSink = null;
-	subtitleRenderer = null;
-	videoTrack = null; // Reset video track info
+	state.nextFrame = null;
+	state.videoSink = null;
+	state.audioSink = null;
+	state.subtitleRenderer = null;
+	state.videoTrack = null; // Reset video track info
 	removeSubtitleOverlay();
 
-	availableAudioTracks = [];
-	availableSubtitleTracks = [];
-	currentAudioTrack = null;
-	currentSubtitleTrack = null;
+	state.availableAudioTracks = [];
+	state.availableSubtitleTracks = [];
+	state.currentAudioTrack = null;
+	state.currentSubtitleTrack = null;
 
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-	if (audioContext && audioContext.state === 'running') {
-		await audioContext.suspend();
+	if (state.audioContext && state.audioContext.state === 'running') {
+		await state.audioContext.suspend();
 	}
 };
 
@@ -428,14 +357,14 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 			formats: ALL_FORMATS
 		});
 
-		videoTrack = await input.getPrimaryVideoTrack(); // Assign to global videoTrack
+		state.videoTrack = await input.getPrimaryVideoTrack(); // Assign to global videoTrack
 		const audioTracks = await input.getAudioTracks();
 		const firstAudioTrack = audioTracks.length > 0 ? audioTracks[0] : null;
 
-		const isVideoDecodable = videoTrack ? await videoTrack.canDecode() : false;
+		const isVideoDecodable = state.videoTrack ? await state.videoTrack.canDecode() : false;
 		const isAudioDecodable = firstAudioTrack ? await firstAudioTrack.canDecode() : false;
 
-		const isPlayable = (videoTrack && isVideoDecodable) || (!videoTrack && firstAudioTrack && isAudioDecodable);
+		const isPlayable = (state.videoTrack && isVideoDecodable) || (!state.videoTrack && firstAudioTrack && isAudioDecodable);
 
 		if (!isPlayable && !isConversionAttempt) {
 			console.log("Media not directly playable, attempting conversion.");
@@ -448,48 +377,48 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 		}
 
 		state.currentPlayingFile = resource;
-		totalDuration = await input.computeDuration();
-		playbackTimeAtStart = 0;
+		state.totalDuration = await input.computeDuration();
+		state.playbackTimeAtStart = 0;
 
 		startTimeInput.value = formatTime(0);
-		endTimeInput.value = formatTime(totalDuration);
+		endTimeInput.value = formatTime(state.totalDuration);
 
-		availableAudioTracks = audioTracks;
+		state.availableAudioTracks = audioTracks;
 		const allTracks = await input.getTracks();
-		availableSubtitleTracks = allTracks.filter(track => track.type === 'subtitle');
+		state.availableSubtitleTracks = allTracks.filter(track => track.type === 'subtitle');
 
-		currentAudioTrack = availableAudioTracks.length > 0 ? availableAudioTracks[0] : null;
-		currentSubtitleTrack = null;
+		state.currentAudioTrack = state.availableAudioTracks.length > 0 ? state.availableAudioTracks[0] : null;
+		state.currentSubtitleTrack = null;
 
-		if (!videoTrack && !currentAudioTrack) {
+		if (!state.videoTrack && !state.currentAudioTrack) {
 			throw new Error('No valid audio or video tracks found.');
 		}
 
-		if (!audioContext) {
-			audioContext = new (window.AudioContext || window.webkitAudioContext)();
+		if (!state.audioContext) {
+			state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
 		}
-		if (audioContext.state === 'suspended') await audioContext.resume();
+		if (state.audioContext.state === 'suspended') await state.audioContext.resume();
 
-		gainNode = audioContext.createGain();
-		gainNode.connect(audioContext.destination);
+		state.gainNode = state.audioContext.createGain();
+		state.gainNode.connect(state.audioContext.destination);
 		setVolume(volumeSlider.value);
 
-		if (videoTrack) {
-			const packetStats = await videoTrack.computePacketStats();
-			videoTrack.frameRate = packetStats.averagePacketRate;
-			videoSink = new CanvasSink(videoTrack, {
+		if (state.videoTrack) {
+			const packetStats = await state.videoTrack.computePacketStats();
+			state.videoTrack.frameRate = packetStats.averagePacketRate;
+			state.videoSink = new CanvasSink(state.videoTrack, {
 				poolSize: 2
 			});
-			canvas.width = videoTrack.displayWidth || videoTrack.codedWidth || 1280;
-			canvas.height = videoTrack.displayHeight || videoTrack.codedHeight || 720;
+			canvas.width = state.videoTrack.displayWidth || state.videoTrack.codedWidth || 1280;
+			canvas.height = state.videoTrack.displayHeight || state.videoTrack.codedHeight || 720;
 
 			// Resize the crop canvas as well
 			cropCanvas.width = canvas.width;
 			cropCanvas.height = canvas.height;
 		}
 
-		if (currentAudioTrack) {
-			audioSink = new AudioBufferSink(currentAudioTrack);
+		if (state.currentAudioTrack) {
+			state.audioSink = new AudioBufferSink(state.currentAudioTrack);
 		}
 
 		updateTrackMenus();
@@ -531,29 +460,29 @@ const ensureSubtitleRenderer = async () => {
 // ============================================================================
 
 const runAudioIterator = async () => {
-	if (!audioSink || !audioBufferIterator) return;
-	const currentAsyncId = asyncId;
+	if (!state.audioSink || !state.audioBufferIterator) return;
+	const currentAsyncId = state.asyncId;
 
 	try {
 		for await (const {
 			buffer,
 			timestamp
-		} of audioBufferIterator) {
-			if (currentAsyncId !== asyncId) break;
+		} of state.audioBufferIterator) {
+			if (currentAsyncId !== state.asyncId) break;
 
-			const node = audioContext.createBufferSource();
+			const node = state.audioContext.createBufferSource();
 			node.buffer = buffer;
-			node.connect(gainNode);
-			node.playbackRate.value = currentPlaybackRate;
+			node.connect(state.gainNode);
+			node.playbackRate.value = state.currentPlaybackRate;
 
-			const absolutePlayTime = audioContextStartTime + ((timestamp - playbackTimeAtStart) / currentPlaybackRate);
+			const absolutePlayTime = state.audioContextStartTime + ((timestamp - state.playbackTimeAtStart) / state.currentPlaybackRate);
 
-			if (absolutePlayTime >= audioContext.currentTime) {
+			if (absolutePlayTime >= state.audioContext.currentTime) {
 				node.start(absolutePlayTime);
 			} else {
-				const offset = (audioContext.currentTime - absolutePlayTime) * currentPlaybackRate;
+				const offset = (state.audioContext.currentTime - absolutePlayTime) * state.currentPlaybackRate;
 				if (offset < buffer.duration) {
-					node.start(audioContext.currentTime, offset);
+					node.start(state.audioContext.currentTime, offset);
 				}
 			}
 
@@ -561,19 +490,19 @@ const runAudioIterator = async () => {
 			node.onended = () => queuedAudioNodes.delete(node);
 
 			if (timestamp - getPlaybackTime() >= 1.5) {
-				while (playing && currentAsyncId === asyncId && (timestamp - getPlaybackTime() >= 0.5)) {
+				while (state.playing && currentAsyncId === state.asyncId && (timestamp - getPlaybackTime() >= 0.5)) {
 					await new Promise(r => setTimeout(r, 100));
 				}
 			}
 		}
 	} catch (e) {
-		if (currentAsyncId === asyncId) console.error("Error during audio iteration:", e);
+		if (currentAsyncId === state.asyncId) console.error("Error during audio iteration:", e);
 	}
 };
 
 const setVolume = val => {
 	const vol = parseFloat(val);
-	if (gainNode) gainNode.gain.value = vol * vol;
+	if (state.gainNode) state.gainNode.gain.value = vol * vol;
 	muteBtn.textContent = vol > 0 ? '🔊' : '🔇';
 };
 
@@ -585,9 +514,9 @@ const updateTrackMenus = () => {
 	const audioTrackList = $('audioTrackList');
 	audioTrackList.innerHTML = '';
 
-	availableAudioTracks.forEach((track, index) => {
+	state.availableAudioTracks.forEach((track, index) => {
 		const li = document.createElement('li');
-		li.className = `track-item ${track === currentAudioTrack ? 'active' : ''}`;
+		li.className = `track-item ${track === state.currentAudioTrack ? 'active' : ''}`;
 		const langCode = track.languageCode;
 		const label = (langCode && langCode !== 'und') ? langCode : `Audio ${index + 1}`;
 		li.innerHTML = `<span>${label}</span>`;
@@ -597,15 +526,15 @@ const updateTrackMenus = () => {
 
 	const subtitleTrackList = $('subtitleTrackList');
 	const noneOption = document.createElement('li');
-	noneOption.className = `track-item ${!currentSubtitleTrack ? 'active' : ''}`;
+	noneOption.className = `track-item ${!state.currentSubtitleTrack ? 'active' : ''}`;
 	noneOption.innerHTML = `<span>Off</span>`;
 	noneOption.onclick = () => switchSubtitleTrack('none');
 	subtitleTrackList.innerHTML = '';
 	subtitleTrackList.appendChild(noneOption);
 
-	availableSubtitleTracks.forEach((track, index) => {
+	state.availableSubtitleTracks.forEach((track, index) => {
 		const li = document.createElement('li');
-		li.className = `track-item ${track === currentSubtitleTrack ? 'active' : ''}`;
+		li.className = `track-item ${track === state.currentSubtitleTrack ? 'active' : ''}`;
 		const langCode = track.languageCode;
 		const label = (langCode && langCode !== 'und') ? langCode : `Subtitle ${index + 1}`;
 		li.innerHTML = `<span>${label}</span>`;
@@ -615,31 +544,31 @@ const updateTrackMenus = () => {
 };
 
 const switchAudioTrack = async (trackIndex) => {
-	if (!availableAudioTracks[trackIndex] || availableAudioTracks[trackIndex] === currentAudioTrack) return;
+	if (!state.availableAudioTracks[trackIndex] || state.availableAudioTracks[trackIndex] === state.currentAudioTrack) return;
 
 	showLoading(true);
-	const wasPlaying = playing;
+	const wasPlaying = state.playing;
 	if (wasPlaying) pause();
 
-	currentAudioTrack = availableAudioTracks[trackIndex];
+	state.currentAudioTrack = state.availableAudioTracks[trackIndex];
 
 	try {
-		if (await currentAudioTrack.canDecode()) {
-			audioSink = new AudioBufferSink(currentAudioTrack);
+		if (await state.currentAudioTrack.canDecode()) {
+			state.audioSink = new AudioBufferSink(state.currentAudioTrack);
 		} else {
 			showError("Selected audio track cannot be decoded.");
-			audioSink = null;
+			state.audioSink = null;
 		}
 	} catch (e) {
 		console.error("Error switching audio track:", e);
-		audioSink = null;
+		state.audioSink = null;
 	}
 
 	updateTrackMenus();
 	hideTrackMenus();
 	showLoading(false);
 
-	if (wasPlaying && playbackTimeAtStart < totalDuration) {
+	if (wasPlaying && state.playbackTimeAtStart < state.totalDuration) {
 		await play();
 	}
 };
@@ -648,18 +577,18 @@ const switchSubtitleTrack = async (trackIndex) => {
 	removeSubtitleOverlay();
 
 	if (trackIndex === 'none') {
-		currentSubtitleTrack = null;
-		subtitleRenderer = null;
-	} else if (availableSubtitleTracks[trackIndex] && availableSubtitleTracks[trackIndex] !== currentSubtitleTrack) {
-		currentSubtitleTrack = availableSubtitleTracks[trackIndex];
+		state.currentSubtitleTrack = null;
+		state.subtitleRenderer = null;
+	} else if (state.availableSubtitleTracks[trackIndex] && state.availableSubtitleTracks[trackIndex] !== state.currentSubtitleTrack) {
+		state.currentSubtitleTrack = state.availableSubtitleTracks[trackIndex];
 		try {
 			const Renderer = await ensureSubtitleRenderer();
-			subtitleRenderer = new Renderer(currentSubtitleTrack);
+			state.subtitleRenderer = new Renderer(state.currentSubtitleTrack);
 		} catch (e) {
 			console.error("Error initializing subtitle renderer:", e);
 			showError("Failed to load subtitles.");
-			currentSubtitleTrack = null;
-			subtitleRenderer = null;
+			state.currentSubtitleTrack = null;
+			state.subtitleRenderer = null;
 		}
 	}
 
@@ -668,39 +597,39 @@ const switchSubtitleTrack = async (trackIndex) => {
 };
 
 const removeSubtitleOverlay = () => {
-	if (subtitleOverlayElement) {
-		subtitleOverlayElement.textContent = '';
-		subtitleOverlayElement.style.display = 'none';
+	if (state.subtitleOverlayElement) {
+		state.subtitleOverlayElement.textContent = '';
+		state.subtitleOverlayElement.style.display = 'none';
 	}
-	lastSubtitleText = null;
+	state.lastSubtitleText = null;
 };
 
 const updateSubtitlesOptimized = (currentTime) => {
-	if (!subtitleRenderer) {
-		if (subtitleOverlayElement && subtitleOverlayElement.style.display !== 'none') {
+	if (!state.subtitleRenderer) {
+		if (state.subtitleOverlayElement && state.subtitleOverlayElement.style.display !== 'none') {
 			removeSubtitleOverlay();
 		}
 		return;
 	}
 
 	try {
-		const subtitle = subtitleRenderer.getSubtitleAt(currentTime);
+		const subtitle = state.subtitleRenderer.getSubtitleAt(currentTime);
 		const newText = subtitle?.text || '';
 
 		// Only update DOM if text changed
-		if (newText !== lastSubtitleText) {
+		if (newText !== state.lastSubtitleText) {
 			if (!newText) {
 				removeSubtitleOverlay();
 			} else {
-				if (!subtitleOverlayElement) {
-					subtitleOverlayElement = document.createElement('div');
-					subtitleOverlayElement.className = 'subtitle-overlay';
-					videoContainer.appendChild(subtitleOverlayElement);
+				if (!state.subtitleOverlayElement) {
+					state.subtitleOverlayElement = document.createElement('div');
+					state.subtitleOverlayElement.className = 'subtitle-overlay';
+					videoContainer.appendChild(state.subtitleOverlayElement);
 				}
-				subtitleOverlayElement.textContent = newText;
-				subtitleOverlayElement.style.display = 'block';
+				state.subtitleOverlayElement.textContent = newText;
+				state.subtitleOverlayElement.style.display = 'block';
 			}
-			lastSubtitleText = newText;
+			state.lastSubtitleText = newText;
 		}
 	} catch (e) {
 		console.error("Error rendering subtitle:", e);
@@ -856,8 +785,8 @@ const removeItemFromPath = (nodes, path) => {
 const clearPlaylist = () => {
 	stopAndClear();
 	state.playlist = [];
-	playlistElementCache.clear();
-	lastRenderedPlaylist = null;
+	state.playlistElementCache.clear();
+	state.lastRenderedPlaylist = null;
 	updatePlaylistUIOptimized();
 };
 
@@ -945,14 +874,14 @@ const createPlaylistElement = (node, currentPath = '') => {
 const updatePlaylistUIOptimized = () => {
 	if (state.playlist.length === 0) {
 		playlistContent.innerHTML = '<p style="padding:1rem; opacity:0.7; text-align:center;">No files.</p>';
-		playlistElementCache.clear();
-		lastRenderedPlaylist = null;
+		state.playlistElementCache.clear();
+		state.lastRenderedPlaylist = null;
 		showDropZoneUI();
 		return;
 	}
 
 	// Check if we need a full rebuild
-	const playlistChanged = JSON.stringify(state.playlist) !== lastRenderedPlaylist;
+	const playlistChanged = JSON.stringify(state.playlist) !== state.lastRenderedPlaylist;
 
 	if (!playlistChanged) {
 		// Just update active states
@@ -973,7 +902,7 @@ const updatePlaylistUIOptimized = () => {
 	playlistContent.innerHTML = '';
 	playlistContent.appendChild(fragment);
 
-	lastRenderedPlaylist = JSON.stringify(state.playlist);
+	state.lastRenderedPlaylist = JSON.stringify(state.playlist);
 };
 
 const updateActiveStates = () => {
@@ -1035,21 +964,21 @@ const playPrevious = () => {
 
 const toggleLoop = () => {
 	loopBtn.classList.toggle('hover_highlight');
-	if (isLooping) {
-		isLooping = false;
+	if (state.isLooping) {
+		state.isLooping = false;
 		loopBtn.textContent = 'Loop';
 	} else {
 		const start = parseTime(startTimeInput.value);
 		const end = parseTime(endTimeInput.value);
 
-		if (isNaN(start) || isNaN(end) || start >= end || start < 0 || end > totalDuration) {
+		if (isNaN(start) || isNaN(end) || start >= end || start < 0 || end > state.totalDuration) {
 			showError("Invalid start or end time for looping.");
 			return;
 		}
 
-		isLooping = true;
-		loopStartTime = start;
-		loopEndTime = end;
+		state.isLooping = true;
+		state.loopStartTime = start;
+		state.loopEndTime = end;
 		loopBtn.textContent = 'Looping...';
 
 		const currentTime = getPlaybackTime();
@@ -1057,7 +986,7 @@ const toggleLoop = () => {
 			seekToTime(start);
 		}
 
-		if (!playing) {
+		if (!state.playing) {
 			play();
 		}
 	}
@@ -1076,7 +1005,7 @@ const showDropZoneUI = () => {
 	dropZone.style.display = 'flex';
 	videoContainer.style.display = 'none';
 	updateProgressBarUI(0);
-	totalDuration = 0;
+	state.totalDuration = 0;
 };
 
 const showLoading = show => loading.classList.toggle('hidden', !show);
@@ -1126,13 +1055,13 @@ const hideStatusMessage = () => {
 };
 
 const showControlsTemporarily = () => {
-	clearTimeout(hideControlsTimeout);
+	clearTimeout(state.hideControlsTimeout);
 	videoControls.classList.add('show');
 	videoContainer.classList.remove('hide-cursor');
 
-	if (playing) {
-		hideControlsTimeout = setTimeout(() => {
-			if (playing && !isSeeking && !videoControls.matches(':hover') && !document.querySelector('.control-group:hover')) {
+	if (state.playing) {
+		state.hideControlsTimeout = setTimeout(() => {
+			if (state.playing && !state.isSeeking && !videoControls.matches(':hover') && !document.querySelector('.control-group:hover')) {
 				videoControls.classList.remove('show');
 				videoContainer.classList.add('hide-cursor');
 				hideTrackMenus();
@@ -1142,13 +1071,13 @@ const showControlsTemporarily = () => {
 };
 
 const updateProgressBarUI = (time) => {
-	const displayTime = Math.max(0, Math.min(time, totalDuration));
-	timeDisplay.textContent = `${formatTime(displayTime)} / ${formatTime(totalDuration)}`;
-	const percent = totalDuration > 0 ? (displayTime / totalDuration) * 100 : 0;
+	const displayTime = Math.max(0, Math.min(time, state.totalDuration));
+	timeDisplay.textContent = `${formatTime(displayTime)} / ${formatTime(state.totalDuration)}`;
+	const percent = state.totalDuration > 0 ? (displayTime / state.totalDuration) * 100 : 0;
 	progressBar.style.width = `${percent}%`;
 	progressHandle.style.left = `${percent}%`;
 
-	if (playing) updateTimeInputs(time);
+	if (state.playing) updateTimeInputs(time);
 };
 
 const updateTimeInputs = (time) => {
@@ -1163,25 +1092,25 @@ const updateTimeInputs = (time) => {
 // ============================================================================
 
 const toggleStaticCrop = (e, reset = false) => {
-	isCropping = !reset && !isCropping;
-	isPanning = false; // Ensure panning is off
+	state.isCropping = !reset && !state.isCropping;
+	state.isPanning = false; // Ensure panning is off
 
 	panScanBtn.textContent = 'Dynamic ✂️';
-	cropBtn.textContent = isCropping ? 'Cropping...' : '✂️';
+	cropBtn.textContent = state.isCropping ? 'Cropping...' : '✂️';
 
-	cropCanvas.classList.toggle('hidden', !isCropping);
-	panScanBtn.classList.toggle('hover_highlight', isPanning);
+	cropCanvas.classList.toggle('hidden', !state.isCropping);
+	panScanBtn.classList.toggle('hover_highlight', state.isPanning);
 	cropBtn.classList.toggle('hover_highlight');
 	if (reset) cropBtn.classList.remove('hover_highlight');
 
-	if (isCropping) {
+	if (state.isCropping) {
 		// Position the crop canvas when entering crop mode
 		cropCanvasDimensions = positionCropCanvas();
 		state.isCropFixed = false; // Reset fixed state
 		updateFixSizeButton();
 	} else {
 		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
-		cropRect = null;
+		state.cropRect = null;
 		cropCanvasDimensions = null;
 		state.isCropFixed = false;
 		updateFixSizeButton();
@@ -1270,10 +1199,10 @@ const drawCropOverlay = () => {
 	cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
 
 	// Calculate dimensions, ensuring width and height are not negative
-	const x = Math.min(cropStart.x, cropEnd.x);
-	const y = Math.min(cropStart.y, cropEnd.y);
-	const width = Math.abs(cropStart.x - cropEnd.x);
-	const height = Math.abs(cropStart.y - cropEnd.y);
+	const x = Math.min(state.cropStart.x, state.cropEnd.x);
+	const y = Math.min(state.cropStart.y, state.cropEnd.y);
+	const width = Math.abs(state.cropStart.x - state.cropEnd.x);
+	const height = Math.abs(state.cropStart.y - state.cropEnd.y);
 
 	if (width > 0 || height > 0) {
 		// Draw the semi-transparent shade over the entire canvas
@@ -1295,21 +1224,21 @@ const drawCropOverlay = () => {
 // ============================================================================
 
 const togglePanning = (e, reset = false) => {
-	isPanning = !reset && !isPanning;
-	isCropping = false; // Ensure static cropping is off
+	state.isPanning = !reset && !state.isPanning;
+	state.isCropping = false; // Ensure static cropping is off
 
 	cropBtn.textContent = '✂️';
-	panScanBtn.textContent = isPanning ? 'Cropping...' : 'Dynamic ✂️';
+	panScanBtn.textContent = state.isPanning ? 'Cropping...' : 'Dynamic ✂️';
 
-	cropCanvas.classList.toggle('hidden', !isPanning);
-	cropBtn.classList.toggle('hover_highlight', isCropping);
+	cropCanvas.classList.toggle('hidden', !state.isPanning);
+	cropBtn.classList.toggle('hover_highlight', state.isCropping);
 	panScanBtn.classList.toggle('hover_highlight');
 	if (reset) panScanBtn.classList.remove('hover_highlight');
 
-	panKeyframes = [];
-	panRectSize = null;
+	state.panKeyframes = [];
+	state.panRectSize = null;
 
-	if (isPanning) {
+	if (state.isPanning) {
 		// Position the crop canvas when entering panning mode
 		cropCanvasDimensions = positionCropCanvas();
 		state.isCropFixed = false; // Reset fixed state
@@ -1324,18 +1253,18 @@ const togglePanning = (e, reset = false) => {
 };
 
 const getInterpolatedCropRect = (timestamp) => {
-	if (!panKeyframes || panKeyframes.length === 0) return null;
+	if (!state.panKeyframes || state.panKeyframes.length === 0) return null;
 
 	// Find the two keyframes that surround the current timestamp
-	let prevKey = panKeyframes[0];
+	let prevKey = state.panKeyframes[0];
 	let nextKey = null;
 
-	for (let i = 1; i < panKeyframes.length; i++) {
-		if (panKeyframes[i].timestamp > timestamp) {
-			nextKey = panKeyframes[i];
+	for (let i = 1; i < state.panKeyframes.length; i++) {
+		if (state.panKeyframes[i].timestamp > timestamp) {
+			nextKey = state.panKeyframes[i];
 			break;
 		}
-		prevKey = panKeyframes[i];
+		prevKey = state.panKeyframes[i];
 	}
 
 	if (!nextKey) {
@@ -1435,7 +1364,7 @@ const drawCropWithHandles = (rect) => {
 	cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
 
 	// Draw semi-transparent overlay
-	const overlayColor = isPanning ? 'rgba(0, 50, 100, 0.6)' : 'rgba(0, 0, 0, 0.6)';
+	const overlayColor = state.isPanning ? 'rgba(0, 50, 100, 0.6)' : 'rgba(0, 0, 0, 0.6)';
 	cropCtx.fillStyle = overlayColor;
 	cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
 
@@ -1443,7 +1372,7 @@ const drawCropWithHandles = (rect) => {
 	cropCtx.clearRect(rect.x, rect.y, rect.width, rect.height);
 
 	// Draw border
-	const borderColor = isPanning ? 'rgba(50, 150, 255, 0.9)' : 'rgba(255, 255, 255, 0.8)';
+	const borderColor = state.isPanning ? 'rgba(50, 150, 255, 0.9)' : 'rgba(255, 255, 255, 0.8)';
 	cropCtx.strokeStyle = borderColor;
 	cropCtx.lineWidth = 2;
 	cropCtx.strokeRect(rect.x, rect.y, rect.width, rect.height);
@@ -1610,29 +1539,29 @@ const toggleCropFixed = () => {
 
 	if (state.isCropFixed) {
 		// When fixing, ensure even dimensions for video processing
-		if (isCropping && cropRect) {
-			cropRect.width = Math.round(cropRect.width / 2) * 2;
-			cropRect.height = Math.round(cropRect.height / 2) * 2;
-			cropRect = clampRectToVideoBounds(cropRect);
-			drawCropWithHandles(cropRect);
-		} else if (isPanning && panRectSize) {
-			panRectSize.width = Math.round(panRectSize.width / 2) * 2;
-			panRectSize.height = Math.round(panRectSize.height / 2) * 2;
+		if (state.isCropping && state.cropRect) {
+			state.cropRect.width = Math.round(state.cropRect.width / 2) * 2;
+			state.cropRect.height = Math.round(state.cropRect.height / 2) * 2;
+			state.cropRect = clampRectToVideoBounds(state.cropRect);
+			drawCropWithHandles(state.cropRect);
+		} else if (state.isPanning && state.panRectSize) {
+			state.panRectSize.width = Math.round(state.panRectSize.width / 2) * 2;
+			state.panRectSize.height = Math.round(state.panRectSize.height / 2) * 2;
 			// Update the last keyframe with even dimensions
-			if (panKeyframes.length > 0) {
-				const lastFrame = panKeyframes[panKeyframes.length - 1];
-				lastFrame.rect.width = panRectSize.width;
-				lastFrame.rect.height = panRectSize.height;
+			if (state.panKeyframes.length > 0) {
+				const lastFrame = state.panKeyframes[state.panKeyframes.length - 1];
+				lastFrame.rect.width = state.panRectSize.width;
+				lastFrame.rect.height = state.panRectSize.height;
 				lastFrame.rect = clampRectToVideoBounds(lastFrame.rect);
 			}
 		}
 		guidedPanleInfo("Size Locked! Now, play the video and move the box to record the camera path. Use SHIFT + scroll up/down to perform zooming effect. Press 'R' when you're done.");
 	} else {
 		// Redraw with handles
-		if (isCropping && cropRect) {
-			drawCropWithHandles(cropRect);
-		} else if (isPanning && panKeyframes.length > 0) {
-			const lastFrame = panKeyframes[panKeyframes.length - 1];
+		if (state.isCropping && state.cropRect) {
+			drawCropWithHandles(state.cropRect);
+		} else if (state.isPanning && state.panKeyframes.length > 0) {
+			const lastFrame = state.panKeyframes[state.panKeyframes.length - 1];
 			if (lastFrame) {
 				drawCropWithHandles(lastFrame.rect);
 			}
@@ -1644,8 +1573,8 @@ const updateFixSizeButton = () => {
 	const fixSizeBtn = document.getElementById('fixSizeBtn');
 	if (!fixSizeBtn) return;
 
-	const shouldShow = (isCropping || isPanning) &&
-		(cropRect || panRectSize);
+	const shouldShow = (state.isCropping || state.isPanning) &&
+		(state.cropRect || state.panRectSize);
 
 	if (shouldShow) {
 		fixSizeBtn.style.display = 'inline-block';
@@ -1665,12 +1594,12 @@ const updateFixSizeButton = () => {
 // ============================================================================
 const handleCutAction = async () => {
 	if (!state.fileLoaded) return;
-	if (playing) pause();
+	if (state.playing) pause();
 
 	const start = parseTime(startTimeInput.value);
 	const end = parseTime(endTimeInput.value);
 
-	if (isNaN(start) || isNaN(end) || start >= end || start < 0 || end > totalDuration) {
+	if (isNaN(start) || isNaN(end) || start >= end || start < 0 || end > state.totalDuration) {
 		showError("Invalid start or end time for cutting.");
 		return;
 	}
@@ -1687,15 +1616,15 @@ const handleCutAction = async () => {
 		const conversionOptions = { input, output, trim: { start, end } };
 		let cropFuncToReset = null;
 
-		if (panKeyframes.length > 1 && panRectSize) {
+		if (state.panKeyframes.length > 1 && state.panRectSize) {
 			cropFuncToReset = togglePanning;
 
 			// =================== START OF NEW SMOOTHING LOGIC ===================
 			// If the smooth path option is checked, preprocess the keyframes.
-			if (smoothPath || dynamicCropMode == 'none') {
+			if (state.smoothPath || state.dynamicCropMode == 'none') {
 				guidedPanleInfo('Smoothing path...');
 				// Replace the jerky keyframes with the new, smoothed version.
-				panKeyframes = smoothPathWithMovingAverage(panKeyframes, 15);
+				state.panKeyframes = smoothPathWithMovingAverage(state.panKeyframes, 15);
 			}
 			guidedPanleInfo('Processing... and will be added to playlist');
 			// =================== END OF NEW SMOOTHING LOGIC =====================
@@ -1704,7 +1633,7 @@ const handleCutAction = async () => {
 
 			// --- THE LOGIC IS NOW DRIVEN BY THE DYNAMIC CROP MODE ---
 
-			if (dynamicCropMode === 'spotlight') {
+			if (state.dynamicCropMode === 'spotlight') {
 				const outputWidth = videoTrack.codedWidth;
 				const outputHeight = videoTrack.codedHeight;
 				conversionOptions.video = {
@@ -1715,9 +1644,9 @@ const handleCutAction = async () => {
 						if (!processCanvas) { processCanvas = new OffscreenCanvas(outputWidth, outputHeight); processCtx = processCanvas.getContext('2d', { alpha: false }); }
 						const videoFrame = sample._data || sample;
 
-						if (useBlurBackground) {
+						if (state.useBlurBackground) {
 							processCtx.drawImage(videoFrame, 0, 0, outputWidth, outputHeight);
-							processCtx.filter = `blur(${blurAmount}px)`; processCtx.drawImage(processCanvas, 0, 0); processCtx.filter = 'none';
+							processCtx.filter = `blur(${state.blurAmount}px)`; processCtx.drawImage(processCanvas, 0, 0); processCtx.filter = 'none';
 						} else {
 							processCtx.fillStyle = 'black'; processCtx.fillRect(0, 0, outputWidth, outputHeight);
 						}
@@ -1729,11 +1658,11 @@ const handleCutAction = async () => {
 			} else { // This block handles both 'max-size' and 'none' (Default)
 				let outputWidth, outputHeight;
 
-				if (dynamicCropMode === 'max-size') {
-					const maxWidth = Math.max(...panKeyframes.map(kf => kf.rect.width)); const maxHeight = Math.max(...panKeyframes.map(kf => kf.rect.height));
+				if (state.dynamicCropMode === 'max-size') {
+					const maxWidth = Math.max(...state.panKeyframes.map(kf => kf.rect.width)); const maxHeight = Math.max(...state.panKeyframes.map(kf => kf.rect.height));
 					outputWidth = Math.round(maxWidth / 2) * 2; outputHeight = Math.round(maxHeight / 2) * 2;
 				} else { // This is the 'none' or Default case
-					outputWidth = Math.round(panRectSize.width / 2) * 2; outputHeight = Math.round(panRectSize.height / 2) * 2;
+					outputWidth = Math.round(state.panRectSize.width / 2) * 2; outputHeight = Math.round(state.panRectSize.height / 2) * 2;
 				}
 
 				conversionOptions.video = {
@@ -1744,7 +1673,7 @@ const handleCutAction = async () => {
 						if (!processCanvas) { processCanvas = new OffscreenCanvas(outputWidth, outputHeight); processCtx = processCanvas.getContext('2d', { alpha: false }); }
 						const videoFrame = sample._data || sample;
 
-						if (dynamicCropMode === 'max-size' && useBlurBackground) {
+						if (state.dynamicCropMode === 'max-size' && state.useBlurBackground) {
 							processCtx.drawImage(videoFrame, 0, 0, outputWidth, outputHeight);
 							processCtx.filter = 'blur(15px)'; processCtx.drawImage(processCanvas, 0, 0); processCtx.filter = 'none';
 						} else {
@@ -1752,7 +1681,7 @@ const handleCutAction = async () => {
 						}
 
 						let destX, destY, destWidth, destHeight;
-						if (dynamicCropMode == 'none' || (dynamicCropMode === 'max-size' && scaleWithRatio)) {
+						if (state.dynamicCropMode == 'none' || (state.dynamicCropMode === 'max-size' && state.scaleWithRatio)) {
 							const sourceAspectRatio = safeCropRect.width / safeCropRect.height; const outputAspectRatio = outputWidth / outputHeight;
 							if (sourceAspectRatio > outputAspectRatio) { destWidth = outputWidth; destHeight = destWidth / sourceAspectRatio; } else { destHeight = outputHeight; destWidth = destHeight * sourceAspectRatio; }
 							destX = (outputWidth - destWidth) / 2; destY = (outputHeight - destHeight) / 2;
@@ -1765,10 +1694,10 @@ const handleCutAction = async () => {
 					}
 				};
 			}
-		} else if (cropRect && cropRect.width > 0) { // Static crop remains unchanged
+		} else if (state.cropRect && state.cropRect.width > 0) { // Static crop remains unchanged
 			cropFuncToReset = toggleStaticCrop;
-			const evenWidth = Math.round(cropRect.width / 2) * 2; const evenHeight = Math.round(cropRect.height / 2) * 2;
-			conversionOptions.video = { crop: { left: Math.round(cropRect.x), top: Math.round(cropRect.y), width: evenWidth, height: evenHeight } };
+			const evenWidth = Math.round(state.cropRect.width / 2) * 2; const evenHeight = Math.round(state.cropRect.height / 2) * 2;
+			conversionOptions.video = { crop: { left: Math.round(state.cropRect.x), top: Math.round(state.cropRect.y), width: evenWidth, height: evenHeight } };
 		}
 
 		const conversion = await Conversion.init(conversionOptions);
@@ -1810,7 +1739,7 @@ const takeScreenshot = () => {
 			return;
 		}
 
-		currentScreenshotBlob = blob;
+		state.currentScreenshotBlob = blob;
 
 		if (screenshotPreviewImg.src && screenshotPreviewImg.src.startsWith('blob:')) {
 			URL.revokeObjectURL(screenshotPreviewImg.src);
@@ -1829,15 +1758,15 @@ const takeScreenshot = () => {
 // ============================================================================
 
 const updateDynamicCropOptionsUI = () => {
-	scaleOptionContainer.style.display = (dynamicCropMode === 'max-size') ? 'flex' : 'none';
-	blurOptionContainer.style.display = (dynamicCropMode === 'spotlight' || dynamicCropMode === 'max-size') ? 'flex' : 'none';
+	scaleOptionContainer.style.display = (state.dynamicCropMode === 'max-size') ? 'flex' : 'none';
+	blurOptionContainer.style.display = (state.dynamicCropMode === 'spotlight' || state.dynamicCropMode === 'max-size') ? 'flex' : 'none';
 	// Show the smooth option for ANY dynamic mode
-	smoothOptionContainer.style.display = (dynamicCropMode !== 'none') ? 'flex' : 'none';
+	smoothOptionContainer.style.display = (state.dynamicCropMode !== 'none') ? 'flex' : 'none';
 };
 
 const resetAllConfigs = () => {
 	// 1. Pause the player if it's running
-	if (playing) pause();
+	if (state.playing) pause();
 
 	// 2. Deactivate and reset any active cropping/panning modes
 	// Using the reset flag in our existing toggle functions is perfect for this
@@ -1845,11 +1774,11 @@ const resetAllConfigs = () => {
 	togglePanning(null, true);
 
 	// 3. Reset all dynamic crop configuration states
-	dynamicCropMode = 'none';
-	scaleWithRatio = false;
-	useBlurBackground = false;
-	smoothPath = false;
-	blurAmount = 15;
+	state.dynamicCropMode = 'none';
+	state.scaleWithRatio = false;
+	state.useBlurBackground = false;
+	state.smoothPath = false;
+	state.blurAmount = 15;
 	updateDynamicCropOptionsUI();
 
 	// 4. Reset the UI for dynamic crop options
@@ -1873,13 +1802,13 @@ const resetAllConfigs = () => {
 	// 5. Reset the time range inputs to the full duration of the video
 	if (state.fileLoaded) {
 		startTimeInput.value = formatTime(0);
-		endTimeInput.value = formatTime(totalDuration);
+		endTimeInput.value = formatTime(state.totalDuration);
 	}
 
 	// 6. Reset the looping state and UI
-	isLooping = false;
-	loopStartTime = 0;
-	loopEndTime = 0;
+	state.isLooping = false;
+	state.loopStartTime = 0;
+	state.loopEndTime = 0;
 	loopBtn.textContent = 'Loop';
 	loopBtn.classList.remove('hover_highlight');
 
@@ -2047,7 +1976,7 @@ const setupEventListeners = () => {
 	// 1. Main button executes the currently selected action
 	if (mainActionBtn) {
 		mainActionBtn.onclick = () => {
-			executeOpenFileAction(currentOpenFileAction);
+			executeOpenFileAction(state.currentOpenFileAction);
 		};
 	}
 
@@ -2068,7 +1997,7 @@ const setupEventListeners = () => {
 			const action = target.dataset.action;
 
 			// Update state
-			currentOpenFileAction = action;
+			state.currentOpenFileAction = action;
 
 			// Update UI
 			mainActionBtn.textContent = target.textContent;
@@ -2123,13 +2052,13 @@ const setupEventListeners = () => {
 	const handleSeekLine = (e) => {
 		const rect = progressContainer.getBoundingClientRect();
 		const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-		return percent * totalDuration;
+		return percent * state.totalDuration;
 	};
 
 	progressContainer.onpointerdown = (e) => {
 		if (!state.fileLoaded) return;
 		e.preventDefault();
-		isSeeking = true;
+		state.isSeeking = true;
 		progressContainer.setPointerCapture(e.pointerId);
 		const seekTime = handleSeekLine(e);
 		updateProgressBarUI(seekTime);
@@ -2137,7 +2066,7 @@ const setupEventListeners = () => {
 	};
 
 	progressContainer.onpointermove = (e) => {
-		if (!isSeeking) {
+		if (!state.isSeeking) {
 			showControlsTemporarily();
 			return;
 		}
@@ -2147,13 +2076,13 @@ const setupEventListeners = () => {
 	};
 
 	progressContainer.onpointerup = (e) => {
-		if (!isSeeking) return;
-		isSeeking = false;
+		if (!state.isSeeking) return;
+		state.isSeeking = false;
 		progressContainer.releasePointerCapture(e.pointerId);
 
 		const finalSeekTime = handleSeekLine(e);
-		if (isLooping && (finalSeekTime < loopStartTime || finalSeekTime > loopEndTime)) {
-			isLooping = false;
+		if (state.isLooping && (finalSeekTime < state.loopStartTime || finalSeekTime > state.loopEndTime)) {
+			state.isLooping = false;
 			loopBtn.textContent = 'Loop';
 		}
 		seekToTime(finalSeekTime);
@@ -2242,17 +2171,17 @@ const setupEventListeners = () => {
 		if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || !state.fileLoaded) return;
 
 		// Handle frame-by-frame seeking when paused
-		if (!playing && videoTrack && videoTrack.frameRate > 0) {
+		if (!state.playing && state.videoTrack && state.videoTrack.frameRate > 0) {
 			if (e.code === 'KeyN') { // 'n' for next frame
 				e.preventDefault();
-				const newTime = getPlaybackTime() + (1 / videoTrack.frameRate);
+				const newTime = getPlaybackTime() + (1 / state.videoTrack.frameRate);
 				seekToTime(newTime);
 				showControlsTemporarily();
 				return; // Stop further execution for this key press
 			}
 			if (e.code === 'KeyP') { // 'p' for previous frame
 				e.preventDefault();
-				const newTime = getPlaybackTime() - (1 / videoTrack.frameRate);
+				const newTime = getPlaybackTime() - (1 / state.videoTrack.frameRate);
 				seekToTime(newTime);
 				showControlsTemporarily();
 				return; // Stop further execution for this key press
@@ -2283,9 +2212,9 @@ const setupEventListeners = () => {
 	};
 
 	document.addEventListener('visibilitychange', () => {
-		if (document.visibilityState === 'visible' && playing && state.fileLoaded) {
+		if (document.visibilityState === 'visible' && state.playing && state.fileLoaded) {
 			const now = getPlaybackTime();
-			const videoTime = nextFrame ? nextFrame.timestamp : now;
+			const videoTime = state.nextFrame ? state.nextFrame.timestamp : now;
 
 			if (now - videoTime > 0.25) {
 				startVideoIterator();
@@ -2294,13 +2223,13 @@ const setupEventListeners = () => {
 	});
 
 	canvas.onclick = () => {
-		if (audioContext && audioContext.state === 'suspended') audioContext.resume();
+		if (state.audioContext && state.audioContext.state === 'suspended') state.audioContext.resume();
 		togglePlay();
 	};
 
 	videoContainer.onpointermove = showControlsTemporarily;
 	videoContainer.onmouseleave = () => {
-		if (playing && !isSeeking) {
+		if (state.playing && !state.isSeeking) {
 			videoControls.classList.remove('show');
 			hideTrackMenus();
 		}
@@ -2324,7 +2253,7 @@ const setupEventListeners = () => {
 		if (screenshotPreviewImg.src && screenshotPreviewImg.src.startsWith('blob:')) {
 			URL.revokeObjectURL(screenshotPreviewImg.src);
 		}
-		currentScreenshotBlob = null;
+		state.currentScreenshotBlob = null;
 	};
 
 	closeScreenshotBtn.onclick = closeScreenshotModal;
@@ -2335,7 +2264,7 @@ const setupEventListeners = () => {
 	};
 
 	downloadScreenshotBtn.onclick = () => {
-		if (!currentScreenshotBlob) return;
+		if (!state.currentScreenshotBlob) return;
 
 		const timestamp = formatTime(getPlaybackTime()).replace(/:/g, '-');
 		const originalName = (state.currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
@@ -2350,11 +2279,11 @@ const setupEventListeners = () => {
 	};
 
 	copyScreenshotBtn.onclick = () => {
-		if (!currentScreenshotBlob) return;
+		if (!state.currentScreenshotBlob) return;
 
 		navigator.clipboard.write([
 			new ClipboardItem({
-				'image/png': currentScreenshotBlob
+				'image/png': state.currentScreenshotBlob
 			})
 		]).then(() => {
 			showError("Screenshot copied to clipboard!");
@@ -2373,7 +2302,7 @@ const setupEventListeners = () => {
 	};
 
 	autoplayToggle.onchange = () => {
-		isAutoplayEnabled = autoplayToggle.checked;
+		state.isAutoplayEnabled = autoplayToggle.checked;
 	};
 	// --- Add URL Modal Logic Here ---
 
@@ -2417,26 +2346,26 @@ const setupEventListeners = () => {
 
 	cropCanvas.onpointerdown = (e) => {
 		// This logic now applies to both modes
-		if (!isCropping && !isPanning) return;
+		if (!state.isCropping && !state.isPanning) return;
 		e.preventDefault();
 		cropCanvas.setPointerCapture(e.pointerId);
 
-		isDrawingCrop = true;
+		state.isDrawingCrop = true;
 		const coords = getScaledCoordinates(e);
-		cropStart = coords;
-		cropEnd = coords;
+		state.cropStart = coords;
+		state.cropEnd = coords;
 	};
 
 	cropCanvas.onpointerdown = (e) => {
-		if (!isCropping && !isPanning) return;
+		if (!state.isCropping && !state.isPanning) return;
 		e.preventDefault();
 		cropCanvas.setPointerCapture(e.pointerId);
 
 		const coords = getScaledCoordinates(e);
 
 		// If we have an existing crop rect
-		const currentRect = isCropping ? cropRect :
-			(panKeyframes.length > 0 ? panKeyframes[panKeyframes.length - 1].rect : null);
+		const currentRect = state.isCropping ? state.cropRect :
+			(state.panKeyframes.length > 0 ? state.panKeyframes[state.panKeyframes.length - 1].rect : null);
 
 		if (currentRect && !state.isCropFixed) {
 			// Check if clicking on a resize handle
@@ -2453,19 +2382,19 @@ const setupEventListeners = () => {
 				state.dragStartPos = coords;
 			} else {
 				// Clicking outside - start drawing new rect
-				isDrawingCrop = true;
-				cropStart = coords;
-				cropEnd = coords;
+				state.isDrawingCrop = true;
+				state.cropStart = coords;
+				state.cropEnd = coords;
 			}
-		} else if (currentRect && state.isCropFixed && isPanning) {
+		} else if (currentRect && state.isCropFixed && state.isPanning) {
 			// In panning mode with fixed size, any click starts recording movement
 			state.isDraggingCrop = true;
 			state.dragStartPos = coords;
 		} else {
 			// No existing rect - start drawing
-			isDrawingCrop = true;
-			cropStart = coords;
-			cropEnd = coords;
+			state.isDrawingCrop = true;
+			state.cropStart = coords;
+			state.cropEnd = coords;
 		}
 	};
 
@@ -2473,9 +2402,9 @@ const setupEventListeners = () => {
 		const coords = getScaledCoordinates(e);
 
 		// Update cursor based on position
-		if (!isDrawingCrop && !state.isDraggingCrop && !state.isResizingCrop) {
-			const currentRect = isCropping ? cropRect :
-				(panKeyframes.length > 0 ? panKeyframes[panKeyframes.length - 1].rect : null);
+		if (!state.isDrawingCrop && !state.isDraggingCrop && !state.isResizingCrop) {
+			const currentRect = state.isCropping ? state.cropRect :
+				(state.panKeyframes.length > 0 ? state.panKeyframes[state.panKeyframes.length - 1].rect : null);
 
 			if (currentRect && !state.isCropFixed) {
 				const handle = getResizeHandle(coords.x, coords.y, currentRect);
@@ -2486,11 +2415,11 @@ const setupEventListeners = () => {
 				} else {
 					cropCanvas.style.cursor = 'crosshair';
 				}
-			} else if (isPanning && panRectSize && state.isCropFixed) {
+			} else if (state.isPanning && state.panRectSize && state.isCropFixed) {
 				// Live panning with fixed size
-				const lastRectSize = panKeyframes.length > 0
-					? { width: panKeyframes[panKeyframes.length - 1].rect.width, height: panKeyframes[panKeyframes.length - 1].rect.height }
-					: panRectSize;
+				const lastRectSize = state.panKeyframes.length > 0
+					? { width: state.panKeyframes[state.panKeyframes.length - 1].rect.width, height: state.panKeyframes[state.panKeyframes.length - 1].rect.height }
+					: state.panRectSize;
 				let currentRect = {
 					x: coords.x - lastRectSize.width / 2,
 					y: coords.y - lastRectSize.height / 2,
@@ -2498,22 +2427,22 @@ const setupEventListeners = () => {
 					height: lastRectSize.height
 				};
 				currentRect = clampRectToVideoBounds(currentRect);
-				panKeyframes.push({ timestamp: getPlaybackTime(), rect: currentRect });
+				state.panKeyframes.push({ timestamp: getPlaybackTime(), rect: currentRect });
 				drawCropWithHandles(currentRect);
 				return;
 			}
 		}
 
 		// Handle drawing new rect
-		if (isDrawingCrop) {
+		if (state.isDrawingCrop) {
 			e.preventDefault();
-			cropEnd = coords;
+			state.cropEnd = coords;
 
 			const rect = {
-				x: Math.min(cropStart.x, cropEnd.x),
-				y: Math.min(cropStart.y, cropEnd.y),
-				width: Math.abs(cropStart.x - cropEnd.x),
-				height: Math.abs(cropStart.y - cropEnd.y)
+				x: Math.min(state.cropStart.x, state.cropEnd.x),
+				y: Math.min(state.cropStart.y, state.cropEnd.y),
+				width: Math.abs(state.cropStart.x - state.cropEnd.x),
+				height: Math.abs(state.cropStart.y - state.cropEnd.y)
 			};
 			drawCropWithHandles(rect);
 			return;
@@ -2527,11 +2456,11 @@ const setupEventListeners = () => {
 
 			const newRect = applyResize(state.resizeHandle, deltaX, deltaY, state.originalCropRect);
 
-			if (isCropping) {
-				cropRect = newRect;
-			} else if (isPanning && panKeyframes.length > 0) {
-				panKeyframes[panKeyframes.length - 1].rect = newRect;
-				panRectSize = { width: newRect.width, height: newRect.height };
+			if (state.isCropping) {
+				state.cropRect = newRect;
+			} else if (state.isPanning && state.panKeyframes.length > 0) {
+				state.panKeyframes[state.panKeyframes.length - 1].rect = newRect;
+				state.panRectSize = { width: newRect.width, height: newRect.height };
 			}
 
 			drawCropWithHandles(newRect);
@@ -2553,14 +2482,14 @@ const setupEventListeners = () => {
 
 			newRect = clampRectToVideoBounds(newRect);
 
-			if (isCropping) {
-				cropRect = newRect;
-			} else if (isPanning) {
+			if (state.isCropping) {
+				state.cropRect = newRect;
+			} else if (state.isPanning) {
 				if (state.isCropFixed) {
 					// Record keyframe while dragging in fixed mode
-					panKeyframes.push({ timestamp: getPlaybackTime(), rect: newRect });
-				} else if (panKeyframes.length > 0) {
-					panKeyframes[panKeyframes.length - 1].rect = newRect;
+					state.panKeyframes.push({ timestamp: getPlaybackTime(), rect: newRect });
+				} else if (state.panKeyframes.length > 0) {
+					state.panKeyframes[state.panKeyframes.length - 1].rect = newRect;
 				}
 			}
 
@@ -2570,35 +2499,35 @@ const setupEventListeners = () => {
 	};
 
 	cropCanvas.onpointerup = (e) => {
-		if (!isDrawingCrop && !state.isDraggingCrop && !state.isResizingCrop) return;
+		if (!state.isDrawingCrop && !state.isDraggingCrop && !state.isResizingCrop) return;
 		e.preventDefault();
 		cropCanvas.releasePointerCapture(e.pointerId);
 
 		// Finalize drawing new rect
-		if (isDrawingCrop) {
+		if (state.isDrawingCrop) {
 			const finalRect = {
-				x: Math.min(cropStart.x, cropEnd.x),
-				y: Math.min(cropStart.y, cropEnd.y),
-				width: Math.abs(cropStart.x - cropEnd.x),
-				height: Math.abs(cropStart.y - cropEnd.y)
+				x: Math.min(state.cropStart.x, state.cropEnd.x),
+				y: Math.min(state.cropStart.y, state.cropEnd.y),
+				width: Math.abs(state.cropStart.x - state.cropEnd.x),
+				height: Math.abs(state.cropStart.y - state.cropEnd.y)
 			};
 
 			if (finalRect.width < 10 || finalRect.height < 10) {
-				cropRect = null;
-				panRectSize = null;
+				state.cropRect = null;
+				state.panRectSize = null;
 				cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
 			} else {
-				if (isPanning) {
-					panRectSize = { width: finalRect.width, height: finalRect.height };
-					panKeyframes.push({ timestamp: getPlaybackTime(), rect: finalRect });
-				} else if (isCropping) {
-					cropRect = finalRect;
+				if (state.isPanning) {
+					state.panRectSize = { width: finalRect.width, height: finalRect.height };
+					state.panKeyframes.push({ timestamp: getPlaybackTime(), rect: finalRect });
+				} else if (state.isCropping) {
+					state.cropRect = finalRect;
 				}
 				drawCropWithHandles(finalRect);
 			}
 		}
 
-		isDrawingCrop = false;
+		state.isDrawingCrop = false;
 		state.isDraggingCrop = false;
 		state.isResizingCrop = false;
 		state.resizeHandle = null;
@@ -2610,10 +2539,10 @@ const setupEventListeners = () => {
 
 	// 2. Add the wheel event listener for zooming
 	cropCanvas.addEventListener('wheel', (e) => {
-		if (!isPanning || !isShiftPressed || !panRectSize) return;
+		if (!state.isPanning || !state.isShiftPressed || !state.panRectSize) return;
 		e.preventDefault();
 
-		const lastKeyframe = panKeyframes[panKeyframes.length - 1];
+		const lastKeyframe = state.panKeyframes[state.panKeyframes.length - 1];
 		if (!lastKeyframe) return;
 
 		// === NEW: GET MOUSE POSITION FOR CENTERED ZOOM ===
@@ -2622,7 +2551,7 @@ const setupEventListeners = () => {
 
 		const currentRect = lastKeyframe.rect;
 		const zoomFactor = e.deltaY < 0 ? (1 - ZOOM_SPEED) : (1 + ZOOM_SPEED);
-		const aspectRatio = panRectSize.width / panRectSize.height;
+		const aspectRatio = state.panRectSize.width / state.panRectSize.height;
 
 		// === NEW: CALCULATE MOUSE POSITION AS A RATIO WITHIN THE RECTANGLE ===
 		// This ensures the point under the cursor stays in the same relative position after zoom.
@@ -2651,28 +2580,28 @@ const setupEventListeners = () => {
 	// 1. Add global listeners to track the Shift key state
 	document.addEventListener('keydown', (e) => {
 		if (e.key === 'Shift') {
-			isShiftPressed = true;
+			state.isShiftPressed = true;
 		}
 	});
 
 	document.addEventListener('keyup', (e) => {
 		if (e.key === 'Shift') {
-			isShiftPressed = false;
+			state.isShiftPressed = false;
 			// When Shift is released, the next mouse move will automatically
 			// record a normal, un-zoomed keyframe, effectively "snapping back".
 		}
 	});
 	document.addEventListener('keydown', (e) => {
-		if (isPanning && panRectSize && e.key.toLowerCase() === 'r') {
+		if (state.isPanning && state.panRectSize && e.key.toLowerCase() === 'r') {
 			e.preventDefault();
 			// Add one last keyframe at the release point
-			const lastKeyframe = panKeyframes[panKeyframes.length - 1];
+			const lastKeyframe = state.panKeyframes[state.panKeyframes.length - 1];
 			if (lastKeyframe) {
-				panKeyframes.push({ timestamp: getPlaybackTime(), rect: lastKeyframe.rect });
+				state.panKeyframes.push({ timestamp: getPlaybackTime(), rect: lastKeyframe.rect });
 			}
 
 			// Exit panning mode
-			isPanning = false; // Stop listening to mouse moves
+			state.isPanning = false; // Stop listening to mouse moves
 			panScanBtn.textContent = 'Path Recorded!';
 			guidedPanleInfo("Path recorded. The crop will now remain fixed. You can now use 'Process Clip' or Press 'c' to create a clip.");
 		}
@@ -2688,7 +2617,7 @@ const setupEventListeners = () => {
 
 	if (smoothPathToggle) {
 		smoothPathToggle.onchange = (e) => {
-			smoothPath = e.target.checked;
+			state.smoothPath = e.target.checked;
 		};
 	}
 
@@ -2696,22 +2625,22 @@ const setupEventListeners = () => {
 	cropModeRadios.forEach(radio => {
 		radio.addEventListener('change', (e) => {
 			// Update the main state variable with the new mode
-			dynamicCropMode = e.target.value;
+			state.dynamicCropMode = e.target.value;
 
 			// Reset sub-options when the mode changes to prevent leftover state
 			if (scaleWithRatioToggle) {
 				scaleWithRatioToggle.checked = false;
-				scaleWithRatio = false;
+				state.scaleWithRatio = false;
 			}
 			if (smoothPathToggle) {
 				smoothPathToggle.checked = false;
-				smoothPath = false;
+				state.smoothPath = false;
 			}
 			if (blurBackgroundToggle) {
 				blurBackgroundToggle.checked = false;
-				useBlurBackground = false;
+				state.useBlurBackground = false;
 				blurAmountInput.value = 15; // And reset its value
-				blurAmount = 15;
+				state.blurAmount = 15;
 			}
 
 			// Update the UI to show the correct sub-options
@@ -2722,19 +2651,19 @@ const setupEventListeners = () => {
 	// Independent listeners for the sub-options
 	if (scaleWithRatioToggle) {
 		scaleWithRatioToggle.onchange = (e) => {
-			scaleWithRatio = e.target.checked;
+			state.scaleWithRatio = e.target.checked;
 		};
 	}
 	if (blurBackgroundToggle && blurAmountInput) {
 		blurBackgroundToggle.onchange = (e) => {
-			useBlurBackground = e.target.checked;
+			state.useBlurBackground = e.target.checked;
 		};
 
 		blurAmountInput.oninput = (e) => {
 			// Update the state with the user's chosen blur amount
 			const amount = parseInt(e.target.value, 10);
 			if (!isNaN(amount)) {
-				blurAmount = Math.max(1, Math.min(100, amount)); // Clamp value between 1 and 100
+				state.blurAmount = Math.max(1, Math.min(100, amount)); // Clamp value between 1 and 100
 			}
 		};
 	}
@@ -2745,7 +2674,7 @@ const setupEventListeners = () => {
 	updateDynamicCropOptionsUI();
 
 	document.getElementById('settingsMenu').addEventListener('mouseleave', () => {
-		if (isCropping || isPanning || isLooping) {
+		if (state.isCropping || state.isPanning || state.isLooping) {
 			settingsMenu.classList.add('hidden');
 		}
 	});
@@ -2761,11 +2690,11 @@ registerServiceWorker();
 window.addEventListener('resize', () => {
 	clearTimeout(state.resizeTimeout);
 	state.resizeTimeout = setTimeout(() => {
-		if ((isCropping || isPanning) && !cropCanvas.classList.contains('hidden')) {
+		if ((state.isCropping || state.isPanning) && !cropCanvas.classList.contains('hidden')) {
 			cropCanvasDimensions = positionCropCanvas();
 			// Redraw current crop
-			const currentRect = isCropping ? cropRect :
-				(panKeyframes.length > 0 ? panKeyframes[panKeyframes.length - 1].rect : null);
+			const currentRect = state.isCropping ? state.cropRect :
+				(state.panKeyframes.length > 0 ? state.panKeyframes[state.panKeyframes.length - 1].rect : null);
 			if (currentRect) {
 				drawCropWithHandles(currentRect);
 			}
@@ -2780,10 +2709,10 @@ fixSizeBtn.onclick = (e) => {
 
 // Update the 'R' key handler for panning mode
 document.addEventListener('keydown', (e) => {
-	if (isPanning && panRectSize && e.key.toLowerCase() === 'r' && !state.isCropFixed) {
+	if (state.isPanning && state.panRectSize && e.key.toLowerCase() === 'r' && !state.isCropFixed) {
 		e.preventDefault();
 		toggleCropFixed();
-		if (state.isCropFixed && !playing) {
+		if (state.isCropFixed && !state.playing) {
 			play(); // Auto-start playback when fixing size in pan mode
 		}
 	} else if (e.key.toLowerCase() === 's') {
@@ -2796,20 +2725,20 @@ document.addEventListener('keydown', (e) => {
 		e.preventDefault();
 		resetAllConfigs()
 	} else if (e.key === 'Backspace') {
-		buffer = buffer.slice(0, -1);
+		state.buffer = state.buffer.slice(0, -1);
 	} else if (e.key.toLowerCase() === 'l') {
 		e.stopPropagation();
 		toggleCropFixed();
 	} else if (e.key.length === 1) {
-		buffer += e.key;
+		state.buffer += e.key;
 
 		// Keep only last 2 characters
-		if (buffer.length > 2) buffer = buffer.slice(-2);
+		if (state.buffer.length > 2) state.buffer = state.buffer.slice(-2);
 
 		// Check for double slash
-		if (buffer === '//') {
+		if (state.buffer === '//') {
 			updateShortcutKeysVisibility();
-			buffer = ''; // reset buffer after trigger
+			state.buffer = ''; // reset buffer after trigger
 		}
 	}
 });
