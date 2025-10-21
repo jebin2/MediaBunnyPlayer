@@ -412,8 +412,8 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 		} else if (typeof resource === 'string') {
 			source = new UrlSource(resource);
 			resourceName = resource.split('/').pop() || 'video_from_url.mp4';
-			if (!playlist.some(item => item.file === resource)) {
-				playlist.push({
+			if (!state.playlist.some(item => item.file === resource)) {
+				state.playlist.push({
 					type: 'file',
 					name: resourceName,
 					file: resource
@@ -736,7 +736,7 @@ const handleFiles = (files) => {
 		path: file.name
 	}));
 	const newTree = buildTreeFromPaths(fileEntries);
-	playlist = mergeTrees(playlist, newTree);
+	state.playlist = mergeTrees(state.playlist, newTree);
 	updatePlaylistUIOptimized();
 
 	if (!fileLoaded && fileEntries.length > 0) {
@@ -762,7 +762,7 @@ const handleFolderSelection = (event) => {
 
 	if (fileEntries.length > 0) {
 		const newTree = buildTreeFromPaths(fileEntries);
-		playlist = mergeTrees(playlist, newTree);
+		state.playlist = mergeTrees(state.playlist, newTree);
 		updatePlaylistUIOptimized();
 		if (!fileLoaded) loadMedia(fileEntries[0].file);
 	} else {
@@ -855,7 +855,7 @@ const removeItemFromPath = (nodes, path) => {
 
 const clearPlaylist = () => {
 	stopAndClear();
-	playlist = [];
+	state.playlist = [];
 	playlistElementCache.clear();
 	lastRenderedPlaylist = null;
 	updatePlaylistUIOptimized();
@@ -943,7 +943,7 @@ const createPlaylistElement = (node, currentPath = '') => {
 };
 
 const updatePlaylistUIOptimized = () => {
-	if (playlist.length === 0) {
+	if (state.playlist.length === 0) {
 		playlistContent.innerHTML = '<p style="padding:1rem; opacity:0.7; text-align:center;">No files.</p>';
 		playlistElementCache.clear();
 		lastRenderedPlaylist = null;
@@ -952,7 +952,7 @@ const updatePlaylistUIOptimized = () => {
 	}
 
 	// Check if we need a full rebuild
-	const playlistChanged = JSON.stringify(playlist) !== lastRenderedPlaylist;
+	const playlistChanged = JSON.stringify(state.playlist) !== lastRenderedPlaylist;
 
 	if (!playlistChanged) {
 		// Just update active states
@@ -965,7 +965,7 @@ const updatePlaylistUIOptimized = () => {
 	const ul = document.createElement('ul');
 	ul.className = 'playlist-tree';
 
-	playlist.forEach(node => {
+	state.playlist.forEach(node => {
 		ul.appendChild(createPlaylistElement(node));
 	});
 
@@ -973,14 +973,14 @@ const updatePlaylistUIOptimized = () => {
 	playlistContent.innerHTML = '';
 	playlistContent.appendChild(fragment);
 
-	lastRenderedPlaylist = JSON.stringify(playlist);
+	lastRenderedPlaylist = JSON.stringify(state.playlist);
 };
 
 const updateActiveStates = () => {
 	const allFiles = playlistContent.querySelectorAll('.playlist-file');
 	allFiles.forEach(fileEl => {
 		const path = fileEl.dataset.path;
-		const file = findFileByPath(playlist, path);
+		const file = findFileByPath(state.playlist, path);
 		const isActive = (file === currentPlayingFile);
 		fileEl.classList.toggle('active', isActive);
 	});
@@ -991,7 +991,7 @@ const updateActiveStates = () => {
 // ============================================================================
 
 const playNext = () => {
-	if (!currentPlayingFile || playlist.length <= 1) return;
+	if (!currentPlayingFile || state.playlist.length <= 1) return;
 
 	const flatten = (nodes) => {
 		let flat = [];
@@ -1002,7 +1002,7 @@ const playNext = () => {
 		return flat;
 	};
 
-	const flatList = flatten(playlist);
+	const flatList = flatten(state.playlist);
 	const currentIndex = flatList.findIndex(item => item.file === currentPlayingFile);
 
 	if (currentIndex !== -1 && currentIndex < flatList.length - 1) {
@@ -1011,7 +1011,7 @@ const playNext = () => {
 };
 
 const playPrevious = () => {
-	if (!currentPlayingFile || playlist.length <= 1) return;
+	if (!currentPlayingFile || state.playlist.length <= 1) return;
 
 	const flatten = (nodes) => {
 		let flat = [];
@@ -1022,7 +1022,7 @@ const playPrevious = () => {
 		return flat;
 	};
 
-	const flatList = flatten(playlist);
+	const flatList = flatten(state.playlist);
 	const currentIndex = flatList.findIndex(item => item.file === currentPlayingFile);
 
 	if (currentIndex > 0) {
@@ -1778,7 +1778,7 @@ const handleCutAction = async () => {
 		const originalName = (currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
 		const clipName = `${originalName}_${new Date().getTime()}_${formatTime(start)}-${formatTime(end)}_edited.mp4`.replace(/:/g, '_');
 		const cutClipFile = new File([output.target.buffer], clipName, { type: 'video/mp4' });
-		playlist.push({ type: 'file', name: clipName, file: cutClipFile, isCutClip: true });
+		state.playlist.push({ type: 'file', name: clipName, file: cutClipFile, isCutClip: true });
 		updatePlaylistUIOptimized();
 		// if (cropFuncToReset) cropFuncToReset(null, true);
 		showStatusMessage('Clip adding to playlist!');
@@ -2181,7 +2181,7 @@ const setupEventListeners = () => {
 		if (removeButton) {
 			e.stopPropagation();
 			const pathToRemove = removeButton.dataset.path;
-			const fileToRemove = findFileByPath(playlist, pathToRemove);
+			const fileToRemove = findFileByPath(state.playlist, pathToRemove);
 
 			let isPlayingFile = false;
 			if (fileToRemove && currentPlayingFile) {
@@ -2190,7 +2190,7 @@ const setupEventListeners = () => {
 					fileToRemove === currentPlayingFile;
 			}
 
-			removeItemFromPath(playlist, pathToRemove);
+			removeItemFromPath(state.playlist, pathToRemove);
 			updatePlaylistUIOptimized();
 
 			if (isPlayingFile) {
@@ -2205,7 +2205,7 @@ const setupEventListeners = () => {
 		if (actionButton) {
 			e.stopPropagation();
 			const path = actionButton.dataset.path;
-			const blob = findFileByPath(playlist, path);
+			const blob = findFileByPath(state.playlist, path);
 			if (blob instanceof Blob) {
 				if (actionButton.dataset.action === 'download') {
 					const url = URL.createObjectURL(blob);
@@ -2231,7 +2231,7 @@ const setupEventListeners = () => {
 		const fileElement = e.target.closest('.playlist-file');
 		if (fileElement && (e.target.classList.contains('playlist-file-name') || e.target === fileElement)) {
 			const path = fileElement.dataset.path;
-			const fileToPlay = findFileByPath(playlist, path);
+			const fileToPlay = findFileByPath(state.playlist, path);
 			if (fileToPlay && fileToPlay !== currentPlayingFile) {
 				loadMedia(fileToPlay);
 			}
