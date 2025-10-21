@@ -1105,13 +1105,13 @@ const toggleStaticCrop = (e, reset = false) => {
 
 	if (state.isCropping) {
 		// Position the crop canvas when entering crop mode
-		cropCanvasDimensions = positionCropCanvas();
+		state.cropCanvasDimensions = positionCropCanvas();
 		state.isCropFixed = false; // Reset fixed state
 		updateFixSizeButton();
 	} else {
 		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
 		state.cropRect = null;
-		cropCanvasDimensions = null;
+		state.cropCanvasDimensions = null;
 		state.isCropFixed = false;
 		updateFixSizeButton();
 	}
@@ -1240,13 +1240,13 @@ const togglePanning = (e, reset = false) => {
 
 	if (state.isPanning) {
 		// Position the crop canvas when entering panning mode
-		cropCanvasDimensions = positionCropCanvas();
+		state.cropCanvasDimensions = positionCropCanvas();
 		state.isCropFixed = false; // Reset fixed state
 		updateFixSizeButton();
 		guidedPanleInfo("Click and drag on the video to draw your crop area.");
 	} else {
 		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
-		cropCanvasDimensions = null;
+		state.cropCanvasDimensions = null;
 		state.isCropFixed = false;
 		updateFixSizeButton();
 	}
@@ -1915,7 +1915,7 @@ const setupEventListeners = () => {
 	$('togglePlaylistBtn').onclick = () => {
 		playerArea.classList.toggle('playlist-visible');
 		setTimeout(() => {
-			cropCanvasDimensions = positionCropCanvas();
+			state.cropCanvasDimensions = positionCropCanvas();
 		}, 200);
 	}
 
@@ -2104,7 +2104,7 @@ const setupEventListeners = () => {
 	// === PERFORMANCE OPTIMIZATION: Event delegation for playlist clicks ===
 	playlistContent.addEventListener('click', (e) => {
 		setTimeout(() => {
-			cropCanvasDimensions = positionCropCanvas();
+			state.cropCanvasDimensions = positionCropCanvas();
 		}, 200);
 		const removeButton = e.target.closest('.remove-item');
 		if (removeButton) {
@@ -2691,7 +2691,7 @@ window.addEventListener('resize', () => {
 	clearTimeout(state.resizeTimeout);
 	state.resizeTimeout = setTimeout(() => {
 		if ((state.isCropping || state.isPanning) && !cropCanvas.classList.contains('hidden')) {
-			cropCanvasDimensions = positionCropCanvas();
+			state.cropCanvasDimensions = positionCropCanvas();
 			// Redraw current crop
 			const currentRect = state.isCropping ? state.cropRect :
 				(state.panKeyframes.length > 0 ? state.panKeyframes[state.panKeyframes.length - 1].rect : null);
