@@ -109,6 +109,7 @@ let currentOpenFileAction = 'open-file';
 let blurAmount = 15;
 let dynamicCropMode = 'none'; // Can be 'none', 'spotlight', or 'max-size'
 let isShiftPressed = false;
+let buffer = '';
 
 // === PERFORMANCE OPTIMIZATION: Cache DOM elements for playlist ===
 let playlistElementCache = new Map(); // Maps path -> DOM element
@@ -1528,11 +1529,7 @@ const setPlaybackSpeed = (newSpeed) => {
 
 const updateShortcutKeysVisibility = () => {
     const panel = $('shortcutKeysPanel');
-    if (!panel) return;
-    
-    // The panel should be visible if either static or dynamic cropping is active.
-    const shouldBeVisible = isCropping || isPanning;
-    // panel.classList.toggle('hidden', !shouldBeVisible);
+    panel.classList.toggle('hidden');
 };
 
 // Function to enter/exit Static Cropping mode
@@ -1547,8 +1544,6 @@ const toggleStaticCrop = (e, reset = false) => {
 	panScanBtn.classList.toggle('hover_highlight', isPanning);
 	cropBtn.classList.toggle('hover_highlight');
 	if (reset) cropBtn.classList.remove('hover_highlight');
-
-	updateShortcutKeysVisibility();
 
 	if (isCropping) {
 		// Position the crop canvas when entering crop mode
@@ -1576,8 +1571,6 @@ const togglePanning = (e, reset = false) => {
 	cropBtn.classList.toggle('hover_highlight', isCropping);
 	panScanBtn.classList.toggle('hover_highlight');
 	if (reset) panScanBtn.classList.remove('hover_highlight');
-
-	updateShortcutKeysVisibility();
 
 	panKeyframes = [];
 	panRectSize = null;
@@ -2849,5 +2842,23 @@ const setupEventListeners = () => {
 			e.preventDefault();
 			resetAllConfigs()
 		}
+		// Only consider printable characters
+  if (e.key.length === 1) {
+    buffer += e.key;
+
+    // Keep only last 2 characters
+    if (buffer.length > 2) buffer = buffer.slice(-2);
+
+    // Check for double slash
+    if (buffer === '//') {
+      updateShortcutKeysVisibility();
+      setTimeout(() => {
+        updateShortcutKeysVisibility();
+      }, 2000);
+      buffer = ''; // reset buffer after trigger
+    }
+  } else if (e.key === 'Backspace') {
+    buffer = buffer.slice(0, -1);
+  }
 	});
 // });
