@@ -137,7 +137,7 @@ const updateNextFrame = async () => {
 };
 
 const checkPlaybackState = () => {
-	if (!playing || !fileLoaded) return;
+	if (!playing || !state.fileLoaded) return;
 
 	const currentTime = getPlaybackTime();
 
@@ -160,7 +160,7 @@ const checkPlaybackState = () => {
 };
 
 const renderLoop = () => {
-	if (fileLoaded) {
+	if (state.fileLoaded) {
 		const currentTime = getPlaybackTime();
 
 		if (playing) {
@@ -296,7 +296,7 @@ const setPlaybackSpeed = (newSpeed) => {
 
 const stopAndClear = async () => {
 	if (playing) pause();
-	fileLoaded = false;
+	state.fileLoaded = false;
 	isLooping = false;
 	loopBtn.textContent = 'Loop';
 	currentPlaybackRate = 1.0;
@@ -447,7 +447,7 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 			throw new Error('Converted file is not playable. Its codecs may be unsupported by this browser.');
 		}
 
-		currentPlayingFile = resource;
+		state.currentPlayingFile = resource;
 		totalDuration = await input.computeDuration();
 		playbackTimeAtStart = 0;
 
@@ -494,7 +494,7 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 
 		updateTrackMenus();
 		updatePlaylistUIOptimized();
-		fileLoaded = true;
+		state.fileLoaded = true;
 		showPlayerUI();
 		updateProgressBarUI(0);
 
@@ -505,7 +505,7 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 		showError(`Failed to load media: ${error.message}`);
 		console.error('Error loading media:', error);
 		if (input) input.dispose();
-		currentPlayingFile = null;
+		state.currentPlayingFile = null;
 		showDropZoneUI();
 	} finally {
 		showLoading(false);
@@ -739,7 +739,7 @@ const handleFiles = (files) => {
 	state.playlist = mergeTrees(state.playlist, newTree);
 	updatePlaylistUIOptimized();
 
-	if (!fileLoaded && fileEntries.length > 0) {
+	if (!state.fileLoaded && fileEntries.length > 0) {
 		loadMedia(fileEntries[0].file);
 	}
 };
@@ -764,7 +764,7 @@ const handleFolderSelection = (event) => {
 		const newTree = buildTreeFromPaths(fileEntries);
 		state.playlist = mergeTrees(state.playlist, newTree);
 		updatePlaylistUIOptimized();
-		if (!fileLoaded) loadMedia(fileEntries[0].file);
+		if (!state.fileLoaded) loadMedia(fileEntries[0].file);
 	} else {
 		showError("No supported media files found in directory.");
 	}
@@ -900,7 +900,7 @@ const createPlaylistElement = (node, currentPath = '') => {
 		return li;
 	} else {
 		const li = document.createElement('li');
-		const isActive = (currentPlayingFile === node.file);
+		const isActive = (state.currentPlayingFile === node.file);
 		li.className = `playlist-file ${node.isCutClip ? 'cut-clip' : ''} ${isActive ? 'active' : ''}`;
 		li.dataset.path = safePath;
 		li.title = safeName;
@@ -981,7 +981,7 @@ const updateActiveStates = () => {
 	allFiles.forEach(fileEl => {
 		const path = fileEl.dataset.path;
 		const file = findFileByPath(state.playlist, path);
-		const isActive = (file === currentPlayingFile);
+		const isActive = (file === state.currentPlayingFile);
 		fileEl.classList.toggle('active', isActive);
 	});
 };
@@ -991,7 +991,7 @@ const updateActiveStates = () => {
 // ============================================================================
 
 const playNext = () => {
-	if (!currentPlayingFile || state.playlist.length <= 1) return;
+	if (!state.currentPlayingFile || state.playlist.length <= 1) return;
 
 	const flatten = (nodes) => {
 		let flat = [];
@@ -1003,7 +1003,7 @@ const playNext = () => {
 	};
 
 	const flatList = flatten(state.playlist);
-	const currentIndex = flatList.findIndex(item => item.file === currentPlayingFile);
+	const currentIndex = flatList.findIndex(item => item.file === state.currentPlayingFile);
 
 	if (currentIndex !== -1 && currentIndex < flatList.length - 1) {
 		loadMedia(flatList[currentIndex + 1].file);
@@ -1011,7 +1011,7 @@ const playNext = () => {
 };
 
 const playPrevious = () => {
-	if (!currentPlayingFile || state.playlist.length <= 1) return;
+	if (!state.currentPlayingFile || state.playlist.length <= 1) return;
 
 	const flatten = (nodes) => {
 		let flat = [];
@@ -1023,7 +1023,7 @@ const playPrevious = () => {
 	};
 
 	const flatList = flatten(state.playlist);
-	const currentIndex = flatList.findIndex(item => item.file === currentPlayingFile);
+	const currentIndex = flatList.findIndex(item => item.file === state.currentPlayingFile);
 
 	if (currentIndex > 0) {
 		loadMedia(flatList[currentIndex - 1].file);
@@ -1664,7 +1664,7 @@ const updateFixSizeButton = () => {
 // VIDEO PROCESSING & CUTTING
 // ============================================================================
 const handleCutAction = async () => {
-	if (!fileLoaded) return;
+	if (!state.fileLoaded) return;
 	if (playing) pause();
 
 	const start = parseTime(startTimeInput.value);
@@ -1681,7 +1681,7 @@ const handleCutAction = async () => {
 	let processCtx = null;
 
 	try {
-		const source = (currentPlayingFile instanceof File) ? new BlobSource(currentPlayingFile) : new UrlSource(currentPlayingFile);
+		const source = (state.currentPlayingFile instanceof File) ? new BlobSource(state.currentPlayingFile) : new UrlSource(state.currentPlayingFile);
 		input = new Input({ source, formats: ALL_FORMATS });
 		const output = new Output({ format: new Mp4OutputFormat({ fastStart: 'in-memory' }), target: new BufferTarget() });
 		const conversionOptions = { input, output, trim: { start, end } };
@@ -1775,7 +1775,7 @@ const handleCutAction = async () => {
 		if (!conversion.isValid) throw new Error('Could not create a valid conversion for cutting.');
 		conversion.onProgress = (progress) => showStatusMessage(`Creating clip... (${Math.round(progress * 100)}%)`);
 		await conversion.execute();
-		const originalName = (currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
+		const originalName = (state.currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
 		const clipName = `${originalName}_${new Date().getTime()}_${formatTime(start)}-${formatTime(end)}_edited.mp4`.replace(/:/g, '_');
 		const cutClipFile = new File([output.target.buffer], clipName, { type: 'video/mp4' });
 		state.playlist.push({ type: 'file', name: clipName, file: cutClipFile, isCutClip: true });
@@ -1799,7 +1799,7 @@ const handleCutAction = async () => {
 // ============================================================================
 
 const takeScreenshot = () => {
-	if (!fileLoaded || !canvas) {
+	if (!state.fileLoaded || !canvas) {
 		showError("Cannot take screenshot: No video loaded.");
 		return;
 	}
@@ -1871,7 +1871,7 @@ const resetAllConfigs = () => {
 
 
 	// 5. Reset the time range inputs to the full duration of the video
-	if (fileLoaded) {
+	if (state.fileLoaded) {
 		startTimeInput.value = formatTime(0);
 		endTimeInput.value = formatTime(totalDuration);
 	}
@@ -1980,7 +1980,7 @@ const registerServiceWorker = () => {
 const setupEventListeners = () => {
 	$('clearPlaylistBtn').onclick = clearPlaylist;
 	$('chooseFileBtn').onclick = () => {
-		fileLoaded = false;
+		state.fileLoaded = false;
 		$('fileInput').click();
 	};
 	$('togglePlaylistBtn').onclick = () => {
@@ -2032,7 +2032,7 @@ const setupEventListeners = () => {
 				urlInput.focus();
 				break;
 			case 'open-file':
-				fileLoaded = false;
+				state.fileLoaded = false;
 				$('fileInput').click();
 				break;
 			case 'add-file':
@@ -2127,7 +2127,7 @@ const setupEventListeners = () => {
 	};
 
 	progressContainer.onpointerdown = (e) => {
-		if (!fileLoaded) return;
+		if (!state.fileLoaded) return;
 		e.preventDefault();
 		isSeeking = true;
 		progressContainer.setPointerCapture(e.pointerId);
@@ -2184,10 +2184,10 @@ const setupEventListeners = () => {
 			const fileToRemove = findFileByPath(state.playlist, pathToRemove);
 
 			let isPlayingFile = false;
-			if (fileToRemove && currentPlayingFile) {
-				isPlayingFile = (fileToRemove instanceof File && currentPlayingFile instanceof File) ?
-					fileToRemove === currentPlayingFile :
-					fileToRemove === currentPlayingFile;
+			if (fileToRemove && state.currentPlayingFile) {
+				isPlayingFile = (fileToRemove instanceof File && state.currentPlayingFile instanceof File) ?
+					fileToRemove === state.currentPlayingFile :
+					fileToRemove === state.currentPlayingFile;
 			}
 
 			removeItemFromPath(state.playlist, pathToRemove);
@@ -2195,7 +2195,7 @@ const setupEventListeners = () => {
 
 			if (isPlayingFile) {
 				stopAndClear();
-				currentPlayingFile = null;
+				state.currentPlayingFile = null;
 				showDropZoneUI();
 			}
 			return;
@@ -2232,14 +2232,14 @@ const setupEventListeners = () => {
 		if (fileElement && (e.target.classList.contains('playlist-file-name') || e.target === fileElement)) {
 			const path = fileElement.dataset.path;
 			const fileToPlay = findFileByPath(state.playlist, path);
-			if (fileToPlay && fileToPlay !== currentPlayingFile) {
+			if (fileToPlay && fileToPlay !== state.currentPlayingFile) {
 				loadMedia(fileToPlay);
 			}
 		}
 	});
 
 	document.onkeydown = (e) => {
-		if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || !fileLoaded) return;
+		if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || !state.fileLoaded) return;
 
 		// Handle frame-by-frame seeking when paused
 		if (!playing && videoTrack && videoTrack.frameRate > 0) {
@@ -2283,7 +2283,7 @@ const setupEventListeners = () => {
 	};
 
 	document.addEventListener('visibilitychange', () => {
-		if (document.visibilityState === 'visible' && playing && fileLoaded) {
+		if (document.visibilityState === 'visible' && playing && state.fileLoaded) {
 			const now = getPlaybackTime();
 			const videoTime = nextFrame ? nextFrame.timestamp : now;
 
@@ -2338,7 +2338,7 @@ const setupEventListeners = () => {
 		if (!currentScreenshotBlob) return;
 
 		const timestamp = formatTime(getPlaybackTime()).replace(/:/g, '-');
-		const originalName = (currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
+		const originalName = (state.currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
 		const filename = `${originalName}_${timestamp}.png`;
 
 		const a = document.createElement('a');
