@@ -48,11 +48,11 @@ const playbackSpeedInput = $('playbackSpeedInput');
 let currentPlaybackRate = 1.0;
 const autoplayToggle = $('autoplayToggle');
 let isAutoplayEnabled = true;
-const openUrlBtn = $('openUrlBtn');
 const urlModal = $('urlModal');
 const urlInput = $('urlInput');
 const loadUrlBtn = $('loadUrlBtn');
 const cancelUrlBtn = $('cancelUrlBtn');
+const showMessage = document.querySelector('.showMessage');
 const ctx = canvas.getContext('2d', {
 	alpha: false,
 	desynchronized: true
@@ -100,6 +100,17 @@ const panScanBtn = $('panScanBtn');
 let isPanning = false; // Are we in "Dynamic Crop" recording mode?
 let panKeyframes = []; // Stores the recorded path: [{ timestamp, rect }, ...]
 let panRectSize = null; // Stores the locked size of the panning rectangle
+// let useMaxSize = false;
+let scaleWithRatio = false;
+// let useSpotlightEffect = false;
+let useBlurBackground = false;
+let smoothPath = false;
+let currentOpenFileAction = 'open-file';
+let blurAmount = 15;
+let dynamicCropMode = 'none'; // Can be 'none', 'spotlight', or 'max-size'
+let isShiftPressed = false;
+let buffer = '';
+let videoTrack = null; // To store video track info for frame-by-frame seeking
 
 // === PERFORMANCE OPTIMIZATION: Cache DOM elements for playlist ===
 let playlistElementCache = new Map(); // Maps path -> DOM element
@@ -539,7 +550,7 @@ const clampRectToVideoBounds = (rect) => {
 
 	return { x, y, width, height };
 };
-// --- Replace your entire handleCutAction function with this new version ---
+// --- Replace your entire handleCutAction function with this final version ---
 
 const handleCutAction = async () => {
 	if (!fileLoaded) return;
@@ -553,152 +564,122 @@ const handleCutAction = async () => {
 		return;
 	}
 	hideTrackMenus();
-	showStatusMessage('Cutting clip...');
+	guidedPanleInfo('Creating clip...');
 	let input;
-	let processCanvas = null; // Canvas for offscreen processing
+	let processCanvas = null;
 	let processCtx = null;
 
 	try {
-		const source = (currentPlayingFile instanceof File) ?
-			new BlobSource(currentPlayingFile) :
-			new UrlSource(currentPlayingFile);
-
-		input = new Input({
-			source,
-			formats: ALL_FORMATS
-		});
-
-		const output = new Output({
-			format: new Mp4OutputFormat({ fastStart: 'in-memory' }),
-			target: new BufferTarget(),
-		});
-
-		const conversionOptions = {
-			input,
-			output,
-			trim: { start, end },
-		};
-
+		const source = (currentPlayingFile instanceof File) ? new BlobSource(currentPlayingFile) : new UrlSource(currentPlayingFile);
+		input = new Input({ source, formats: ALL_FORMATS });
+		const output = new Output({ format: new Mp4OutputFormat({ fastStart: 'in-memory' }), target: new BufferTarget() });
+		const conversionOptions = { input, output, trim: { start, end } };
 		let cropFuncToReset = null;
-		// --- THIS IS THE KEY PART ---
+
 		if (panKeyframes.length > 1 && panRectSize) {
 			cropFuncToReset = togglePanning;
 
-			// ENSURE EVEN DIMENSIONS for H.264 codec
-			const evenWidth = Math.round(panRectSize.width / 2) * 2;
-			const evenHeight = Math.round(panRectSize.height / 2) * 2;
-
-			// Get the source video track to read its properties
-			const videoTrack = await input.getPrimaryVideoTrack();
-
-			if (!videoTrack) {
-				throw new Error("No video track found for dynamic cropping.");
+			// =================== START OF NEW SMOOTHING LOGIC ===================
+			// If the smooth path option is checked, preprocess the keyframes.
+			if (smoothPath || dynamicCropMode == 'none') {
+				guidedPanleInfo('Smoothing path...');
+				// Replace the jerky keyframes with the new, smoothed version.
+				panKeyframes = smoothPathWithMovingAverage(panKeyframes, 15);
 			}
+			guidedPanleInfo('Processing... and will be added to playlist');
+			// =================== END OF NEW SMOOTHING LOGIC =====================
+			const videoTrack = await input.getPrimaryVideoTrack();
+			if (!videoTrack) throw new Error("No video track found for dynamic cropping.");
 
-			// DYNAMIC PAN/CROP LOGIC
-			conversionOptions.video = {
-				// Explicitly specify the source track
-				track: videoTrack,
+			// --- THE LOGIC IS NOW DRIVEN BY THE DYNAMIC CROP MODE ---
 
-				// Codec configuration
-				codec: 'avc',
-				bitrate: QUALITY_HIGH,
+			if (dynamicCropMode === 'spotlight') {
+				const outputWidth = videoTrack.codedWidth;
+				const outputHeight = videoTrack.codedHeight;
+				conversionOptions.video = {
+					track: videoTrack, codec: 'avc', bitrate: QUALITY_HIGH, processedWidth: outputWidth, processedHeight: outputHeight, forceTranscode: true,
+					process: (sample) => {
+						const cropRect = getInterpolatedCropRect(sample.timestamp); if (!cropRect) return sample;
+						const safeCropRect = clampRectToVideoBounds(cropRect); if (safeCropRect.width <= 0 || safeCropRect.height <= 0) return sample;
+						if (!processCanvas) { processCanvas = new OffscreenCanvas(outputWidth, outputHeight); processCtx = processCanvas.getContext('2d', { alpha: false }); }
+						const videoFrame = sample._data || sample;
 
-				// CRITICAL: Specify the output dimensions
-				processedWidth: evenWidth,
-				processedHeight: evenHeight,
-
-				// Force transcoding
-				forceTranscode: true,
-
-				process: (sample) => {
-					const cropRect = getInterpolatedCropRect(sample.timestamp);
-					if (!cropRect) return sample;
-
-					// Double-check bounds before processing
-					const safeCropRect = clampRectToVideoBounds(cropRect);
-
-					// Validate the crop rectangle
-					if (safeCropRect.width <= 0 || safeCropRect.height <= 0) {
-						console.warn('Invalid crop dimensions, returning original frame');
-						return sample;
+						if (useBlurBackground) {
+							processCtx.drawImage(videoFrame, 0, 0, outputWidth, outputHeight);
+							processCtx.filter = `blur(${blurAmount}px)`; processCtx.drawImage(processCanvas, 0, 0); processCtx.filter = 'none';
+						} else {
+							processCtx.fillStyle = 'black'; processCtx.fillRect(0, 0, outputWidth, outputHeight);
+						}
+						processCtx.drawImage(videoFrame, Math.round(safeCropRect.x), Math.round(safeCropRect.y), Math.round(safeCropRect.width), Math.round(safeCropRect.height), Math.round(safeCropRect.x), Math.round(safeCropRect.y), Math.round(safeCropRect.width), Math.round(safeCropRect.height));
+						return processCanvas;
 					}
+				};
 
-					if (!processCanvas) {
-						// Use EVEN dimensions
-						processCanvas = new OffscreenCanvas(evenWidth, evenHeight);
-						processCtx = processCanvas.getContext('2d', { alpha: false });
-					}
+			} else { // This block handles both 'max-size' and 'none' (Default)
+				let outputWidth, outputHeight;
 
-					processCtx.clearRect(0, 0, processCanvas.width, processCanvas.height);
-
-					// Access the actual VideoFrame from MediaBunny's wrapper
-					const videoFrame = sample._data || sample;
-
-					// Use the clamped rectangle for drawing
-					processCtx.drawImage(
-						videoFrame,
-						Math.round(safeCropRect.x),
-						Math.round(safeCropRect.y),
-						Math.round(safeCropRect.width),
-						Math.round(safeCropRect.height),
-						0,
-						0,
-						processCanvas.width,
-						processCanvas.height
-					);
-
-					return processCanvas;
+				if (dynamicCropMode === 'max-size') {
+					const maxWidth = Math.max(...panKeyframes.map(kf => kf.rect.width)); const maxHeight = Math.max(...panKeyframes.map(kf => kf.rect.height));
+					outputWidth = Math.round(maxWidth / 2) * 2; outputHeight = Math.round(maxHeight / 2) * 2;
+				} else { // This is the 'none' or Default case
+					outputWidth = Math.round(panRectSize.width / 2) * 2; outputHeight = Math.round(panRectSize.height / 2) * 2;
 				}
-			};
-		} else if (cropRect && cropRect.width > 0) {
+
+				conversionOptions.video = {
+					track: videoTrack, codec: 'avc', bitrate: QUALITY_HIGH, processedWidth: outputWidth, processedHeight: outputHeight, forceTranscode: true,
+					process: (sample) => {
+						const cropRect = getInterpolatedCropRect(sample.timestamp); if (!cropRect) return sample;
+						const safeCropRect = clampRectToVideoBounds(cropRect); if (safeCropRect.width <= 0 || safeCropRect.height <= 0) return sample;
+						if (!processCanvas) { processCanvas = new OffscreenCanvas(outputWidth, outputHeight); processCtx = processCanvas.getContext('2d', { alpha: false }); }
+						const videoFrame = sample._data || sample;
+
+						if (dynamicCropMode === 'max-size' && useBlurBackground) {
+							processCtx.drawImage(videoFrame, 0, 0, outputWidth, outputHeight);
+							processCtx.filter = 'blur(15px)'; processCtx.drawImage(processCanvas, 0, 0); processCtx.filter = 'none';
+						} else {
+							processCtx.fillStyle = 'black'; processCtx.fillRect(0, 0, outputWidth, outputHeight);
+						}
+
+						let destX, destY, destWidth, destHeight;
+						if (dynamicCropMode == 'none' || (dynamicCropMode === 'max-size' && scaleWithRatio)) {
+							const sourceAspectRatio = safeCropRect.width / safeCropRect.height; const outputAspectRatio = outputWidth / outputHeight;
+							if (sourceAspectRatio > outputAspectRatio) { destWidth = outputWidth; destHeight = destWidth / sourceAspectRatio; } else { destHeight = outputHeight; destWidth = destHeight * sourceAspectRatio; }
+							destX = (outputWidth - destWidth) / 2; destY = (outputHeight - destHeight) / 2;
+						} else {
+							destWidth = safeCropRect.width; destHeight = safeCropRect.height;
+							destX = (outputWidth - destWidth) / 2; destY = (outputHeight - destHeight) / 2;
+						}
+						processCtx.drawImage(videoFrame, Math.round(safeCropRect.x), Math.round(safeCropRect.y), Math.round(safeCropRect.width), Math.round(safeCropRect.height), destX, destY, destWidth, destHeight);
+						return processCanvas;
+					}
+				};
+			}
+		} else if (cropRect && cropRect.width > 0) { // Static crop remains unchanged
 			cropFuncToReset = toggleStaticCrop;
-
-			// ENSURE EVEN DIMENSIONS for static crop
-			const evenWidth = Math.round(cropRect.width / 2) * 2;
-			const evenHeight = Math.round(cropRect.height / 2) * 2;
-
-			// STATIC CROP LOGIC
-			conversionOptions.video = {
-				crop: {
-					left: Math.round(cropRect.x),
-					top: Math.round(cropRect.y),
-					width: evenWidth,
-					height: evenHeight
-				}
-			};
+			const evenWidth = Math.round(cropRect.width / 2) * 2; const evenHeight = Math.round(cropRect.height / 2) * 2;
+			conversionOptions.video = { crop: { left: Math.round(cropRect.x), top: Math.round(cropRect.y), width: evenWidth, height: evenHeight } };
 		}
-		// If neither crop is set, conversionOptions remains as is.
 
 		const conversion = await Conversion.init(conversionOptions);
-
-		if (!conversion.isValid) {
-			throw new Error('Could not create a valid conversion for cutting.');
-		}
-
-		conversion.onProgress = (progress) => {
-			showStatusMessage(`Cutting clip... (${Math.round(progress * 100)}%)`);
-		};
-
+		if (!conversion.isValid) throw new Error('Could not create a valid conversion for cutting.');
+		conversion.onProgress = (progress) => showStatusMessage(`Creating clip... (${Math.round(progress * 100)}%)`);
 		await conversion.execute();
-
 		const originalName = (currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
-		const clipName = `${originalName}_${formatTime(start)}-${formatTime(end)}_edited.mp4`.replace(/:/g, '_');
-
+		const clipName = `${originalName}_${new Date().getTime()}_${formatTime(start)}-${formatTime(end)}_edited.mp4`.replace(/:/g, '_');
 		const cutClipFile = new File([output.target.buffer], clipName, { type: 'video/mp4' });
-
 		playlist.push({ type: 'file', name: clipName, file: cutClipFile, isCutClip: true });
 		updatePlaylistUIOptimized();
-		cropFuncToReset(null, true);
-		showStatusMessage('Clip added to playlist!');
+		// if (cropFuncToReset) cropFuncToReset(null, true);
+		showStatusMessage('Clip adding to playlist!');
+		guidedPanleInfo('Clip adding to playlist!');
 		setTimeout(hideStatusMessage, 2000);
-
 	} catch (error) {
 		console.error("Error during cutting:", error);
 		showError(`Failed to cut the clip: ${error.message}`);
 		hideStatusMessage();
 	} finally {
 		if (input) input.dispose();
+		guidedPanleInfo("");
 	}
 };
 
@@ -710,17 +691,17 @@ const positionCropCanvas = () => {
 
 	const container = videoContainer;
 	const containerRect = container.getBoundingClientRect();
-	
+
 	// Get video dimensions
 	const videoWidth = canvas.width;
 	const videoHeight = canvas.height;
-	
+
 	// Calculate aspect ratios
 	const videoAspect = videoWidth / videoHeight;
 	const containerAspect = containerRect.width / containerRect.height;
-	
+
 	let renderWidth, renderHeight, offsetX, offsetY;
-	
+
 	// Calculate actual rendered video dimensions (object-fit: contain behavior)
 	if (containerAspect > videoAspect) {
 		// Container is wider - video is constrained by height
@@ -735,16 +716,16 @@ const positionCropCanvas = () => {
 		offsetX = 0;
 		offsetY = (containerRect.height - renderHeight) / 2;
 	}
-	
+
 	// Position and size the crop canvas to match the video
 	cropCanvas.style.left = `${offsetX}px`;
 	cropCanvas.style.top = `${offsetY}px`;
 	cropCanvas.style.width = `${renderWidth}px`;
 	cropCanvas.style.height = `${renderHeight}px`;
-	
+
 	// Keep the canvas internal resolution at video resolution for accuracy
 	// (We already set cropCanvas.width/height to match canvas.width/height elsewhere)
-	
+
 	return {
 		renderWidth,
 		renderHeight,
@@ -764,15 +745,15 @@ let cropCanvasDimensions = null;
 
 const getScaledCoordinates = (e) => {
 	const rect = cropCanvas.getBoundingClientRect();
-	
+
 	// Get canvas internal resolution
 	const canvasWidth = cropCanvas.width;
 	const canvasHeight = cropCanvas.height;
-	
+
 	// Get displayed size
 	const displayWidth = rect.width;
 	const displayHeight = rect.height;
-	
+
 	// Calculate scale factors
 	const scaleX = canvasWidth / displayWidth;
 	const scaleY = canvasHeight / displayHeight;
@@ -830,6 +811,7 @@ const stopAndClear = async () => {
 	videoSink = null;
 	audioSink = null;
 	subtitleRenderer = null;
+	videoTrack = null; // Reset video track info
 	removeSubtitleOverlay();
 
 	availableAudioTracks = [];
@@ -875,7 +857,7 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 			formats: ALL_FORMATS
 		});
 
-		const videoTrack = await input.getPrimaryVideoTrack();
+		videoTrack = await input.getPrimaryVideoTrack(); // Assign to global videoTrack
 		const audioTracks = await input.getAudioTracks();
 		const firstAudioTrack = audioTracks.length > 0 ? audioTracks[0] : null;
 
@@ -922,6 +904,8 @@ const loadMedia = async (resource, isConversionAttempt = false) => {
 		setVolume(volumeSlider.value);
 
 		if (videoTrack) {
+			const packetStats = await videoTrack.computePacketStats();
+			videoTrack.frameRate = packetStats.averagePacketRate;
 			videoSink = new CanvasSink(videoTrack, {
 				poolSize: 2
 			});
@@ -1157,24 +1141,28 @@ const formatTime = s => {
 const showLoading = show => loading.classList.toggle('hidden', !show);
 
 const showError = msg => {
-	if (document.querySelector('.error-message')) return;
+	showMessage.innerHTML = "";
+	showMessage.className = "showMessage error-message"
 
 	const el = document.createElement('div');
-	el.className = 'error-message';
 	el.textContent = msg;
-	el.style.cssText = "position:fixed; top:20px; right:20px; background:rgba(200,0,0,0.8); color:white; padding:10px; border-radius:4px; z-index:10000;";
-	document.body.appendChild(el);
-	setTimeout(() => el.remove(), 4000);
+	showMessage.appendChild(el);
+	setTimeout(() => {
+		showMessage.innerHTML = ""
+		showMessage.className = "showMessage hidden"
+	}, 4000);
 };
 const showInfo = msg => {
-	if (document.querySelector('.error-message')) return;
+	showMessage.innerHTML = "";
+	showMessage.className = "showMessage"
 
 	const el = document.createElement('div');
-	el.className = 'error-message';
 	el.textContent = msg;
-	el.style.cssText = "position:fixed; top:20px; right:20px; background:var(--bg-mid); color:white; padding:10px; border-radius:4px; z-index:10000;";
-	document.body.appendChild(el);
-	setTimeout(() => el.remove(), 4000);
+	showMessage.appendChild(el);
+	setTimeout(() => {
+		showMessage.innerHTML = ""
+		showMessage.className = "showMessage hidden"
+	}, 4000);
 };
 
 const showPlayerUI = () => {
@@ -1543,22 +1531,35 @@ const setPlaybackSpeed = (newSpeed) => {
 	startVideoIterator();
 };
 
+const updateShortcutKeysVisibility = () => {
+	const panel = $('shortcutKeysPanel');
+	panel.classList.toggle('hidden');
+};
+
 // Function to enter/exit Static Cropping mode
 const toggleStaticCrop = (e, reset = false) => {
 	isCropping = !reset && !isCropping;
 	isPanning = false; // Ensure panning is off
-	panScanBtn.textContent = 'Dynamic Crop';
-	cropBtn.textContent = isCropping ? 'Cropping...' : 'Crop';
+
+	panScanBtn.textContent = 'Dynamic ✂️';
+	cropBtn.textContent = isCropping ? 'Cropping...' : '✂️';
+
 	cropCanvas.classList.toggle('hidden', !isCropping);
+	panScanBtn.classList.toggle('hover_highlight', isPanning);
 	cropBtn.classList.toggle('hover_highlight');
+	if (reset) cropBtn.classList.remove('hover_highlight');
 
 	if (isCropping) {
 		// Position the crop canvas when entering crop mode
 		cropCanvasDimensions = positionCropCanvas();
+		isCropFixed = false; // Reset fixed state
+		updateFixSizeButton();
 	} else {
 		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
 		cropRect = null;
 		cropCanvasDimensions = null;
+		isCropFixed = false;
+		updateFixSizeButton();
 	}
 };
 
@@ -1566,36 +1567,457 @@ const toggleStaticCrop = (e, reset = false) => {
 const togglePanning = (e, reset = false) => {
 	isPanning = !reset && !isPanning;
 	isCropping = false; // Ensure static cropping is off
-	cropBtn.textContent = 'Crop';
-	panScanBtn.textContent = isPanning ? 'Recording... (Press R to lock)' : 'Dynamic Crop';
+
+	cropBtn.textContent = '✂️';
+	panScanBtn.textContent = isPanning ? 'Cropping...' : 'Dynamic ✂️';
+
 	cropCanvas.classList.toggle('hidden', !isPanning);
+	cropBtn.classList.toggle('hover_highlight', isCropping);
 	panScanBtn.classList.toggle('hover_highlight');
+	if (reset) panScanBtn.classList.remove('hover_highlight');
+
 	panKeyframes = [];
 	panRectSize = null;
 
 	if (isPanning) {
 		// Position the crop canvas when entering panning mode
 		cropCanvasDimensions = positionCropCanvas();
-		showInfo("Draw a rectangle to define the crop size. Playback will start and the rectangle will follow your cursor. Press 'R' to lock its position.");
+		isCropFixed = false; // Reset fixed state
+		updateFixSizeButton();
+		guidedPanleInfo("Click and drag on the video to draw your crop area.");
 	} else {
 		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
 		cropCanvasDimensions = null;
+		isCropFixed = false;
+		updateFixSizeButton();
 	}
 };
 
+const guidedPanleInfo = (info) => {
+	const guide_panel = document.getElementById('guide_panel');
+	const guide_info = document.getElementById('guide_info');
+	if (info) {
+		guide_panel.classList.remove('hidden');
+		guide_info.innerText = info
+	} else {
+		guide_panel.classList.add('hidden');
+		guide_info.innerText = info
+	}
+}
+
+// ============================================================================
+// ADD NEW VARIABLES for crop resize/move functionality
+// ============================================================================
+
+let isCropFixed = false; // Is the crop size locked?
+let isDraggingCrop = false; // Are we moving the crop?
+let isResizingCrop = false; // Are we resizing the crop?
+let resizeHandle = null; // Which corner/edge is being resized
+let dragStartPos = { x: 0, y: 0 }; // Starting position for drag
+let originalCropRect = null; // Original crop rect before drag/resize
+
+// Resize handle size in pixels
+const HANDLE_SIZE = 12;
+const HANDLE_HALF = HANDLE_SIZE / 2;
+
+// ============================================================================
+// NEW FUNCTION: Draw crop rectangle with resize handles
+// ============================================================================
+
+const drawCropWithHandles = (rect) => {
+	if (!rect || rect.width <= 0 || rect.height <= 0) return;
+
+	cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+
+	// Draw semi-transparent overlay
+	const overlayColor = isPanning ? 'rgba(0, 50, 100, 0.6)' : 'rgba(0, 0, 0, 0.6)';
+	cropCtx.fillStyle = overlayColor;
+	cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
+
+	// Clear the crop area
+	cropCtx.clearRect(rect.x, rect.y, rect.width, rect.height);
+
+	// Draw border
+	const borderColor = isPanning ? 'rgba(50, 150, 255, 0.9)' : 'rgba(255, 255, 255, 0.8)';
+	cropCtx.strokeStyle = borderColor;
+	cropCtx.lineWidth = 2;
+	cropCtx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+
+	// Draw resize handles if crop is not fixed
+	if (!isCropFixed) {
+		guidedPanleInfo("Adjust the rectangle to your desired size. When ready, press 'L' to lock the size and begin recording.")
+		cropCtx.fillStyle = '#00ffff';
+		cropCtx.strokeStyle = '#ffffff';
+		cropCtx.lineWidth = 1;
+
+		// Corner handles
+		const corners = [
+			{ x: rect.x, y: rect.y, cursor: 'nw' },
+			{ x: rect.x + rect.width, y: rect.y, cursor: 'ne' },
+			{ x: rect.x, y: rect.y + rect.height, cursor: 'sw' },
+			{ x: rect.x + rect.width, y: rect.y + rect.height, cursor: 'se' }
+		];
+
+		corners.forEach(corner => {
+			cropCtx.fillRect(
+				corner.x - HANDLE_HALF,
+				corner.y - HANDLE_HALF,
+				HANDLE_SIZE,
+				HANDLE_SIZE
+			);
+			cropCtx.strokeRect(
+				corner.x - HANDLE_HALF,
+				corner.y - HANDLE_HALF,
+				HANDLE_SIZE,
+				HANDLE_SIZE
+			);
+		});
+
+		// Edge handles
+		const edges = [
+			{ x: rect.x + rect.width / 2, y: rect.y, cursor: 'n' }, // top
+			{ x: rect.x + rect.width / 2, y: rect.y + rect.height, cursor: 's' }, // bottom
+			{ x: rect.x, y: rect.y + rect.height / 2, cursor: 'w' }, // left
+			{ x: rect.x + rect.width, y: rect.y + rect.height / 2, cursor: 'e' } // right
+		];
+
+		edges.forEach(edge => {
+			cropCtx.fillRect(
+				edge.x - HANDLE_HALF,
+				edge.y - HANDLE_HALF,
+				HANDLE_SIZE,
+				HANDLE_SIZE
+			);
+			cropCtx.strokeRect(
+				edge.x - HANDLE_HALF,
+				edge.y - HANDLE_HALF,
+				HANDLE_SIZE,
+				HANDLE_SIZE
+			);
+		});
+	}
+};
+
+// ============================================================================
+// NEW FUNCTION: Get resize handle at position
+// ============================================================================
+
+const getResizeHandle = (x, y, rect) => {
+	if (!rect || isCropFixed) return null;
+
+	const handles = [
+		{ name: 'nw', x: rect.x, y: rect.y },
+		{ name: 'ne', x: rect.x + rect.width, y: rect.y },
+		{ name: 'sw', x: rect.x, y: rect.y + rect.height },
+		{ name: 'se', x: rect.x + rect.width, y: rect.y + rect.height },
+		{ name: 'n', x: rect.x + rect.width / 2, y: rect.y },
+		{ name: 's', x: rect.x + rect.width / 2, y: rect.y + rect.height },
+		{ name: 'w', x: rect.x, y: rect.y + rect.height / 2 },
+		{ name: 'e', x: rect.x + rect.width, y: rect.y + rect.height / 2 }
+	];
+
+	for (const handle of handles) {
+		const dist = Math.sqrt(
+			Math.pow(x - handle.x, 2) + Math.pow(y - handle.y, 2)
+		);
+		if (dist <= HANDLE_SIZE) {
+			return handle.name;
+		}
+	}
+
+	return null;
+};
+
+// ============================================================================
+// NEW FUNCTION: Check if point is inside crop rect
+// ============================================================================
+
+const isInsideCropRect = (x, y, rect) => {
+	if (!rect) return false;
+	return x >= rect.x && x <= rect.x + rect.width &&
+		y >= rect.y && y <= rect.y + rect.height;
+};
+
+// ============================================================================
+// NEW FUNCTION: Get cursor style for handle
+// ============================================================================
+
+const getCursorForHandle = (handle) => {
+	const cursors = {
+		'nw': 'nw-resize',
+		'ne': 'ne-resize',
+		'sw': 'sw-resize',
+		'se': 'se-resize',
+		'n': 'n-resize',
+		's': 's-resize',
+		'w': 'w-resize',
+		'e': 'e-resize',
+		'move': 'move'
+	};
+	return cursors[handle] || 'crosshair';
+};
+
+// ============================================================================
+// NEW FUNCTION: Apply resize based on handle
+// ============================================================================
+
+const applyResize = (handle, deltaX, deltaY, originalRect) => {
+	let newRect = { ...originalRect };
+
+	switch (handle) {
+		case 'nw':
+			newRect.x = originalRect.x + deltaX;
+			newRect.y = originalRect.y + deltaY;
+			newRect.width = originalRect.width - deltaX;
+			newRect.height = originalRect.height - deltaY;
+			break;
+		case 'ne':
+			newRect.y = originalRect.y + deltaY;
+			newRect.width = originalRect.width + deltaX;
+			newRect.height = originalRect.height - deltaY;
+			break;
+		case 'sw':
+			newRect.x = originalRect.x + deltaX;
+			newRect.width = originalRect.width - deltaX;
+			newRect.height = originalRect.height + deltaY;
+			break;
+		case 'se':
+			newRect.width = originalRect.width + deltaX;
+			newRect.height = originalRect.height + deltaY;
+			break;
+		case 'n':
+			newRect.y = originalRect.y + deltaY;
+			newRect.height = originalRect.height - deltaY;
+			break;
+		case 's':
+			newRect.height = originalRect.height + deltaY;
+			break;
+		case 'w':
+			newRect.x = originalRect.x + deltaX;
+			newRect.width = originalRect.width - deltaX;
+			break;
+		case 'e':
+			newRect.width = originalRect.width + deltaX;
+			break;
+	}
+
+	// Ensure minimum size
+	if (newRect.width < 20) {
+		newRect.width = 20;
+		if (handle.includes('w')) newRect.x = originalRect.x + originalRect.width - 20;
+	}
+	if (newRect.height < 20) {
+		newRect.height = 20;
+		if (handle.includes('n')) newRect.y = originalRect.y + originalRect.height - 20;
+	}
+
+	// Clamp to canvas bounds
+	return clampRectToVideoBounds(newRect);
+};
+
+// ============================================================================
+// MODIFY toggleStaticCrop to reset fixed state
+// ============================================================================
+
+// ============================================================================
+// NEW FUNCTION: Update Fix Size button visibility and state
+// ============================================================================
+
+const updateFixSizeButton = () => {
+	const fixSizeBtn = document.getElementById('fixSizeBtn');
+	if (!fixSizeBtn) return;
+
+	const shouldShow = (isCropping || isPanning) &&
+		(cropRect || panRectSize);
+
+	if (shouldShow) {
+		fixSizeBtn.style.display = 'inline-block';
+		fixSizeBtn.textContent = isCropFixed ? 'Resize' : 'Fix Size';
+		if (isCropFixed) {
+			fixSizeBtn.classList.add('hover_highlight');
+		} else {
+			fixSizeBtn.classList.remove('hover_highlight');
+		}
+	} else {
+		fixSizeBtn.style.display = 'none';
+	}
+};
+
+// ============================================================================
+// NEW FUNCTION: Toggle crop fixed state
+// ============================================================================
+
+const toggleCropFixed = () => {
+	isCropFixed = !isCropFixed;
+	updateFixSizeButton();
+
+	if (isCropFixed) {
+		// When fixing, ensure even dimensions for video processing
+		if (isCropping && cropRect) {
+			cropRect.width = Math.round(cropRect.width / 2) * 2;
+			cropRect.height = Math.round(cropRect.height / 2) * 2;
+			cropRect = clampRectToVideoBounds(cropRect);
+			drawCropWithHandles(cropRect);
+		} else if (isPanning && panRectSize) {
+			panRectSize.width = Math.round(panRectSize.width / 2) * 2;
+			panRectSize.height = Math.round(panRectSize.height / 2) * 2;
+			// Update the last keyframe with even dimensions
+			if (panKeyframes.length > 0) {
+				const lastFrame = panKeyframes[panKeyframes.length - 1];
+				lastFrame.rect.width = panRectSize.width;
+				lastFrame.rect.height = panRectSize.height;
+				lastFrame.rect = clampRectToVideoBounds(lastFrame.rect);
+			}
+		}
+		guidedPanleInfo("Size Locked! Now, play the video and move the box to record the camera path. Use SHIFT + scroll up/down to perform zooming effect. Press 'R' when you're done.");
+	} else {
+		// Redraw with handles
+		if (isCropping && cropRect) {
+			drawCropWithHandles(cropRect);
+		} else if (isPanning && panKeyframes.length > 0) {
+			const lastFrame = panKeyframes[panKeyframes.length - 1];
+			if (lastFrame) {
+				drawCropWithHandles(lastFrame.rect);
+			}
+		}
+	}
+};
+
+/**
+ * Smooths a path of keyframes using a Simple Moving Average.
+ * @param {Array} keyframes The original panKeyframes.
+ * @param {number} windowSize The number of frames to average (must be an odd number).
+ * @returns {Array} A new array of smoothed keyframes.
+ */
+const smoothPathWithMovingAverage = (keyframes, windowSize = 15) => {
+	if (keyframes.length < windowSize) {
+		return keyframes; // Not enough data to smooth
+	}
+
+	const smoothedKeyframes = [];
+	const halfWindow = Math.floor(windowSize / 2);
+
+	for (let i = 0; i < keyframes.length; i++) {
+		// Define the bounds for the moving window, clamping at the edges
+		const start = Math.max(0, i - halfWindow);
+		const end = Math.min(keyframes.length - 1, i + halfWindow);
+
+		let sumX = 0, sumY = 0, sumWidth = 0, sumHeight = 0;
+
+		// Sum the properties of the keyframes within the window
+		for (let j = start; j <= end; j++) {
+			sumX += keyframes[j].rect.x;
+			sumY += keyframes[j].rect.y;
+			sumWidth += keyframes[j].rect.width;
+			sumHeight += keyframes[j].rect.height;
+		}
+
+		const count = (end - start) + 1;
+
+		// Create the new smoothed keyframe
+		const newKeyframe = {
+			timestamp: keyframes[i].timestamp, // Keep original timestamp
+			rect: {
+				x: sumX / count,
+				y: sumY / count,
+				width: sumWidth / count,
+				height: sumHeight / count,
+			}
+		};
+
+		smoothedKeyframes.push(newKeyframe);
+	}
+
+	return smoothedKeyframes;
+};
+
+/**
+ * Resets all user-configurable editing states to their default values.
+ */
+const resetAllConfigs = () => {
+	// 1. Pause the player if it's running
+	if (playing) pause();
+
+	// 2. Deactivate and reset any active cropping/panning modes
+	// Using the reset flag in our existing toggle functions is perfect for this
+	toggleStaticCrop(null, true);
+	togglePanning(null, true);
+
+	// 3. Reset all dynamic crop configuration states
+	dynamicCropMode = 'none';
+	scaleWithRatio = false;
+	useBlurBackground = false;
+	smoothPath = false;
+	blurAmount = 15;
+	updateDynamicCropOptionsUI();
+
+	// 4. Reset the UI for dynamic crop options
+	const cropModeNoneRadio = $('cropModeNone');
+	if (cropModeNoneRadio) cropModeNoneRadio.checked = true;
+
+	const scaleWithRatioToggle = $('scaleWithRatioToggle');
+	if (scaleWithRatioToggle) scaleWithRatioToggle.checked = false;
+
+	const smoothPathToggle = $('smoothPathToggle');
+	if (smoothPathToggle) smoothPathToggle.checked = false;
+
+	const blurBackgroundToggle = $('blurBackgroundToggle');
+	const blurAmountInput = $('blurAmountInput');
+	if (blurBackgroundToggle) blurBackgroundToggle.checked = false;
+	if (blurAmountInput) {
+		blurAmountInput.value = 15;
+	}
+
+
+	// 5. Reset the time range inputs to the full duration of the video
+	if (fileLoaded) {
+		startTimeInput.value = formatTime(0);
+		endTimeInput.value = formatTime(totalDuration);
+	}
+
+	// 6. Reset the looping state and UI
+	isLooping = false;
+	loopStartTime = 0;
+	loopEndTime = 0;
+	loopBtn.textContent = 'Loop';
+	loopBtn.classList.remove('hover_highlight');
+
+	// 8. Remove Guided Panel
+	guidedPanleInfo("");
+
+	// 9. Give user feedback
+	showInfo("All configurations have been reset.");
+};
+
+const cropModeRadios = document.querySelectorAll('input[name="cropMode"]');
+const scaleOptionContainer = $('scaleOptionContainer');
+const scaleWithRatioToggle = $('scaleWithRatioToggle');
+const blurOptionContainer = $('blurOptionContainer');
+const smoothOptionContainer = $('smoothOptionContainer');
+const smoothPathToggle = $('smoothPathToggle');
+const blurBackgroundToggle = $('blurBackgroundToggle');
+const blurAmountInput = $('blurAmountInput');
+
+// Helper function to update the visibility of sub-options based on the selected mode
+const updateDynamicCropOptionsUI = () => {
+	scaleOptionContainer.style.display = (dynamicCropMode === 'max-size') ? 'flex' : 'none';
+	blurOptionContainer.style.display = (dynamicCropMode === 'spotlight' || dynamicCropMode === 'max-size') ? 'flex' : 'none';
+	// Show the smooth option for ANY dynamic mode
+	smoothOptionContainer.style.display = (dynamicCropMode !== 'none') ? 'flex' : 'none';
+};
+
 const setupEventListeners = () => {
-	$('addFileBtn').onclick = () => $('fileInput').click();
-	$('addFolderBtn').onclick = () => $('folderInput').click();
 	$('clearPlaylistBtn').onclick = clearPlaylist;
 	$('chooseFileBtn').onclick = () => {
 		fileLoaded = false;
 		$('fileInput').click();
 	};
-	$('openFileBtn').onclick = () => {
-		fileLoaded = false;
-		$('fileInput').click();
-	};
-	$('togglePlaylistBtn').onclick = () => playerArea.classList.toggle('playlist-visible');
+	$('togglePlaylistBtn').onclick = () => {
+		playerArea.classList.toggle('playlist-visible');
+		setTimeout(() => {
+			cropCanvasDimensions = positionCropCanvas();
+		}, 200);
+	}
 
 	$('fileInput').onclick = (e) => e.target.value = null;
 	$('fileInput').onchange = (e) => handleFiles(e.target.files);
@@ -1627,6 +2049,64 @@ const setupEventListeners = () => {
 		setVolume(volumeSlider.value);
 	};
 
+	const mainActionBtn = $('mainActionBtn');
+	const dropdownActionBtn = $('dropdownActionBtn');
+	const actionDropdownMenu = $('actionDropdownMenu');
+
+	// Helper function to execute the chosen action
+	const executeOpenFileAction = (action) => {
+		switch (action) {
+			case 'open-url':
+				urlModal.classList.remove('hidden');
+				urlInput.focus();
+				break;
+			case 'open-file':
+				fileLoaded = false;
+				$('fileInput').click();
+				break;
+			case 'add-file':
+				$('fileInput').click();
+				break;
+			case 'add-folder':
+				$('folderInput').click();
+				break;
+		}
+	};
+
+	// 1. Main button executes the currently selected action
+	if (mainActionBtn) {
+		mainActionBtn.onclick = () => {
+			executeOpenFileAction(currentOpenFileAction);
+		};
+	}
+
+	// 2. Dropdown button shows/hides the menu
+	if (dropdownActionBtn) {
+		dropdownActionBtn.onclick = (e) => {
+			e.stopPropagation();
+			actionDropdownMenu.classList.toggle('hidden');
+		};
+	}
+
+	// 3. Clicks inside the dropdown menu set the action and execute it
+	if (actionDropdownMenu) {
+		actionDropdownMenu.addEventListener('click', (e) => {
+			const target = e.target.closest('button[data-action]');
+			if (!target) return;
+
+			const action = target.dataset.action;
+
+			// Update state
+			currentOpenFileAction = action;
+
+			// Update UI
+			mainActionBtn.textContent = target.textContent;
+
+			// Hide menu and execute
+			actionDropdownMenu.classList.add('hidden');
+			executeOpenFileAction(action);
+		});
+	}
 	$('audioTrackCtrlBtn').onclick = (e) => {
 		e.stopPropagation();
 		const menu = $('audioTrackMenu');
@@ -1643,10 +2123,20 @@ const setupEventListeners = () => {
 		if (isHidden) menu.classList.remove('hidden');
 	};
 
+	// $('editMenuBtn').onclick = (e) => {
+	// 	e.stopPropagation();
+	// 	const menu = $('settingsMenu');
+	// 	const isHidden = menu.classList.contains('hidden');
+	// 	hideTrackMenus();
+	// 	if (isHidden) menu.classList.remove('hidden');
+	// };
+
 	// === PERFORMANCE OPTIMIZATION: Event delegation for playlist ===
 	document.addEventListener('click', (e) => {
-		if (!e.target.closest('.track-menu') && !e.target.closest('.track-controls')) {
+		// Find the existing listener and add a check for our new container
+		if (!e.target.closest('.track-menu') && !e.target.closest('.control-btn') && !e.target.closest('.split-action-btn')) {
 			hideTrackMenus();
+			if (actionDropdownMenu) actionDropdownMenu.classList.add('hidden'); // Also hide the action menu
 		}
 	});
 
@@ -1713,6 +2203,9 @@ const setupEventListeners = () => {
 
 	// === PERFORMANCE OPTIMIZATION: Event delegation for playlist clicks ===
 	playlistContent.addEventListener('click', (e) => {
+		setTimeout(() => {
+			cropCanvasDimensions = positionCropCanvas();
+		}, 200);
 		const removeButton = e.target.closest('.remove-item');
 		if (removeButton) {
 			e.stopPropagation();
@@ -1776,6 +2269,25 @@ const setupEventListeners = () => {
 
 	document.onkeydown = (e) => {
 		if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || !fileLoaded) return;
+
+		// Handle frame-by-frame seeking when paused
+		if (!playing && videoTrack && videoTrack.frameRate > 0) {
+			if (e.code === 'KeyN') { // 'n' for next frame
+				e.preventDefault();
+				const newTime = getPlaybackTime() + (1 / videoTrack.frameRate);
+				seekToTime(newTime);
+				showControlsTemporarily();
+				return; // Stop further execution for this key press
+			}
+			if (e.code === 'KeyP') { // 'p' for previous frame
+				e.preventDefault();
+				const newTime = getPlaybackTime() - (1 / videoTrack.frameRate);
+				seekToTime(newTime);
+				showControlsTemporarily();
+				return; // Stop further execution for this key press
+			}
+		}
+
 		const actions = {
 			'Space': () => togglePlay(),
 			'KeyK': () => togglePlay(),
@@ -1893,11 +2405,6 @@ const setupEventListeners = () => {
 		isAutoplayEnabled = autoplayToggle.checked;
 	};
 	// --- Add URL Modal Logic Here ---
-	openUrlBtn.onclick = () => {
-		urlInput.value = ''; // Clear previous input
-		urlModal.classList.remove('hidden');
-		urlInput.focus();
-	};
 
 	const hideUrlModal = () => {
 		urlModal.classList.add('hidden');
@@ -1949,98 +2456,241 @@ const setupEventListeners = () => {
 		cropEnd = coords;
 	};
 
-	cropCanvas.onpointermove = (e) => {
-		if (!isDrawingCrop) {
-			// This is the logic for live panning after the initial rect is drawn
-			if (isPanning && panRectSize) {
-				const coords = getScaledCoordinates(e);
+	cropCanvas.onpointerdown = (e) => {
+		if (!isCropping && !isPanning) return;
+		e.preventDefault();
+		cropCanvas.setPointerCapture(e.pointerId);
 
-				// Center the rectangle on the cursor
-				let currentRect = {
-					x: coords.x - panRectSize.width / 2,
-					y: coords.y - panRectSize.height / 2,
-					...panRectSize
-				};
+		const coords = getScaledCoordinates(e);
 
-				// CLAMP the rectangle before recording
-				currentRect = clampRectToVideoBounds(currentRect);
+		// If we have an existing crop rect
+		const currentRect = isCropping ? cropRect :
+			(panKeyframes.length > 0 ? panKeyframes[panKeyframes.length - 1].rect : null);
 
-				// Record a new keyframe with clamped coordinates
-				panKeyframes.push({ timestamp: getPlaybackTime(), rect: currentRect });
+		if (currentRect && !isCropFixed) {
+			// Check if clicking on a resize handle
+			resizeHandle = getResizeHandle(coords.x, coords.y, currentRect);
 
-				// Redraw the overlay to show the moving rect
-				drawShadedOverlay(currentRect);
+			if (resizeHandle) {
+				isResizingCrop = true;
+				originalCropRect = { ...currentRect };
+				dragStartPos = coords;
+			} else if (isInsideCropRect(coords.x, coords.y, currentRect)) {
+				// Clicking inside crop area - start dragging
+				isDraggingCrop = true;
+				originalCropRect = { ...currentRect };
+				dragStartPos = coords;
+			} else {
+				// Clicking outside - start drawing new rect
+				isDrawingCrop = true;
+				cropStart = coords;
+				cropEnd = coords;
 			}
+		} else if (currentRect && isCropFixed && isPanning) {
+			// In panning mode with fixed size, any click starts recording movement
+			isDraggingCrop = true;
+			dragStartPos = coords;
+		} else {
+			// No existing rect - start drawing
+			isDrawingCrop = true;
+			cropStart = coords;
+			cropEnd = coords;
+		}
+	};
+
+	cropCanvas.onpointermove = (e) => {
+		const coords = getScaledCoordinates(e);
+
+		// Update cursor based on position
+		if (!isDrawingCrop && !isDraggingCrop && !isResizingCrop) {
+			const currentRect = isCropping ? cropRect :
+				(panKeyframes.length > 0 ? panKeyframes[panKeyframes.length - 1].rect : null);
+
+			if (currentRect && !isCropFixed) {
+				const handle = getResizeHandle(coords.x, coords.y, currentRect);
+				if (handle) {
+					cropCanvas.style.cursor = getCursorForHandle(handle);
+				} else if (isInsideCropRect(coords.x, coords.y, currentRect)) {
+					cropCanvas.style.cursor = 'move';
+				} else {
+					cropCanvas.style.cursor = 'crosshair';
+				}
+			} else if (isPanning && panRectSize && isCropFixed) {
+				// Live panning with fixed size
+				const lastRectSize = panKeyframes.length > 0
+					? { width: panKeyframes[panKeyframes.length - 1].rect.width, height: panKeyframes[panKeyframes.length - 1].rect.height }
+					: panRectSize;
+				let currentRect = {
+					x: coords.x - lastRectSize.width / 2,
+					y: coords.y - lastRectSize.height / 2,
+					width: lastRectSize.width,
+					height: lastRectSize.height
+				};
+				currentRect = clampRectToVideoBounds(currentRect);
+				panKeyframes.push({ timestamp: getPlaybackTime(), rect: currentRect });
+				drawCropWithHandles(currentRect);
+				return;
+			}
+		}
+
+		// Handle drawing new rect
+		if (isDrawingCrop) {
+			e.preventDefault();
+			cropEnd = coords;
+
+			const rect = {
+				x: Math.min(cropStart.x, cropEnd.x),
+				y: Math.min(cropStart.y, cropEnd.y),
+				width: Math.abs(cropStart.x - cropEnd.x),
+				height: Math.abs(cropStart.y - cropEnd.y)
+			};
+			drawCropWithHandles(rect);
 			return;
 		}
 
-		e.preventDefault();
-		cropEnd = getScaledCoordinates(e);
+		// Handle resizing
+		if (isResizingCrop && originalCropRect) {
+			e.preventDefault();
+			const deltaX = coords.x - dragStartPos.x;
+			const deltaY = coords.y - dragStartPos.y;
 
-		const rect = {
-			x: Math.min(cropStart.x, cropEnd.x),
-			y: Math.min(cropStart.y, cropEnd.y),
-			width: Math.abs(cropStart.x - cropEnd.x),
-			height: Math.abs(cropStart.y - cropEnd.y)
-		};
-		drawShadedOverlay(rect);
+			const newRect = applyResize(resizeHandle, deltaX, deltaY, originalCropRect);
+
+			if (isCropping) {
+				cropRect = newRect;
+			} else if (isPanning && panKeyframes.length > 0) {
+				panKeyframes[panKeyframes.length - 1].rect = newRect;
+				panRectSize = { width: newRect.width, height: newRect.height };
+			}
+
+			drawCropWithHandles(newRect);
+			return;
+		}
+
+		// Handle dragging/moving
+		if (isDraggingCrop && originalCropRect) {
+			e.preventDefault();
+			const deltaX = coords.x - dragStartPos.x;
+			const deltaY = coords.y - dragStartPos.y;
+
+			let newRect = {
+				x: originalCropRect.x + deltaX,
+				y: originalCropRect.y + deltaY,
+				width: originalCropRect.width,
+				height: originalCropRect.height
+			};
+
+			newRect = clampRectToVideoBounds(newRect);
+
+			if (isCropping) {
+				cropRect = newRect;
+			} else if (isPanning) {
+				if (isCropFixed) {
+					// Record keyframe while dragging in fixed mode
+					panKeyframes.push({ timestamp: getPlaybackTime(), rect: newRect });
+				} else if (panKeyframes.length > 0) {
+					panKeyframes[panKeyframes.length - 1].rect = newRect;
+				}
+			}
+
+			drawCropWithHandles(newRect);
+			return;
+		}
 	};
 
 	cropCanvas.onpointerup = (e) => {
-		if (!isDrawingCrop) return;
+		if (!isDrawingCrop && !isDraggingCrop && !isResizingCrop) return;
 		e.preventDefault();
 		cropCanvas.releasePointerCapture(e.pointerId);
-		isDrawingCrop = false;
 
-		const finalRect = {
-			x: Math.min(cropStart.x, cropEnd.x),
-			y: Math.min(cropStart.y, cropEnd.y),
-			width: Math.abs(cropStart.x - cropEnd.x),
-			height: Math.abs(cropStart.y - cropEnd.y)
-		};
-
-		if (finalRect.width < 10 || finalRect.height < 10) {
-			cropRect = null;
-			panRectSize = null;
-			cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
-			return;
-		}
-
-		if (isPanning) {
-			// ENSURE EVEN DIMENSIONS when setting panRectSize
-			const evenWidth = Math.round(finalRect.width / 2) * 2;
-			const evenHeight = Math.round(finalRect.height / 2) * 2;
-
-			panRectSize = { width: evenWidth, height: evenHeight };
-
-			// Adjust the first keyframe to use even dimensions
-			const adjustedRect = {
-				x: finalRect.x,
-				y: finalRect.y,
-				width: evenWidth,
-				height: evenHeight
+		// Finalize drawing new rect
+		if (isDrawingCrop) {
+			const finalRect = {
+				x: Math.min(cropStart.x, cropEnd.x),
+				y: Math.min(cropStart.y, cropEnd.y),
+				width: Math.abs(cropStart.x - cropEnd.x),
+				height: Math.abs(cropStart.y - cropEnd.y)
 			};
 
-			panKeyframes.push({ timestamp: getPlaybackTime(), rect: adjustedRect });
-
-			if (!playing) play();
-		} else if (isCropping) {
-			cropRect = finalRect;
+			if (finalRect.width < 10 || finalRect.height < 10) {
+				cropRect = null;
+				panRectSize = null;
+				cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+			} else {
+				if (isPanning) {
+					panRectSize = { width: finalRect.width, height: finalRect.height };
+					panKeyframes.push({ timestamp: getPlaybackTime(), rect: finalRect });
+				} else if (isCropping) {
+					cropRect = finalRect;
+				}
+				drawCropWithHandles(finalRect);
+			}
 		}
-	};
-	// We need to modify the drawing function to accept a rectangle
-	const drawShadedOverlay = (rect) => {
-		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
-		if (!rect) return;
 
-		cropCtx.fillStyle = isPanning ? 'rgba(0, 50, 100, 0.6)' : 'rgba(0, 0, 0, 0.6)';
-		cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
-		cropCtx.clearRect(rect.x, rect.y, rect.width, rect.height);
+		isDrawingCrop = false;
+		isDraggingCrop = false;
+		isResizingCrop = false;
+		resizeHandle = null;
+		originalCropRect = null;
+		cropCanvas.style.cursor = 'crosshair';
 
-		cropCtx.strokeStyle = isPanning ? 'rgba(50, 150, 255, 0.9)' : 'rgba(255, 255, 255, 0.8)';
-		cropCtx.lineWidth = 2;
-		cropCtx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+		updateFixSizeButton();
 	};
+
+	// 2. Add the wheel event listener for zooming
+	cropCanvas.addEventListener('wheel', (e) => {
+		if (!isPanning || !isShiftPressed || !panRectSize) return;
+		e.preventDefault();
+
+		const lastKeyframe = panKeyframes[panKeyframes.length - 1];
+		if (!lastKeyframe) return;
+
+		// === NEW: GET MOUSE POSITION FOR CENTERED ZOOM ===
+		const coords = getScaledCoordinates(e);
+		const ZOOM_SPEED = 0.05;
+
+		const currentRect = lastKeyframe.rect;
+		const zoomFactor = e.deltaY < 0 ? (1 - ZOOM_SPEED) : (1 + ZOOM_SPEED);
+		const aspectRatio = panRectSize.width / panRectSize.height;
+
+		// === NEW: CALCULATE MOUSE POSITION AS A RATIO WITHIN THE RECTANGLE ===
+		// This ensures the point under the cursor stays in the same relative position after zoom.
+		const ratioX = (coords.x - currentRect.x) / currentRect.width;
+		const ratioY = (coords.y - currentRect.y) / currentRect.height;
+
+		let newWidth = currentRect.width * zoomFactor;
+		let newHeight = newWidth / aspectRatio;
+
+		// === NEW: CALCULATE NEW TOP-LEFT CORNER BASED ON MOUSE POSITION ===
+		let newX = coords.x - (newWidth * ratioX);
+		let newY = coords.y - (newHeight * ratioY);
+
+		let newZoomedRect = { x: newX, y: newY, width: newWidth, height: newHeight };
+		newZoomedRect = clampRectToVideoBounds(newZoomedRect);
+
+		// === CRITICAL SMOOTHNESS FIX ===
+		// Instead of pushing a new keyframe, we UPDATE the last one.
+		// This prevents keyframe overload and makes the zoom feel smooth.
+		lastKeyframe.rect = newZoomedRect;
+
+		drawCropWithHandles(newZoomedRect);
+
+	}, { passive: false }); // { passive: false } is needed for preventDefault() to work reliably
+
+	// 1. Add global listeners to track the Shift key state
+	document.addEventListener('keydown', (e) => {
+		if (e.key === 'Shift') {
+			isShiftPressed = true;
+		}
+	});
+
+	document.addEventListener('keyup', (e) => {
+		if (e.key === 'Shift') {
+			isShiftPressed = false;
+			// When Shift is released, the next mouse move will automatically
+			// record a normal, un-zoomed keyframe, effectively "snapping back".
+		}
+	});
 	document.addEventListener('keydown', (e) => {
 		if (isPanning && panRectSize && e.key.toLowerCase() === 'r') {
 			e.preventDefault();
@@ -2053,45 +2703,117 @@ const setupEventListeners = () => {
 			// Exit panning mode
 			isPanning = false; // Stop listening to mouse moves
 			panScanBtn.textContent = 'Path Recorded!';
-			showInfo("Panning path recorded. The crop will now remain fixed. You can now use 'Cut Clip'.");
+			guidedPanleInfo("Path recorded. The crop will now remain fixed. You can now use 'Process Clip' or Press 'c' to create a clip.");
+		}
+	});
+
+	// Trigger the UI visibility update
+	if (cropModeRadios.length > 0) {
+		// Find the event listener's helper function to call it directly
+		// Note: This assumes updateDynamicCropOptionsUI is available in this scope.
+		// It's better to define it outside the event listener if it's not.
+		updateDynamicCropOptionsUI();
+	}
+
+	if (smoothPathToggle) {
+		smoothPathToggle.onchange = (e) => {
+			smoothPath = e.target.checked;
+		};
+	}
+
+	// Listen for changes on any of the radio buttons
+	cropModeRadios.forEach(radio => {
+		radio.addEventListener('change', (e) => {
+			// Update the main state variable with the new mode
+			dynamicCropMode = e.target.value;
+
+			// Reset sub-options when the mode changes to prevent leftover state
+			if (scaleWithRatioToggle) {
+				scaleWithRatioToggle.checked = false;
+				scaleWithRatio = false;
+			}
+			if (smoothPathToggle) {
+				smoothPathToggle.checked = false;
+				smoothPath = false;
+			}
+			if (blurBackgroundToggle) {
+				blurBackgroundToggle.checked = false;
+				useBlurBackground = false;
+				blurAmountInput.value = 15; // And reset its value
+				blurAmount = 15;
+			}
+
+			// Update the UI to show the correct sub-options
+			updateDynamicCropOptionsUI();
+		});
+	});
+
+	// Independent listeners for the sub-options
+	if (scaleWithRatioToggle) {
+		scaleWithRatioToggle.onchange = (e) => {
+			scaleWithRatio = e.target.checked;
+		};
+	}
+	if (blurBackgroundToggle && blurAmountInput) {
+		blurBackgroundToggle.onchange = (e) => {
+			useBlurBackground = e.target.checked;
+		};
+
+		blurAmountInput.oninput = (e) => {
+			// Update the state with the user's chosen blur amount
+			const amount = parseInt(e.target.value, 10);
+			if (!isNaN(amount)) {
+				blurAmount = Math.max(1, Math.min(100, amount)); // Clamp value between 1 and 100
+			}
+		};
+	}
+	const resetAllBtn = $('resetAllBtn'); // Find our new button ID
+	if (resetAllBtn) {
+		resetAllBtn.onclick = resetAllConfigs; // Simply call our powerful new function
+	}
+	updateDynamicCropOptionsUI();
+
+	document.getElementById('settingsMenu').addEventListener('mouseleave', () => {
+		if (isCropping || isPanning || isLooping) {
+			settingsMenu.classList.add('hidden');
 		}
 	});
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-	setupEventListeners();
-	renderLoop();
+// document.addEventListener('DOMContentLoaded', () => {
+setupEventListeners();
+renderLoop();
 
-	const urlParams = new URLSearchParams(window.location.search);
-	const videoUrl = urlParams.get('video_url');
+const urlParams = new URLSearchParams(window.location.search);
+const videoUrl = urlParams.get('video_url');
 
-	if (videoUrl) {
-		try {
-			const decodedUrl = decodeURIComponent(videoUrl);
-			const urlPlayOverlay = $('urlPlayOverlay');
-			if (urlPlayOverlay) {
-				urlPlayOverlay.classList.remove('hidden');
-				const startBtn = urlPlayOverlay.querySelector('button') || urlPlayOverlay;
-				startBtn.addEventListener('click', () => {
-					urlPlayOverlay.classList.add('hidden');
-					loadMedia(decodedUrl);
-				}, {
-					once: true
-				});
-			} else {
+if (videoUrl) {
+	try {
+		const decodedUrl = decodeURIComponent(videoUrl);
+		const urlPlayOverlay = $('urlPlayOverlay');
+		if (urlPlayOverlay) {
+			urlPlayOverlay.classList.remove('hidden');
+			const startBtn = urlPlayOverlay.querySelector('button') || urlPlayOverlay;
+			startBtn.addEventListener('click', () => {
+				urlPlayOverlay.classList.add('hidden');
 				loadMedia(decodedUrl);
-			}
-		} catch (e) {
-			console.error("Error parsing video_url:", e);
+			}, {
+				once: true
+			});
+		} else {
+			loadMedia(decodedUrl);
 		}
+	} catch (e) {
+		console.error("Error parsing video_url:", e);
 	}
+}
 
-	updatePlaylistUIOptimized();
+updatePlaylistUIOptimized();
 
-	if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-		navigator.serviceWorker.register('service-worker.js')
-			.catch(err => console.log('ServiceWorker registration failed:', err));
-	}
+if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+	navigator.serviceWorker.register('service-worker.js')
+		.catch(err => console.log('ServiceWorker registration failed:', err));
+}
 
 let resizeTimeout;
 window.addEventListener('resize', () => {
@@ -2099,7 +2821,64 @@ window.addEventListener('resize', () => {
 	resizeTimeout = setTimeout(() => {
 		if ((isCropping || isPanning) && !cropCanvas.classList.contains('hidden')) {
 			cropCanvasDimensions = positionCropCanvas();
+			// Redraw current crop
+			const currentRect = isCropping ? cropRect :
+				(panKeyframes.length > 0 ? panKeyframes[panKeyframes.length - 1].rect : null);
+			if (currentRect) {
+				drawCropWithHandles(currentRect);
+			}
 		}
-	}, 100); // Debounce resize events
+	}, 100);
 });
+
+// Fix Size button handler
+const fixSizeBtn = document.getElementById('fixSizeBtn');
+if (fixSizeBtn) {
+	fixSizeBtn.onclick = (e) => {
+		e.stopPropagation();
+		toggleCropFixed();
+	};
+	// Update the 'R' key handler for panning mode
+	document.addEventListener('keydown', (e) => {
+		if (e.key.toLowerCase() === 'l') {
+			e.stopPropagation();
+			toggleCropFixed();
+		}
+	});
+}
+
+// Update the 'R' key handler for panning mode
+document.addEventListener('keydown', (e) => {
+	if (isPanning && panRectSize && e.key.toLowerCase() === 'r' && !isCropFixed) {
+		e.preventDefault();
+		toggleCropFixed();
+		if (isCropFixed && !playing) {
+			play(); // Auto-start playback when fixing size in pan mode
+		}
+	} else if (e.key.toLowerCase() === 's') {
+		e.preventDefault();
+		takeScreenshot()
+	} else if (e.key.toLowerCase() === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+		e.preventDefault();
+		handleCutAction()
+	} else if (e.key.toLowerCase() === 'escape') {
+		e.preventDefault();
+		resetAllConfigs()
+	}
+	// Only consider printable characters
+	if (e.key.length === 1) {
+		buffer += e.key;
+
+		// Keep only last 2 characters
+		if (buffer.length > 2) buffer = buffer.slice(-2);
+
+		// Check for double slash
+		if (buffer === '//') {
+			updateShortcutKeysVisibility();
+			buffer = ''; // reset buffer after trigger
+		}
+	} else if (e.key === 'Backspace') {
+		buffer = buffer.slice(0, -1);
+	}
 });
+// });

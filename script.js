@@ -14,6 +14,9 @@ import {
 
 const MEDIABUNNY_URL = 'https://cdn.jsdelivr.net/npm/mediabunny@1.23.0/+esm';
 
+const urlParams = new URLSearchParams(window.location.search);
+const videoUrl = urlParams.get('video_url');
+
 const $ = document.getElementById.bind(document);
 const playerArea = $('playerArea'),
 	videoContainer = $('videoContainer'),
@@ -53,6 +56,18 @@ const urlInput = $('urlInput');
 const loadUrlBtn = $('loadUrlBtn');
 const cancelUrlBtn = $('cancelUrlBtn');
 const showMessage = document.querySelector('.showMessage');
+const cropModeRadios = document.querySelectorAll('input[name="cropMode"]');
+const scaleOptionContainer = $('scaleOptionContainer');
+const scaleWithRatioToggle = $('scaleWithRatioToggle');
+const blurOptionContainer = $('blurOptionContainer');
+const smoothOptionContainer = $('smoothOptionContainer');
+const smoothPathToggle = $('smoothPathToggle');
+const blurBackgroundToggle = $('blurBackgroundToggle');
+const blurAmountInput = $('blurAmountInput');
+const HANDLE_SIZE = 12;
+const HANDLE_HALF = HANDLE_SIZE / 2;
+const fixSizeBtn = document.getElementById('fixSizeBtn');
+
 const ctx = canvas.getContext('2d', {
 	alpha: false,
 	desynchronized: true
@@ -124,102 +139,18 @@ let lastSubtitleText = null;
 let progressUpdateScheduled = false;
 
 let SubtitleRendererConstructor = null;
-const ensureSubtitleRenderer = async () => {
-	if (!SubtitleRendererConstructor) {
-		try {
-			const module = await import(MEDIABUNNY_URL);
-			SubtitleRendererConstructor = module.SubtitleRenderer;
-		} catch (e) {
-			console.error("Failed to load SubtitleRenderer module:", e);
-			showError("Failed to load subtitle support.");
-			throw e;
-		}
-	}
-	return SubtitleRendererConstructor;
-};
+let cropCanvasDimensions = null;
+let isCropFixed = false; // Is the crop size locked?
+let isDraggingCrop = false; // Are we moving the crop?
+let isResizingCrop = false; // Are we resizing the crop?
+let resizeHandle = null; // Which corner/edge is being resized
+let dragStartPos = { x: 0, y: 0 }; // Starting position for drag
+let originalCropRect = null; // Original crop rect before drag/resize
+let resizeTimeout;
 
-const showStatusMessage = (msg) => {
-	const statusEl = $('statusMessage');
-	if (statusEl) {
-		statusEl.textContent = msg;
-		statusEl.style.display = 'block';
-	}
-	showLoading(true);
-};
-
-const hideStatusMessage = () => {
-	const statusEl = $('statusMessage');
-	if (statusEl) {
-		statusEl.textContent = '';
-		statusEl.style.display = 'none';
-	}
-	showLoading(false);
-};
-
-const handleConversion = async (source, fileName) => {
-	showStatusMessage('Unsupported format. Converting to MP4...');
-	let conversionInput;
-	try {
-		conversionInput = new Input({
-			source,
-			formats: ALL_FORMATS
-		});
-
-		const output = new Output({
-			format: new Mp4OutputFormat({
-				fastStart: 'in-memory'
-			}),
-			target: new BufferTarget(),
-		});
-
-		const conversion = await Conversion.init({
-			input: conversionInput,
-			output
-		});
-
-		if (!conversion.isValid) {
-			console.error('Conversion is not valid. Discarded tracks:', conversion.discardedTracks);
-			let reason = 'the file contains no convertible tracks.';
-			if (conversion.discardedTracks.length > 0) {
-				const firstReason = conversion.discardedTracks[0].reason;
-				if (firstReason === 'undecodable_source_codec') {
-					reason = 'its video or audio codec is not supported by this browser for conversion.';
-				} else {
-					reason = `of an internal error (${firstReason}).`;
-				}
-			}
-			throw new Error(`Could not prepare conversion because ${reason}`);
-		}
-
-		conversion.onProgress = (progress) => {
-			showStatusMessage(`Converting to MP4... (${Math.round(progress * 100)}%)`);
-		};
-
-		await conversion.execute();
-		showStatusMessage('Conversion complete. Loading video...');
-
-		const blob = new Blob([output.target.buffer], {
-			type: 'video/mp4'
-		});
-		const convertedFile = new File(
-			[blob],
-			(fileName.split('.').slice(0, -1).join('.') || 'converted') + '.mp4', {
-			type: 'video/mp4'
-		}
-		);
-
-		await loadMedia(convertedFile, true);
-
-	} catch (error) {
-		showError(`Conversion Failed: This file format appears to be incompatible with the in-browser converter. (${error.message})`);
-		console.error('Conversion error:', error);
-		showDropZoneUI();
-	} finally {
-		if (conversionInput) conversionInput.dispose();
-		hideStatusMessage();
-	}
-};
-
+// ============================================================================
+// CORE PLAYER STATE & INITIALIZATION
+// ============================================================================
 const getPlaybackTime = () => {
 	if (!playing) {
 		return playbackTimeAtStart;
@@ -307,7 +238,6 @@ const renderLoop = () => {
 	requestAnimationFrame(renderLoop);
 };
 
-// === PERFORMANCE OPTIMIZATION: Debounced progress update ===
 const scheduleProgressUpdate = (time) => {
 	if (progressUpdateScheduled) return;
 	progressUpdateScheduled = true;
@@ -315,73 +245,6 @@ const scheduleProgressUpdate = (time) => {
 		updateProgressBarUI(time);
 		progressUpdateScheduled = false;
 	});
-};
-
-const takeScreenshot = () => {
-	if (!fileLoaded || !canvas) {
-		showError("Cannot take screenshot: No video loaded.");
-		return;
-	}
-
-	canvas.toBlob((blob) => {
-		if (!blob) {
-			showError("Failed to create screenshot.");
-			return;
-		}
-
-		currentScreenshotBlob = blob;
-
-		if (screenshotPreviewImg.src && screenshotPreviewImg.src.startsWith('blob:')) {
-			URL.revokeObjectURL(screenshotPreviewImg.src);
-		}
-
-		const imageUrl = URL.createObjectURL(blob);
-		screenshotPreviewImg.src = imageUrl;
-		screenshotOverlay.classList.remove('hidden');
-		hideTrackMenus();
-
-	}, 'image/png');
-};
-
-const runAudioIterator = async () => {
-	if (!audioSink || !audioBufferIterator) return;
-	const currentAsyncId = asyncId;
-
-	try {
-		for await (const {
-			buffer,
-			timestamp
-		} of audioBufferIterator) {
-			if (currentAsyncId !== asyncId) break;
-
-			const node = audioContext.createBufferSource();
-			node.buffer = buffer;
-			node.connect(gainNode);
-			node.playbackRate.value = currentPlaybackRate;
-
-			const absolutePlayTime = audioContextStartTime + ((timestamp - playbackTimeAtStart) / currentPlaybackRate);
-
-			if (absolutePlayTime >= audioContext.currentTime) {
-				node.start(absolutePlayTime);
-			} else {
-				const offset = (audioContext.currentTime - absolutePlayTime) * currentPlaybackRate;
-				if (offset < buffer.duration) {
-					node.start(audioContext.currentTime, offset);
-				}
-			}
-
-			queuedAudioNodes.add(node);
-			node.onended = () => queuedAudioNodes.delete(node);
-
-			if (timestamp - getPlaybackTime() >= 1.5) {
-				while (playing && currentAsyncId === asyncId && (timestamp - getPlaybackTime() >= 0.5)) {
-					await new Promise(r => setTimeout(r, 100));
-				}
-			}
-		}
-	} catch (e) {
-		if (currentAsyncId === asyncId) console.error("Error during audio iteration:", e);
-	}
 };
 
 const play = async () => {
@@ -459,6 +322,779 @@ const seekToTime = async (seconds) => {
 	}
 };
 
+const setPlaybackSpeed = (newSpeed) => {
+	if (!playing) {
+		currentPlaybackRate = newSpeed;
+		return;
+	}
+
+	if (newSpeed === currentPlaybackRate) {
+		return;
+	}
+
+	const currentTime = getPlaybackTime();
+
+	asyncId++;
+	audioBufferIterator?.return().catch(() => { });
+	queuedAudioNodes.forEach(node => {
+		try {
+			node.stop();
+		} catch (e) { }
+	});
+	queuedAudioNodes.clear();
+
+	currentPlaybackRate = newSpeed;
+
+	playbackTimeAtStart = currentTime;
+	audioContextStartTime = audioContext.currentTime;
+
+	if (audioSink) {
+		audioBufferIterator = audioSink.buffers(currentTime);
+		runAudioIterator();
+	}
+
+	startVideoIterator();
+};
+
+const stopAndClear = async () => {
+	if (playing) pause();
+	fileLoaded = false;
+	isLooping = false;
+	loopBtn.textContent = 'Loop';
+	currentPlaybackRate = 1.0;
+	playbackSpeedInput.value = '1';
+	asyncId++;
+
+	try {
+		await videoFrameIterator?.return();
+	} catch (e) { }
+	try {
+		await audioBufferIterator?.return();
+	} catch (e) { }
+
+	nextFrame = null;
+	videoSink = null;
+	audioSink = null;
+	subtitleRenderer = null;
+	videoTrack = null; // Reset video track info
+	removeSubtitleOverlay();
+
+	availableAudioTracks = [];
+	availableSubtitleTracks = [];
+	currentAudioTrack = null;
+	currentSubtitleTrack = null;
+
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+	if (audioContext && audioContext.state === 'running') {
+		await audioContext.suspend();
+	}
+};
+
+// ============================================================================
+// MEDIA LOADING & CONVERSION
+// ============================================================================
+
+const handleConversion = async (source, fileName) => {
+	showStatusMessage('Unsupported format. Converting to MP4...');
+	let conversionInput;
+	try {
+		conversionInput = new Input({
+			source,
+			formats: ALL_FORMATS
+		});
+
+		const output = new Output({
+			format: new Mp4OutputFormat({
+				fastStart: 'in-memory'
+			}),
+			target: new BufferTarget(),
+		});
+
+		const conversion = await Conversion.init({
+			input: conversionInput,
+			output
+		});
+
+		if (!conversion.isValid) {
+			console.error('Conversion is not valid. Discarded tracks:', conversion.discardedTracks);
+			let reason = 'the file contains no convertible tracks.';
+			if (conversion.discardedTracks.length > 0) {
+				const firstReason = conversion.discardedTracks[0].reason;
+				if (firstReason === 'undecodable_source_codec') {
+					reason = 'its video or audio codec is not supported by this browser for conversion.';
+				} else {
+					reason = `of an internal error (${firstReason}).`;
+				}
+			}
+			throw new Error(`Could not prepare conversion because ${reason}`);
+		}
+
+		conversion.onProgress = (progress) => {
+			showStatusMessage(`Converting to MP4... (${Math.round(progress * 100)}%)`);
+		};
+
+		await conversion.execute();
+		showStatusMessage('Conversion complete. Loading video...');
+
+		const blob = new Blob([output.target.buffer], {
+			type: 'video/mp4'
+		});
+		const convertedFile = new File(
+			[blob],
+			(fileName.split('.').slice(0, -1).join('.') || 'converted') + '.mp4', {
+			type: 'video/mp4'
+		}
+		);
+
+		await loadMedia(convertedFile, true);
+
+	} catch (error) {
+		showError(`Conversion Failed: This file format appears to be incompatible with the in-browser converter. (${error.message})`);
+		console.error('Conversion error:', error);
+		showDropZoneUI();
+	} finally {
+		if (conversionInput) conversionInput.dispose();
+		hideStatusMessage();
+	}
+};
+
+const loadMedia = async (resource, isConversionAttempt = false) => {
+	showLoading(true);
+	let input;
+	try {
+		await stopAndClear();
+
+		let source;
+		let resourceName;
+
+		if (resource instanceof Blob) {
+			source = new BlobSource(resource);
+			resourceName = resource.name;
+		} else if (typeof resource === 'string') {
+			source = new UrlSource(resource);
+			resourceName = resource.split('/').pop() || 'video_from_url.mp4';
+			if (!playlist.some(item => item.file === resource)) {
+				playlist.push({
+					type: 'file',
+					name: resourceName,
+					file: resource
+				});
+			}
+		} else {
+			throw new Error('Invalid media resource provided.');
+		}
+
+		input = new Input({
+			source,
+			formats: ALL_FORMATS
+		});
+
+		videoTrack = await input.getPrimaryVideoTrack(); // Assign to global videoTrack
+		const audioTracks = await input.getAudioTracks();
+		const firstAudioTrack = audioTracks.length > 0 ? audioTracks[0] : null;
+
+		const isVideoDecodable = videoTrack ? await videoTrack.canDecode() : false;
+		const isAudioDecodable = firstAudioTrack ? await firstAudioTrack.canDecode() : false;
+
+		const isPlayable = (videoTrack && isVideoDecodable) || (!videoTrack && firstAudioTrack && isAudioDecodable);
+
+		if (!isPlayable && !isConversionAttempt) {
+			console.log("Media not directly playable, attempting conversion.");
+			await handleConversion(source, resourceName);
+			return;
+		}
+
+		if (!isPlayable && isConversionAttempt) {
+			throw new Error('Converted file is not playable. Its codecs may be unsupported by this browser.');
+		}
+
+		currentPlayingFile = resource;
+		totalDuration = await input.computeDuration();
+		playbackTimeAtStart = 0;
+
+		startTimeInput.value = formatTime(0);
+		endTimeInput.value = formatTime(totalDuration);
+
+		availableAudioTracks = audioTracks;
+		const allTracks = await input.getTracks();
+		availableSubtitleTracks = allTracks.filter(track => track.type === 'subtitle');
+
+		currentAudioTrack = availableAudioTracks.length > 0 ? availableAudioTracks[0] : null;
+		currentSubtitleTrack = null;
+
+		if (!videoTrack && !currentAudioTrack) {
+			throw new Error('No valid audio or video tracks found.');
+		}
+
+		if (!audioContext) {
+			audioContext = new (window.AudioContext || window.webkitAudioContext)();
+		}
+		if (audioContext.state === 'suspended') await audioContext.resume();
+
+		gainNode = audioContext.createGain();
+		gainNode.connect(audioContext.destination);
+		setVolume(volumeSlider.value);
+
+		if (videoTrack) {
+			const packetStats = await videoTrack.computePacketStats();
+			videoTrack.frameRate = packetStats.averagePacketRate;
+			videoSink = new CanvasSink(videoTrack, {
+				poolSize: 2
+			});
+			canvas.width = videoTrack.displayWidth || videoTrack.codedWidth || 1280;
+			canvas.height = videoTrack.displayHeight || videoTrack.codedHeight || 720;
+
+			// Resize the crop canvas as well
+			cropCanvas.width = canvas.width;
+			cropCanvas.height = canvas.height;
+		}
+
+		if (currentAudioTrack) {
+			audioSink = new AudioBufferSink(currentAudioTrack);
+		}
+
+		updateTrackMenus();
+		updatePlaylistUIOptimized();
+		fileLoaded = true;
+		showPlayerUI();
+		updateProgressBarUI(0);
+
+		await startVideoIterator();
+		await play();
+
+	} catch (error) {
+		showError(`Failed to load media: ${error.message}`);
+		console.error('Error loading media:', error);
+		if (input) input.dispose();
+		currentPlayingFile = null;
+		showDropZoneUI();
+	} finally {
+		showLoading(false);
+	}
+};
+
+const ensureSubtitleRenderer = async () => {
+	if (!SubtitleRendererConstructor) {
+		try {
+			const module = await import(MEDIABUNNY_URL);
+			SubtitleRendererConstructor = module.SubtitleRenderer;
+		} catch (e) {
+			console.error("Failed to load SubtitleRenderer module:", e);
+			showError("Failed to load subtitle support.");
+			throw e;
+		}
+	}
+	return SubtitleRendererConstructor;
+};
+
+// ============================================================================
+// AUDIO MANAGEMENT
+// ============================================================================
+
+const runAudioIterator = async () => {
+	if (!audioSink || !audioBufferIterator) return;
+	const currentAsyncId = asyncId;
+
+	try {
+		for await (const {
+			buffer,
+			timestamp
+		} of audioBufferIterator) {
+			if (currentAsyncId !== asyncId) break;
+
+			const node = audioContext.createBufferSource();
+			node.buffer = buffer;
+			node.connect(gainNode);
+			node.playbackRate.value = currentPlaybackRate;
+
+			const absolutePlayTime = audioContextStartTime + ((timestamp - playbackTimeAtStart) / currentPlaybackRate);
+
+			if (absolutePlayTime >= audioContext.currentTime) {
+				node.start(absolutePlayTime);
+			} else {
+				const offset = (audioContext.currentTime - absolutePlayTime) * currentPlaybackRate;
+				if (offset < buffer.duration) {
+					node.start(audioContext.currentTime, offset);
+				}
+			}
+
+			queuedAudioNodes.add(node);
+			node.onended = () => queuedAudioNodes.delete(node);
+
+			if (timestamp - getPlaybackTime() >= 1.5) {
+				while (playing && currentAsyncId === asyncId && (timestamp - getPlaybackTime() >= 0.5)) {
+					await new Promise(r => setTimeout(r, 100));
+				}
+			}
+		}
+	} catch (e) {
+		if (currentAsyncId === asyncId) console.error("Error during audio iteration:", e);
+	}
+};
+
+const setVolume = val => {
+	const vol = parseFloat(val);
+	if (gainNode) gainNode.gain.value = vol * vol;
+	muteBtn.textContent = vol > 0 ? '🔊' : '🔇';
+};
+
+// ============================================================================
+// TRACK MANAGEMENT (Audio & Subtitles)
+// ============================================================================
+
+const updateTrackMenus = () => {
+	const audioTrackList = $('audioTrackList');
+	audioTrackList.innerHTML = '';
+
+	availableAudioTracks.forEach((track, index) => {
+		const li = document.createElement('li');
+		li.className = `track-item ${track === currentAudioTrack ? 'active' : ''}`;
+		const langCode = track.languageCode;
+		const label = (langCode && langCode !== 'und') ? langCode : `Audio ${index + 1}`;
+		li.innerHTML = `<span>${label}</span>`;
+		li.onclick = () => switchAudioTrack(index);
+		audioTrackList.appendChild(li);
+	});
+
+	const subtitleTrackList = $('subtitleTrackList');
+	const noneOption = document.createElement('li');
+	noneOption.className = `track-item ${!currentSubtitleTrack ? 'active' : ''}`;
+	noneOption.innerHTML = `<span>Off</span>`;
+	noneOption.onclick = () => switchSubtitleTrack('none');
+	subtitleTrackList.innerHTML = '';
+	subtitleTrackList.appendChild(noneOption);
+
+	availableSubtitleTracks.forEach((track, index) => {
+		const li = document.createElement('li');
+		li.className = `track-item ${track === currentSubtitleTrack ? 'active' : ''}`;
+		const langCode = track.languageCode;
+		const label = (langCode && langCode !== 'und') ? langCode : `Subtitle ${index + 1}`;
+		li.innerHTML = `<span>${label}</span>`;
+		li.onclick = () => switchSubtitleTrack(index);
+		subtitleTrackList.appendChild(li);
+	});
+};
+
+const switchAudioTrack = async (trackIndex) => {
+	if (!availableAudioTracks[trackIndex] || availableAudioTracks[trackIndex] === currentAudioTrack) return;
+
+	showLoading(true);
+	const wasPlaying = playing;
+	if (wasPlaying) pause();
+
+	currentAudioTrack = availableAudioTracks[trackIndex];
+
+	try {
+		if (await currentAudioTrack.canDecode()) {
+			audioSink = new AudioBufferSink(currentAudioTrack);
+		} else {
+			showError("Selected audio track cannot be decoded.");
+			audioSink = null;
+		}
+	} catch (e) {
+		console.error("Error switching audio track:", e);
+		audioSink = null;
+	}
+
+	updateTrackMenus();
+	hideTrackMenus();
+	showLoading(false);
+
+	if (wasPlaying && playbackTimeAtStart < totalDuration) {
+		await play();
+	}
+};
+
+const switchSubtitleTrack = async (trackIndex) => {
+	removeSubtitleOverlay();
+
+	if (trackIndex === 'none') {
+		currentSubtitleTrack = null;
+		subtitleRenderer = null;
+	} else if (availableSubtitleTracks[trackIndex] && availableSubtitleTracks[trackIndex] !== currentSubtitleTrack) {
+		currentSubtitleTrack = availableSubtitleTracks[trackIndex];
+		try {
+			const Renderer = await ensureSubtitleRenderer();
+			subtitleRenderer = new Renderer(currentSubtitleTrack);
+		} catch (e) {
+			console.error("Error initializing subtitle renderer:", e);
+			showError("Failed to load subtitles.");
+			currentSubtitleTrack = null;
+			subtitleRenderer = null;
+		}
+	}
+
+	updateTrackMenus();
+	hideTrackMenus();
+};
+
+const removeSubtitleOverlay = () => {
+	if (subtitleOverlayElement) {
+		subtitleOverlayElement.textContent = '';
+		subtitleOverlayElement.style.display = 'none';
+	}
+	lastSubtitleText = null;
+};
+
+const updateSubtitlesOptimized = (currentTime) => {
+	if (!subtitleRenderer) {
+		if (subtitleOverlayElement && subtitleOverlayElement.style.display !== 'none') {
+			removeSubtitleOverlay();
+		}
+		return;
+	}
+
+	try {
+		const subtitle = subtitleRenderer.getSubtitleAt(currentTime);
+		const newText = subtitle?.text || '';
+
+		// Only update DOM if text changed
+		if (newText !== lastSubtitleText) {
+			if (!newText) {
+				removeSubtitleOverlay();
+			} else {
+				if (!subtitleOverlayElement) {
+					subtitleOverlayElement = document.createElement('div');
+					subtitleOverlayElement.className = 'subtitle-overlay';
+					videoContainer.appendChild(subtitleOverlayElement);
+				}
+				subtitleOverlayElement.textContent = newText;
+				subtitleOverlayElement.style.display = 'block';
+			}
+			lastSubtitleText = newText;
+		}
+	} catch (e) {
+		console.error("Error rendering subtitle:", e);
+	}
+};
+
+const hideTrackMenus = () => {
+	$('audioTrackMenu').classList.add('hidden');
+	$('subtitleTrackMenu').classList.add('hidden');
+	$('settingsMenu').classList.add('hidden');
+};
+
+// ============================================================================
+// PLAYLIST MANAGEMENT
+// ============================================================================
+
+const handleFiles = (files) => {
+	if (files.length === 0) return;
+
+	const validFiles = Array.from(files).filter(file =>
+		file.type.startsWith('video/') ||
+		file.type.startsWith('audio/') ||
+		file.name.match(/\.(mp4|webm|mkv|mov|mp3|wav|aac|flac|ogg|avi|flv|wmv)$/i)
+	);
+
+	if (validFiles.length === 0) {
+		showError("No supported media files found.");
+		return;
+	}
+
+	const fileEntries = validFiles.map(file => ({
+		file,
+		path: file.name
+	}));
+	const newTree = buildTreeFromPaths(fileEntries);
+	playlist = mergeTrees(playlist, newTree);
+	updatePlaylistUIOptimized();
+
+	if (!fileLoaded && fileEntries.length > 0) {
+		loadMedia(fileEntries[0].file);
+	}
+};
+
+const handleFolderSelection = (event) => {
+	const files = event.target.files;
+	if (!files.length) return;
+	showLoading(true);
+
+	const fileEntries = Array.from(files)
+		.filter(file =>
+			file.type.startsWith('video/') ||
+			file.type.startsWith('audio/') ||
+			file.name.match(/\.(mp4|webm|mkv|mov|mp3|wav|aac|flac|ogg|avi|flv|wmv)$/i)
+		)
+		.map(file => ({
+			file,
+			path: file.webkitRelativePath || file.name
+		}));
+
+	if (fileEntries.length > 0) {
+		const newTree = buildTreeFromPaths(fileEntries);
+		playlist = mergeTrees(playlist, newTree);
+		updatePlaylistUIOptimized();
+		if (!fileLoaded) loadMedia(fileEntries[0].file);
+	} else {
+		showError("No supported media files found in directory.");
+	}
+	showLoading(false);
+	event.target.value = '';
+};
+
+const buildTreeFromPaths = (files) => {
+	const tree = [];
+	files.forEach(fileInfo => {
+		const pathParts = fileInfo.path.split('/').filter(Boolean);
+		let currentLevel = tree;
+
+		pathParts.forEach((part, i) => {
+			if (i === pathParts.length - 1) {
+				if (!currentLevel.some(item => item.type === 'file' && item.name === part)) {
+					currentLevel.push({
+						type: 'file',
+						name: part,
+						file: fileInfo.file
+					});
+				}
+			} else {
+				let existingNode = currentLevel.find(item => item.type === 'folder' && item.name === part);
+				if (!existingNode) {
+					existingNode = {
+						type: 'folder',
+						name: part,
+						children: []
+					};
+					currentLevel.push(existingNode);
+				}
+				currentLevel = existingNode.children;
+			}
+		});
+	});
+	return tree;
+};
+
+const mergeTrees = (mainTree, newTree) => {
+	newTree.forEach(newItem => {
+		const existingItem = mainTree.find(item => item.name === newItem.name && item.type === newItem.type);
+		if (existingItem && existingItem.type === 'folder') {
+			existingItem.children = mergeTrees(existingItem.children, newItem.children);
+		} else if (!existingItem) {
+			mainTree.push(newItem);
+		}
+	});
+	return mainTree;
+};
+
+const findFileByPath = (nodes, path) => {
+	const pathParts = path.split('/').filter(Boolean);
+	if (pathParts.length === 0) return null;
+
+	const itemName = pathParts[0];
+	const node = nodes.find(n => n.name === itemName);
+
+	if (!node) return null;
+	if (pathParts.length === 1 && node.type === 'file') return node.file;
+	if (node.type === 'folder' && pathParts.length > 1) {
+		return findFileByPath(node.children, pathParts.slice(1).join('/'));
+	}
+	return null;
+};
+
+const removeItemFromPath = (nodes, path) => {
+	const pathParts = path.split('/').filter(Boolean);
+	if (pathParts.length === 0) return;
+
+	const itemName = pathParts[0];
+	for (let i = 0; i < nodes.length; i++) {
+		if (nodes[i].name === itemName) {
+			if (pathParts.length === 1) {
+				nodes.splice(i, 1);
+				return true;
+			} else if (nodes[i].type === 'folder') {
+				const removed = removeItemFromPath(nodes[i].children, pathParts.slice(1).join('/'));
+				if (removed && nodes[i].children.length === 0) {
+					nodes.splice(i, 1);
+				}
+				return removed;
+			}
+		}
+	}
+	return false;
+};
+
+const clearPlaylist = () => {
+	stopAndClear();
+	playlist = [];
+	playlistElementCache.clear();
+	lastRenderedPlaylist = null;
+	updatePlaylistUIOptimized();
+};
+
+const createPlaylistElement = (node, currentPath = '') => {
+	const safeName = escapeHTML(node.name);
+	const nodePath = currentPath ? `${currentPath}/${node.name}` : node.name;
+	const safePath = escapeHTML(nodePath);
+
+	if (node.type === 'folder') {
+		const li = document.createElement('li');
+		li.className = 'playlist-folder';
+		li.dataset.path = safePath;
+
+		const details = document.createElement('details');
+		details.open = true;
+
+		const summary = document.createElement('summary');
+		const folderName = document.createElement('span');
+		folderName.className = 'playlist-folder-name';
+		folderName.title = safeName;
+		folderName.textContent = safeName;
+
+		const removeBtn = document.createElement('span');
+		removeBtn.className = 'remove-item';
+		removeBtn.dataset.path = safePath;
+		removeBtn.textContent = '×';
+
+		summary.appendChild(folderName);
+		summary.appendChild(removeBtn);
+		details.appendChild(summary);
+
+		const ul = document.createElement('ul');
+		ul.className = 'playlist-tree';
+		node.children.forEach(child => {
+			ul.appendChild(createPlaylistElement(child, nodePath));
+		});
+		details.appendChild(ul);
+		li.appendChild(details);
+
+		return li;
+	} else {
+		const li = document.createElement('li');
+		const isActive = (currentPlayingFile === node.file);
+		li.className = `playlist-file ${node.isCutClip ? 'cut-clip' : ''} ${isActive ? 'active' : ''}`;
+		li.dataset.path = safePath;
+		li.title = safeName;
+
+		const fileName = document.createElement('span');
+		fileName.className = 'playlist-file-name';
+		fileName.title = safeName;
+		fileName.textContent = safeName;
+		li.appendChild(fileName);
+
+		if (node.isCutClip) {
+			const clipActions = document.createElement('div');
+			clipActions.className = 'clip-actions';
+
+			const downloadBtn = document.createElement('button');
+			downloadBtn.className = 'clip-action-btn';
+			downloadBtn.dataset.action = 'download';
+			downloadBtn.dataset.path = safePath;
+			downloadBtn.textContent = '📥';
+
+			const copyBtn = document.createElement('button');
+			copyBtn.className = 'clip-action-btn';
+			copyBtn.dataset.action = 'copy';
+			copyBtn.dataset.path = safePath;
+			copyBtn.textContent = '📋';
+
+			clipActions.appendChild(downloadBtn);
+			clipActions.appendChild(copyBtn);
+			li.appendChild(clipActions);
+		}
+
+		const removeBtn = document.createElement('span');
+		removeBtn.className = 'remove-item';
+		removeBtn.dataset.path = safePath;
+		removeBtn.textContent = '×';
+		li.appendChild(removeBtn);
+
+		return li;
+	}
+};
+
+const updatePlaylistUIOptimized = () => {
+	if (playlist.length === 0) {
+		playlistContent.innerHTML = '<p style="padding:1rem; opacity:0.7; text-align:center;">No files.</p>';
+		playlistElementCache.clear();
+		lastRenderedPlaylist = null;
+		showDropZoneUI();
+		return;
+	}
+
+	// Check if we need a full rebuild
+	const playlistChanged = JSON.stringify(playlist) !== lastRenderedPlaylist;
+
+	if (!playlistChanged) {
+		// Just update active states
+		updateActiveStates();
+		return;
+	}
+
+	// Full rebuild needed
+	const fragment = document.createDocumentFragment();
+	const ul = document.createElement('ul');
+	ul.className = 'playlist-tree';
+
+	playlist.forEach(node => {
+		ul.appendChild(createPlaylistElement(node));
+	});
+
+	fragment.appendChild(ul);
+	playlistContent.innerHTML = '';
+	playlistContent.appendChild(fragment);
+
+	lastRenderedPlaylist = JSON.stringify(playlist);
+};
+
+const updateActiveStates = () => {
+	const allFiles = playlistContent.querySelectorAll('.playlist-file');
+	allFiles.forEach(fileEl => {
+		const path = fileEl.dataset.path;
+		const file = findFileByPath(playlist, path);
+		const isActive = (file === currentPlayingFile);
+		fileEl.classList.toggle('active', isActive);
+	});
+};
+
+// ============================================================================
+// PLAYBACK CONTROLS
+// ============================================================================
+
+const playNext = () => {
+	if (!currentPlayingFile || playlist.length <= 1) return;
+
+	const flatten = (nodes) => {
+		let flat = [];
+		nodes.forEach(node => {
+			if (node.type === 'file') flat.push(node);
+			if (node.type === 'folder') flat = flat.concat(flatten(node.children));
+		});
+		return flat;
+	};
+
+	const flatList = flatten(playlist);
+	const currentIndex = flatList.findIndex(item => item.file === currentPlayingFile);
+
+	if (currentIndex !== -1 && currentIndex < flatList.length - 1) {
+		loadMedia(flatList[currentIndex + 1].file);
+	}
+};
+
+const playPrevious = () => {
+	if (!currentPlayingFile || playlist.length <= 1) return;
+
+	const flatten = (nodes) => {
+		let flat = [];
+		nodes.forEach(node => {
+			if (node.type === 'file') flat.push(node);
+			if (node.type === 'folder') flat = flat.concat(flatten(node.children));
+		});
+		return flat;
+	};
+
+	const flatList = flatten(playlist);
+	const currentIndex = flatList.findIndex(item => item.file === currentPlayingFile);
+
+	if (currentIndex > 0) {
+		loadMedia(flatList[currentIndex - 1].file);
+	} else {
+		// Loop back to the last track
+		loadMedia(flatList[flatList.length - 1].file);
+	}
+};
+
 const toggleLoop = () => {
 	loopBtn.classList.toggle('hover_highlight');
 	if (isLooping) {
@@ -489,7 +1125,266 @@ const toggleLoop = () => {
 	}
 };
 
-// Helper function to get the interpolated crop rectangle for a specific timestamp
+// ============================================================================
+// UI STATE MANAGEMENT
+// ============================================================================
+
+const showPlayerUI = () => {
+	dropZone.style.display = 'none';
+	videoContainer.style.display = 'block';
+};
+
+const showDropZoneUI = () => {
+	dropZone.style.display = 'flex';
+	videoContainer.style.display = 'none';
+	updateProgressBarUI(0);
+	totalDuration = 0;
+};
+
+const showLoading = show => loading.classList.toggle('hidden', !show);
+
+const showError = msg => {
+	showMessage.innerHTML = "";
+	showMessage.className = "showMessage error-message"
+
+	const el = document.createElement('div');
+	el.textContent = msg;
+	showMessage.appendChild(el);
+	setTimeout(() => {
+		showMessage.innerHTML = ""
+		showMessage.className = "showMessage hidden"
+	}, 4000);
+};
+
+const showInfo = msg => {
+	showMessage.innerHTML = "";
+	showMessage.className = "showMessage"
+
+	const el = document.createElement('div');
+	el.textContent = msg;
+	showMessage.appendChild(el);
+	setTimeout(() => {
+		showMessage.innerHTML = ""
+		showMessage.className = "showMessage hidden"
+	}, 4000);
+};
+
+const showStatusMessage = (msg) => {
+	const statusEl = $('statusMessage');
+	if (statusEl) {
+		statusEl.textContent = msg;
+		statusEl.style.display = 'block';
+	}
+	showLoading(true);
+};
+
+const hideStatusMessage = () => {
+	const statusEl = $('statusMessage');
+	if (statusEl) {
+		statusEl.textContent = '';
+		statusEl.style.display = 'none';
+	}
+	showLoading(false);
+};
+
+const showControlsTemporarily = () => {
+	clearTimeout(hideControlsTimeout);
+	videoControls.classList.add('show');
+	videoContainer.classList.remove('hide-cursor');
+
+	if (playing) {
+		hideControlsTimeout = setTimeout(() => {
+			if (playing && !isSeeking && !videoControls.matches(':hover') && !document.querySelector('.control-group:hover')) {
+				videoControls.classList.remove('show');
+				videoContainer.classList.add('hide-cursor');
+				hideTrackMenus();
+			}
+		}, 3000);
+	}
+};
+
+const updateProgressBarUI = (time) => {
+	const displayTime = Math.max(0, Math.min(time, totalDuration));
+	timeDisplay.textContent = `${formatTime(displayTime)} / ${formatTime(totalDuration)}`;
+	const percent = totalDuration > 0 ? (displayTime / totalDuration) * 100 : 0;
+	progressBar.style.width = `${percent}%`;
+	progressHandle.style.left = `${percent}%`;
+
+	if (playing) updateTimeInputs(time);
+};
+
+const updateTimeInputs = (time) => {
+	const currentFocused = document.activeElement;
+	if (currentFocused !== startTimeInput && currentFocused !== endTimeInput) {
+		// Optionally update inputs here if needed
+	}
+};
+
+// ============================================================================
+// STATIC CROP FUNCTIONALITY
+// ============================================================================
+
+const toggleStaticCrop = (e, reset = false) => {
+	isCropping = !reset && !isCropping;
+	isPanning = false; // Ensure panning is off
+
+	panScanBtn.textContent = 'Dynamic ✂️';
+	cropBtn.textContent = isCropping ? 'Cropping...' : '✂️';
+
+	cropCanvas.classList.toggle('hidden', !isCropping);
+	panScanBtn.classList.toggle('hover_highlight', isPanning);
+	cropBtn.classList.toggle('hover_highlight');
+	if (reset) cropBtn.classList.remove('hover_highlight');
+
+	if (isCropping) {
+		// Position the crop canvas when entering crop mode
+		cropCanvasDimensions = positionCropCanvas();
+		isCropFixed = false; // Reset fixed state
+		updateFixSizeButton();
+	} else {
+		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+		cropRect = null;
+		cropCanvasDimensions = null;
+		isCropFixed = false;
+		updateFixSizeButton();
+	}
+};
+
+const positionCropCanvas = () => {
+	if (!canvas.width || !canvas.height) {
+		console.warn('Video dimensions not available yet');
+		return null;
+	}
+
+	const container = videoContainer;
+	const containerRect = container.getBoundingClientRect();
+
+	// Get video dimensions
+	const videoWidth = canvas.width;
+	const videoHeight = canvas.height;
+
+	// Calculate aspect ratios
+	const videoAspect = videoWidth / videoHeight;
+	const containerAspect = containerRect.width / containerRect.height;
+
+	let renderWidth, renderHeight, offsetX, offsetY;
+
+	// Calculate actual rendered video dimensions (object-fit: contain behavior)
+	if (containerAspect > videoAspect) {
+		// Container is wider - video is constrained by height
+		renderHeight = containerRect.height;
+		renderWidth = renderHeight * videoAspect;
+		offsetX = (containerRect.width - renderWidth) / 2;
+		offsetY = 0;
+	} else {
+		// Container is taller - video is constrained by width
+		renderWidth = containerRect.width;
+		renderHeight = renderWidth / videoAspect;
+		offsetX = 0;
+		offsetY = (containerRect.height - renderHeight) / 2;
+	}
+
+	// Position and size the crop canvas to match the video
+	cropCanvas.style.left = `${offsetX}px`;
+	cropCanvas.style.top = `${offsetY}px`;
+	cropCanvas.style.width = `${renderWidth}px`;
+	cropCanvas.style.height = `${renderHeight}px`;
+
+	// Keep the canvas internal resolution at video resolution for accuracy
+	// (We already set cropCanvas.width/height to match canvas.width/height elsewhere)
+
+	return {
+		renderWidth,
+		renderHeight,
+		offsetX,
+		offsetY,
+		videoWidth,
+		videoHeight,
+		scaleX: videoWidth / renderWidth,
+		scaleY: videoHeight / renderHeight
+	};
+};
+
+const getScaledCoordinates = (e) => {
+	const rect = cropCanvas.getBoundingClientRect();
+
+	// Get canvas internal resolution
+	const canvasWidth = cropCanvas.width;
+	const canvasHeight = cropCanvas.height;
+
+	// Get displayed size
+	const displayWidth = rect.width;
+	const displayHeight = rect.height;
+
+	// Calculate scale factors
+	const scaleX = canvasWidth / displayWidth;
+	const scaleY = canvasHeight / displayHeight;
+
+	// Calculate mouse position relative to canvas
+	const x = (e.clientX - rect.left) * scaleX;
+	const y = (e.clientY - rect.top) * scaleY;
+
+	return { x, y };
+};
+
+const drawCropOverlay = () => {
+	// Clear the previous frame
+	cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+
+	// Calculate dimensions, ensuring width and height are not negative
+	const x = Math.min(cropStart.x, cropEnd.x);
+	const y = Math.min(cropStart.y, cropEnd.y);
+	const width = Math.abs(cropStart.x - cropEnd.x);
+	const height = Math.abs(cropStart.y - cropEnd.y);
+
+	if (width > 0 || height > 0) {
+		// Draw the semi-transparent shade over the entire canvas
+		cropCtx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+		cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
+
+		// "Punch a hole" in the shade where the crop area is
+		cropCtx.clearRect(x, y, width, height);
+
+		// Add a light border around the clear area for better visibility
+		cropCtx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+		cropCtx.lineWidth = 1;
+		cropCtx.strokeRect(x, y, width, height);
+	}
+};
+
+// ============================================================================
+// DYNAMIC CROP (Pan/Scan) FUNCTIONALITY
+// ============================================================================
+
+const togglePanning = (e, reset = false) => {
+	isPanning = !reset && !isPanning;
+	isCropping = false; // Ensure static cropping is off
+
+	cropBtn.textContent = '✂️';
+	panScanBtn.textContent = isPanning ? 'Cropping...' : 'Dynamic ✂️';
+
+	cropCanvas.classList.toggle('hidden', !isPanning);
+	cropBtn.classList.toggle('hover_highlight', isCropping);
+	panScanBtn.classList.toggle('hover_highlight');
+	if (reset) panScanBtn.classList.remove('hover_highlight');
+
+	panKeyframes = [];
+	panRectSize = null;
+
+	if (isPanning) {
+		// Position the crop canvas when entering panning mode
+		cropCanvasDimensions = positionCropCanvas();
+		isCropFixed = false; // Reset fixed state
+		updateFixSizeButton();
+		guidedPanleInfo("Click and drag on the video to draw your crop area.");
+	} else {
+		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+		cropCanvasDimensions = null;
+		isCropFixed = false;
+		updateFixSizeButton();
+	}
+};
+
 const getInterpolatedCropRect = (timestamp) => {
 	if (!panKeyframes || panKeyframes.length === 0) return null;
 
@@ -529,7 +1424,6 @@ const getInterpolatedCropRect = (timestamp) => {
 	return clampedRect;
 };
 
-// NEW HELPER FUNCTION: Clamp rectangle to video dimensions
 const clampRectToVideoBounds = (rect) => {
 	if (!canvas.width || !canvas.height) return rect;
 
@@ -550,8 +1444,287 @@ const clampRectToVideoBounds = (rect) => {
 
 	return { x, y, width, height };
 };
-// --- Replace your entire handleCutAction function with this final version ---
 
+const smoothPathWithMovingAverage = (keyframes, windowSize = 15) => {
+	if (keyframes.length < windowSize) {
+		return keyframes; // Not enough data to smooth
+	}
+
+	const smoothedKeyframes = [];
+	const halfWindow = Math.floor(windowSize / 2);
+
+	for (let i = 0; i < keyframes.length; i++) {
+		// Define the bounds for the moving window, clamping at the edges
+		const start = Math.max(0, i - halfWindow);
+		const end = Math.min(keyframes.length - 1, i + halfWindow);
+
+		let sumX = 0, sumY = 0, sumWidth = 0, sumHeight = 0;
+
+		// Sum the properties of the keyframes within the window
+		for (let j = start; j <= end; j++) {
+			sumX += keyframes[j].rect.x;
+			sumY += keyframes[j].rect.y;
+			sumWidth += keyframes[j].rect.width;
+			sumHeight += keyframes[j].rect.height;
+		}
+
+		const count = (end - start) + 1;
+
+		// Create the new smoothed keyframe
+		const newKeyframe = {
+			timestamp: keyframes[i].timestamp, // Keep original timestamp
+			rect: {
+				x: sumX / count,
+				y: sumY / count,
+				width: sumWidth / count,
+				height: sumHeight / count,
+			}
+		};
+
+		smoothedKeyframes.push(newKeyframe);
+	}
+
+	return smoothedKeyframes;
+};
+
+// ============================================================================
+// CROP MANIPULATION (Resize/Move/Draw)
+// ============================================================================
+
+const drawCropWithHandles = (rect) => {
+	if (!rect || rect.width <= 0 || rect.height <= 0) return;
+
+	cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+
+	// Draw semi-transparent overlay
+	const overlayColor = isPanning ? 'rgba(0, 50, 100, 0.6)' : 'rgba(0, 0, 0, 0.6)';
+	cropCtx.fillStyle = overlayColor;
+	cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
+
+	// Clear the crop area
+	cropCtx.clearRect(rect.x, rect.y, rect.width, rect.height);
+
+	// Draw border
+	const borderColor = isPanning ? 'rgba(50, 150, 255, 0.9)' : 'rgba(255, 255, 255, 0.8)';
+	cropCtx.strokeStyle = borderColor;
+	cropCtx.lineWidth = 2;
+	cropCtx.strokeRect(rect.x, rect.y, rect.width, rect.height);
+
+	// Draw resize handles if crop is not fixed
+	if (!isCropFixed) {
+		guidedPanleInfo("Adjust the rectangle to your desired size. When ready, press 'L' to lock the size and begin recording.")
+		cropCtx.fillStyle = '#00ffff';
+		cropCtx.strokeStyle = '#ffffff';
+		cropCtx.lineWidth = 1;
+
+		// Corner handles
+		const corners = [
+			{ x: rect.x, y: rect.y, cursor: 'nw' },
+			{ x: rect.x + rect.width, y: rect.y, cursor: 'ne' },
+			{ x: rect.x, y: rect.y + rect.height, cursor: 'sw' },
+			{ x: rect.x + rect.width, y: rect.y + rect.height, cursor: 'se' }
+		];
+
+		corners.forEach(corner => {
+			cropCtx.fillRect(
+				corner.x - HANDLE_HALF,
+				corner.y - HANDLE_HALF,
+				HANDLE_SIZE,
+				HANDLE_SIZE
+			);
+			cropCtx.strokeRect(
+				corner.x - HANDLE_HALF,
+				corner.y - HANDLE_HALF,
+				HANDLE_SIZE,
+				HANDLE_SIZE
+			);
+		});
+
+		// Edge handles
+		const edges = [
+			{ x: rect.x + rect.width / 2, y: rect.y, cursor: 'n' }, // top
+			{ x: rect.x + rect.width / 2, y: rect.y + rect.height, cursor: 's' }, // bottom
+			{ x: rect.x, y: rect.y + rect.height / 2, cursor: 'w' }, // left
+			{ x: rect.x + rect.width, y: rect.y + rect.height / 2, cursor: 'e' } // right
+		];
+
+		edges.forEach(edge => {
+			cropCtx.fillRect(
+				edge.x - HANDLE_HALF,
+				edge.y - HANDLE_HALF,
+				HANDLE_SIZE,
+				HANDLE_SIZE
+			);
+			cropCtx.strokeRect(
+				edge.x - HANDLE_HALF,
+				edge.y - HANDLE_HALF,
+				HANDLE_SIZE,
+				HANDLE_SIZE
+			);
+		});
+	}
+};
+
+const getResizeHandle = (x, y, rect) => {
+	if (!rect || isCropFixed) return null;
+
+	const handles = [
+		{ name: 'nw', x: rect.x, y: rect.y },
+		{ name: 'ne', x: rect.x + rect.width, y: rect.y },
+		{ name: 'sw', x: rect.x, y: rect.y + rect.height },
+		{ name: 'se', x: rect.x + rect.width, y: rect.y + rect.height },
+		{ name: 'n', x: rect.x + rect.width / 2, y: rect.y },
+		{ name: 's', x: rect.x + rect.width / 2, y: rect.y + rect.height },
+		{ name: 'w', x: rect.x, y: rect.y + rect.height / 2 },
+		{ name: 'e', x: rect.x + rect.width, y: rect.y + rect.height / 2 }
+	];
+
+	for (const handle of handles) {
+		const dist = Math.sqrt(
+			Math.pow(x - handle.x, 2) + Math.pow(y - handle.y, 2)
+		);
+		if (dist <= HANDLE_SIZE) {
+			return handle.name;
+		}
+	}
+
+	return null;
+};
+
+const isInsideCropRect = (x, y, rect) => {
+	if (!rect) return false;
+	return x >= rect.x && x <= rect.x + rect.width &&
+		y >= rect.y && y <= rect.y + rect.height;
+};
+
+const getCursorForHandle = (handle) => {
+	const cursors = {
+		'nw': 'nw-resize',
+		'ne': 'ne-resize',
+		'sw': 'sw-resize',
+		'se': 'se-resize',
+		'n': 'n-resize',
+		's': 's-resize',
+		'w': 'w-resize',
+		'e': 'e-resize',
+		'move': 'move'
+	};
+	return cursors[handle] || 'crosshair';
+};
+
+const applyResize = (handle, deltaX, deltaY, originalRect) => {
+	let newRect = { ...originalRect };
+
+	switch (handle) {
+		case 'nw':
+			newRect.x = originalRect.x + deltaX;
+			newRect.y = originalRect.y + deltaY;
+			newRect.width = originalRect.width - deltaX;
+			newRect.height = originalRect.height - deltaY;
+			break;
+		case 'ne':
+			newRect.y = originalRect.y + deltaY;
+			newRect.width = originalRect.width + deltaX;
+			newRect.height = originalRect.height - deltaY;
+			break;
+		case 'sw':
+			newRect.x = originalRect.x + deltaX;
+			newRect.width = originalRect.width - deltaX;
+			newRect.height = originalRect.height + deltaY;
+			break;
+		case 'se':
+			newRect.width = originalRect.width + deltaX;
+			newRect.height = originalRect.height + deltaY;
+			break;
+		case 'n':
+			newRect.y = originalRect.y + deltaY;
+			newRect.height = originalRect.height - deltaY;
+			break;
+		case 's':
+			newRect.height = originalRect.height + deltaY;
+			break;
+		case 'w':
+			newRect.x = originalRect.x + deltaX;
+			newRect.width = originalRect.width - deltaX;
+			break;
+		case 'e':
+			newRect.width = originalRect.width + deltaX;
+			break;
+	}
+
+	// Ensure minimum size
+	if (newRect.width < 20) {
+		newRect.width = 20;
+		if (handle.includes('w')) newRect.x = originalRect.x + originalRect.width - 20;
+	}
+	if (newRect.height < 20) {
+		newRect.height = 20;
+		if (handle.includes('n')) newRect.y = originalRect.y + originalRect.height - 20;
+	}
+
+	// Clamp to canvas bounds
+	return clampRectToVideoBounds(newRect);
+};
+
+const toggleCropFixed = () => {
+	isCropFixed = !isCropFixed;
+	updateFixSizeButton();
+
+	if (isCropFixed) {
+		// When fixing, ensure even dimensions for video processing
+		if (isCropping && cropRect) {
+			cropRect.width = Math.round(cropRect.width / 2) * 2;
+			cropRect.height = Math.round(cropRect.height / 2) * 2;
+			cropRect = clampRectToVideoBounds(cropRect);
+			drawCropWithHandles(cropRect);
+		} else if (isPanning && panRectSize) {
+			panRectSize.width = Math.round(panRectSize.width / 2) * 2;
+			panRectSize.height = Math.round(panRectSize.height / 2) * 2;
+			// Update the last keyframe with even dimensions
+			if (panKeyframes.length > 0) {
+				const lastFrame = panKeyframes[panKeyframes.length - 1];
+				lastFrame.rect.width = panRectSize.width;
+				lastFrame.rect.height = panRectSize.height;
+				lastFrame.rect = clampRectToVideoBounds(lastFrame.rect);
+			}
+		}
+		guidedPanleInfo("Size Locked! Now, play the video and move the box to record the camera path. Use SHIFT + scroll up/down to perform zooming effect. Press 'R' when you're done.");
+	} else {
+		// Redraw with handles
+		if (isCropping && cropRect) {
+			drawCropWithHandles(cropRect);
+		} else if (isPanning && panKeyframes.length > 0) {
+			const lastFrame = panKeyframes[panKeyframes.length - 1];
+			if (lastFrame) {
+				drawCropWithHandles(lastFrame.rect);
+			}
+		}
+	}
+};
+
+const updateFixSizeButton = () => {
+	const fixSizeBtn = document.getElementById('fixSizeBtn');
+	if (!fixSizeBtn) return;
+
+	const shouldShow = (isCropping || isPanning) &&
+		(cropRect || panRectSize);
+
+	if (shouldShow) {
+		fixSizeBtn.style.display = 'inline-block';
+		fixSizeBtn.textContent = isCropFixed ? 'Resize' : 'Fix Size';
+		if (isCropFixed) {
+			fixSizeBtn.classList.add('hover_highlight');
+		} else {
+			fixSizeBtn.classList.remove('hover_highlight');
+		}
+	} else {
+		fixSizeBtn.style.display = 'none';
+	}
+};
+
+// ============================================================================
+// VIDEO PROCESSING & CUTTING
+// ============================================================================
 const handleCutAction = async () => {
 	if (!fileLoaded) return;
 	if (playing) pause();
@@ -683,1257 +1856,47 @@ const handleCutAction = async () => {
 	}
 };
 
-const positionCropCanvas = () => {
-	if (!canvas.width || !canvas.height) {
-		console.warn('Video dimensions not available yet');
-		return null;
+// ============================================================================
+// SCREENSHOT FUNCTIONALITY
+// ============================================================================
+
+const takeScreenshot = () => {
+	if (!fileLoaded || !canvas) {
+		showError("Cannot take screenshot: No video loaded.");
+		return;
 	}
 
-	const container = videoContainer;
-	const containerRect = container.getBoundingClientRect();
-
-	// Get video dimensions
-	const videoWidth = canvas.width;
-	const videoHeight = canvas.height;
-
-	// Calculate aspect ratios
-	const videoAspect = videoWidth / videoHeight;
-	const containerAspect = containerRect.width / containerRect.height;
-
-	let renderWidth, renderHeight, offsetX, offsetY;
-
-	// Calculate actual rendered video dimensions (object-fit: contain behavior)
-	if (containerAspect > videoAspect) {
-		// Container is wider - video is constrained by height
-		renderHeight = containerRect.height;
-		renderWidth = renderHeight * videoAspect;
-		offsetX = (containerRect.width - renderWidth) / 2;
-		offsetY = 0;
-	} else {
-		// Container is taller - video is constrained by width
-		renderWidth = containerRect.width;
-		renderHeight = renderWidth / videoAspect;
-		offsetX = 0;
-		offsetY = (containerRect.height - renderHeight) / 2;
-	}
-
-	// Position and size the crop canvas to match the video
-	cropCanvas.style.left = `${offsetX}px`;
-	cropCanvas.style.top = `${offsetY}px`;
-	cropCanvas.style.width = `${renderWidth}px`;
-	cropCanvas.style.height = `${renderHeight}px`;
-
-	// Keep the canvas internal resolution at video resolution for accuracy
-	// (We already set cropCanvas.width/height to match canvas.width/height elsewhere)
-
-	return {
-		renderWidth,
-		renderHeight,
-		offsetX,
-		offsetY,
-		videoWidth,
-		videoHeight,
-		scaleX: videoWidth / renderWidth,
-		scaleY: videoHeight / renderHeight
-	};
-};
-
-/**
- * Stores the current crop canvas dimensions for coordinate conversion
- */
-let cropCanvasDimensions = null;
-
-const getScaledCoordinates = (e) => {
-	const rect = cropCanvas.getBoundingClientRect();
-
-	// Get canvas internal resolution
-	const canvasWidth = cropCanvas.width;
-	const canvasHeight = cropCanvas.height;
-
-	// Get displayed size
-	const displayWidth = rect.width;
-	const displayHeight = rect.height;
-
-	// Calculate scale factors
-	const scaleX = canvasWidth / displayWidth;
-	const scaleY = canvasHeight / displayHeight;
-
-	// Calculate mouse position relative to canvas
-	const x = (e.clientX - rect.left) * scaleX;
-	const y = (e.clientY - rect.top) * scaleY;
-
-	return { x, y };
-};
-
-// --- New Function: To draw the shaded overlay ---
-const drawCropOverlay = () => {
-	// Clear the previous frame
-	cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
-
-	// Calculate dimensions, ensuring width and height are not negative
-	const x = Math.min(cropStart.x, cropEnd.x);
-	const y = Math.min(cropStart.y, cropEnd.y);
-	const width = Math.abs(cropStart.x - cropEnd.x);
-	const height = Math.abs(cropStart.y - cropEnd.y);
-
-	if (width > 0 || height > 0) {
-		// Draw the semi-transparent shade over the entire canvas
-		cropCtx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-		cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
-
-		// "Punch a hole" in the shade where the crop area is
-		cropCtx.clearRect(x, y, width, height);
-
-		// Add a light border around the clear area for better visibility
-		cropCtx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-		cropCtx.lineWidth = 1;
-		cropCtx.strokeRect(x, y, width, height);
-	}
-};
-
-const stopAndClear = async () => {
-	if (playing) pause();
-	fileLoaded = false;
-	isLooping = false;
-	loopBtn.textContent = 'Loop';
-	currentPlaybackRate = 1.0;
-	playbackSpeedInput.value = '1';
-	asyncId++;
-
-	try {
-		await videoFrameIterator?.return();
-	} catch (e) { }
-	try {
-		await audioBufferIterator?.return();
-	} catch (e) { }
-
-	nextFrame = null;
-	videoSink = null;
-	audioSink = null;
-	subtitleRenderer = null;
-	videoTrack = null; // Reset video track info
-	removeSubtitleOverlay();
-
-	availableAudioTracks = [];
-	availableSubtitleTracks = [];
-	currentAudioTrack = null;
-	currentSubtitleTrack = null;
-
-	ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-	if (audioContext && audioContext.state === 'running') {
-		await audioContext.suspend();
-	}
-};
-
-const loadMedia = async (resource, isConversionAttempt = false) => {
-	showLoading(true);
-	let input;
-	try {
-		await stopAndClear();
-
-		let source;
-		let resourceName;
-
-		if (resource instanceof Blob) {
-			source = new BlobSource(resource);
-			resourceName = resource.name;
-		} else if (typeof resource === 'string') {
-			source = new UrlSource(resource);
-			resourceName = resource.split('/').pop() || 'video_from_url.mp4';
-			if (!playlist.some(item => item.file === resource)) {
-				playlist.push({
-					type: 'file',
-					name: resourceName,
-					file: resource
-				});
-			}
-		} else {
-			throw new Error('Invalid media resource provided.');
-		}
-
-		input = new Input({
-			source,
-			formats: ALL_FORMATS
-		});
-
-		videoTrack = await input.getPrimaryVideoTrack(); // Assign to global videoTrack
-		const audioTracks = await input.getAudioTracks();
-		const firstAudioTrack = audioTracks.length > 0 ? audioTracks[0] : null;
-
-		const isVideoDecodable = videoTrack ? await videoTrack.canDecode() : false;
-		const isAudioDecodable = firstAudioTrack ? await firstAudioTrack.canDecode() : false;
-
-		const isPlayable = (videoTrack && isVideoDecodable) || (!videoTrack && firstAudioTrack && isAudioDecodable);
-
-		if (!isPlayable && !isConversionAttempt) {
-			console.log("Media not directly playable, attempting conversion.");
-			await handleConversion(source, resourceName);
+	canvas.toBlob((blob) => {
+		if (!blob) {
+			showError("Failed to create screenshot.");
 			return;
 		}
 
-		if (!isPlayable && isConversionAttempt) {
-			throw new Error('Converted file is not playable. Its codecs may be unsupported by this browser.');
+		currentScreenshotBlob = blob;
+
+		if (screenshotPreviewImg.src && screenshotPreviewImg.src.startsWith('blob:')) {
+			URL.revokeObjectURL(screenshotPreviewImg.src);
 		}
 
-		currentPlayingFile = resource;
-		totalDuration = await input.computeDuration();
-		playbackTimeAtStart = 0;
-
-		startTimeInput.value = formatTime(0);
-		endTimeInput.value = formatTime(totalDuration);
-
-		availableAudioTracks = audioTracks;
-		const allTracks = await input.getTracks();
-		availableSubtitleTracks = allTracks.filter(track => track.type === 'subtitle');
-
-		currentAudioTrack = availableAudioTracks.length > 0 ? availableAudioTracks[0] : null;
-		currentSubtitleTrack = null;
-
-		if (!videoTrack && !currentAudioTrack) {
-			throw new Error('No valid audio or video tracks found.');
-		}
-
-		if (!audioContext) {
-			audioContext = new (window.AudioContext || window.webkitAudioContext)();
-		}
-		if (audioContext.state === 'suspended') await audioContext.resume();
-
-		gainNode = audioContext.createGain();
-		gainNode.connect(audioContext.destination);
-		setVolume(volumeSlider.value);
-
-		if (videoTrack) {
-			const packetStats = await videoTrack.computePacketStats();
-			videoTrack.frameRate = packetStats.averagePacketRate;
-			videoSink = new CanvasSink(videoTrack, {
-				poolSize: 2
-			});
-			canvas.width = videoTrack.displayWidth || videoTrack.codedWidth || 1280;
-			canvas.height = videoTrack.displayHeight || videoTrack.codedHeight || 720;
-
-			// Resize the crop canvas as well
-			cropCanvas.width = canvas.width;
-			cropCanvas.height = canvas.height;
-		}
-
-		if (currentAudioTrack) {
-			audioSink = new AudioBufferSink(currentAudioTrack);
-		}
-
-		updateTrackMenus();
-		updatePlaylistUIOptimized();
-		fileLoaded = true;
-		showPlayerUI();
-		updateProgressBarUI(0);
-
-		await startVideoIterator();
-		await play();
-
-	} catch (error) {
-		showError(`Failed to load media: ${error.message}`);
-		console.error('Error loading media:', error);
-		if (input) input.dispose();
-		currentPlayingFile = null;
-		showDropZoneUI();
-	} finally {
-		showLoading(false);
-	}
-};
-
-const updateTrackMenus = () => {
-	const audioTrackList = $('audioTrackList');
-	audioTrackList.innerHTML = '';
-
-	availableAudioTracks.forEach((track, index) => {
-		const li = document.createElement('li');
-		li.className = `track-item ${track === currentAudioTrack ? 'active' : ''}`;
-		const langCode = track.languageCode;
-		const label = (langCode && langCode !== 'und') ? langCode : `Audio ${index + 1}`;
-		li.innerHTML = `<span>${label}</span>`;
-		li.onclick = () => switchAudioTrack(index);
-		audioTrackList.appendChild(li);
-	});
-
-	const subtitleTrackList = $('subtitleTrackList');
-	const noneOption = document.createElement('li');
-	noneOption.className = `track-item ${!currentSubtitleTrack ? 'active' : ''}`;
-	noneOption.innerHTML = `<span>Off</span>`;
-	noneOption.onclick = () => switchSubtitleTrack('none');
-	subtitleTrackList.innerHTML = '';
-	subtitleTrackList.appendChild(noneOption);
-
-	availableSubtitleTracks.forEach((track, index) => {
-		const li = document.createElement('li');
-		li.className = `track-item ${track === currentSubtitleTrack ? 'active' : ''}`;
-		const langCode = track.languageCode;
-		const label = (langCode && langCode !== 'und') ? langCode : `Subtitle ${index + 1}`;
-		li.innerHTML = `<span>${label}</span>`;
-		li.onclick = () => switchSubtitleTrack(index);
-		subtitleTrackList.appendChild(li);
-	});
-};
-
-const switchAudioTrack = async (trackIndex) => {
-	if (!availableAudioTracks[trackIndex] || availableAudioTracks[trackIndex] === currentAudioTrack) return;
-
-	showLoading(true);
-	const wasPlaying = playing;
-	if (wasPlaying) pause();
-
-	currentAudioTrack = availableAudioTracks[trackIndex];
-
-	try {
-		if (await currentAudioTrack.canDecode()) {
-			audioSink = new AudioBufferSink(currentAudioTrack);
-		} else {
-			showError("Selected audio track cannot be decoded.");
-			audioSink = null;
-		}
-	} catch (e) {
-		console.error("Error switching audio track:", e);
-		audioSink = null;
-	}
-
-	updateTrackMenus();
-	hideTrackMenus();
-	showLoading(false);
-
-	if (wasPlaying && playbackTimeAtStart < totalDuration) {
-		await play();
-	}
-};
-
-const switchSubtitleTrack = async (trackIndex) => {
-	removeSubtitleOverlay();
-
-	if (trackIndex === 'none') {
-		currentSubtitleTrack = null;
-		subtitleRenderer = null;
-	} else if (availableSubtitleTracks[trackIndex] && availableSubtitleTracks[trackIndex] !== currentSubtitleTrack) {
-		currentSubtitleTrack = availableSubtitleTracks[trackIndex];
-		try {
-			const Renderer = await ensureSubtitleRenderer();
-			subtitleRenderer = new Renderer(currentSubtitleTrack);
-		} catch (e) {
-			console.error("Error initializing subtitle renderer:", e);
-			showError("Failed to load subtitles.");
-			currentSubtitleTrack = null;
-			subtitleRenderer = null;
-		}
-	}
-
-	updateTrackMenus();
-	hideTrackMenus();
-};
-
-const removeSubtitleOverlay = () => {
-	if (subtitleOverlayElement) {
-		subtitleOverlayElement.textContent = '';
-		subtitleOverlayElement.style.display = 'none';
-	}
-	lastSubtitleText = null;
-};
-
-// === PERFORMANCE OPTIMIZATION: Reuse subtitle overlay element ===
-const updateSubtitlesOptimized = (currentTime) => {
-	if (!subtitleRenderer) {
-		if (subtitleOverlayElement && subtitleOverlayElement.style.display !== 'none') {
-			removeSubtitleOverlay();
-		}
-		return;
-	}
-
-	try {
-		const subtitle = subtitleRenderer.getSubtitleAt(currentTime);
-		const newText = subtitle?.text || '';
-
-		// Only update DOM if text changed
-		if (newText !== lastSubtitleText) {
-			if (!newText) {
-				removeSubtitleOverlay();
-			} else {
-				if (!subtitleOverlayElement) {
-					subtitleOverlayElement = document.createElement('div');
-					subtitleOverlayElement.className = 'subtitle-overlay';
-					videoContainer.appendChild(subtitleOverlayElement);
-				}
-				subtitleOverlayElement.textContent = newText;
-				subtitleOverlayElement.style.display = 'block';
-			}
-			lastSubtitleText = newText;
-		}
-	} catch (e) {
-		console.error("Error rendering subtitle:", e);
-	}
-};
-
-const hideTrackMenus = () => {
-	$('audioTrackMenu').classList.add('hidden');
-	$('subtitleTrackMenu').classList.add('hidden');
-	$('settingsMenu').classList.add('hidden');
-};
-
-const playNext = () => {
-	if (!currentPlayingFile || playlist.length <= 1) return;
-
-	const flatten = (nodes) => {
-		let flat = [];
-		nodes.forEach(node => {
-			if (node.type === 'file') flat.push(node);
-			if (node.type === 'folder') flat = flat.concat(flatten(node.children));
-		});
-		return flat;
-	};
-
-	const flatList = flatten(playlist);
-	const currentIndex = flatList.findIndex(item => item.file === currentPlayingFile);
-
-	if (currentIndex !== -1 && currentIndex < flatList.length - 1) {
-		loadMedia(flatList[currentIndex + 1].file);
-	}
-};
-
-const playPrevious = () => {
-	if (!currentPlayingFile || playlist.length <= 1) return;
-
-	const flatten = (nodes) => {
-		let flat = [];
-		nodes.forEach(node => {
-			if (node.type === 'file') flat.push(node);
-			if (node.type === 'folder') flat = flat.concat(flatten(node.children));
-		});
-		return flat;
-	};
-
-	const flatList = flatten(playlist);
-	const currentIndex = flatList.findIndex(item => item.file === currentPlayingFile);
-
-	if (currentIndex > 0) {
-		loadMedia(flatList[currentIndex - 1].file);
-	} else {
-		// Loop back to the last track
-		loadMedia(flatList[flatList.length - 1].file);
-	}
-};
-
-const parseTime = (timeStr) => {
-	const parts = timeStr.split(':').map(Number);
-	if (parts.some(isNaN)) return NaN;
-	let seconds = 0;
-	if (parts.length === 2) {
-		seconds = parts[0] * 60 + parts[1];
-	} else if (parts.length === 1) {
-		seconds = parts[0];
-	} else {
-		return NaN;
-	}
-	return seconds;
-};
-
-const formatTime = s => {
-	if (!isFinite(s) || s < 0) return '00:00';
-	const minutes = Math.floor(s / 60);
-	const seconds = Math.floor(s % 60);
-	return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-};
-
-const showLoading = show => loading.classList.toggle('hidden', !show);
-
-const showError = msg => {
-	showMessage.innerHTML = "";
-	showMessage.className = "showMessage error-message"
-
-	const el = document.createElement('div');
-	el.textContent = msg;
-	showMessage.appendChild(el);
-	setTimeout(() => {
-		showMessage.innerHTML = ""
-		showMessage.className = "showMessage hidden"
-	}, 4000);
-};
-const showInfo = msg => {
-	showMessage.innerHTML = "";
-	showMessage.className = "showMessage"
-
-	const el = document.createElement('div');
-	el.textContent = msg;
-	showMessage.appendChild(el);
-	setTimeout(() => {
-		showMessage.innerHTML = ""
-		showMessage.className = "showMessage hidden"
-	}, 4000);
-};
-
-const showPlayerUI = () => {
-	dropZone.style.display = 'none';
-	videoContainer.style.display = 'block';
-};
-
-const showDropZoneUI = () => {
-	dropZone.style.display = 'flex';
-	videoContainer.style.display = 'none';
-	updateProgressBarUI(0);
-	totalDuration = 0;
-};
-
-const updateTimeInputs = (time) => {
-	const currentFocused = document.activeElement;
-	if (currentFocused !== startTimeInput && currentFocused !== endTimeInput) {
-		// Optionally update inputs here if needed
-	}
-};
-
-const updateProgressBarUI = (time) => {
-	const displayTime = Math.max(0, Math.min(time, totalDuration));
-	timeDisplay.textContent = `${formatTime(displayTime)} / ${formatTime(totalDuration)}`;
-	const percent = totalDuration > 0 ? (displayTime / totalDuration) * 100 : 0;
-	progressBar.style.width = `${percent}%`;
-	progressHandle.style.left = `${percent}%`;
-
-	if (playing) updateTimeInputs(time);
-};
-
-const findFileByPath = (nodes, path) => {
-	const pathParts = path.split('/').filter(Boolean);
-	if (pathParts.length === 0) return null;
-
-	const itemName = pathParts[0];
-	const node = nodes.find(n => n.name === itemName);
-
-	if (!node) return null;
-	if (pathParts.length === 1 && node.type === 'file') return node.file;
-	if (node.type === 'folder' && pathParts.length > 1) {
-		return findFileByPath(node.children, pathParts.slice(1).join('/'));
-	}
-	return null;
-};
-
-const handleFiles = (files) => {
-	if (files.length === 0) return;
-
-	const validFiles = Array.from(files).filter(file =>
-		file.type.startsWith('video/') ||
-		file.type.startsWith('audio/') ||
-		file.name.match(/\.(mp4|webm|mkv|mov|mp3|wav|aac|flac|ogg|avi|flv|wmv)$/i)
-	);
-
-	if (validFiles.length === 0) {
-		showError("No supported media files found.");
-		return;
-	}
-
-	const fileEntries = validFiles.map(file => ({
-		file,
-		path: file.name
-	}));
-	const newTree = buildTreeFromPaths(fileEntries);
-	playlist = mergeTrees(playlist, newTree);
-	updatePlaylistUIOptimized();
-
-	if (!fileLoaded && fileEntries.length > 0) {
-		loadMedia(fileEntries[0].file);
-	}
-};
-
-const handleFolderSelection = (event) => {
-	const files = event.target.files;
-	if (!files.length) return;
-	showLoading(true);
-
-	const fileEntries = Array.from(files)
-		.filter(file =>
-			file.type.startsWith('video/') ||
-			file.type.startsWith('audio/') ||
-			file.name.match(/\.(mp4|webm|mkv|mov|mp3|wav|aac|flac|ogg|avi|flv|wmv)$/i)
-		)
-		.map(file => ({
-			file,
-			path: file.webkitRelativePath || file.name
-		}));
-
-	if (fileEntries.length > 0) {
-		const newTree = buildTreeFromPaths(fileEntries);
-		playlist = mergeTrees(playlist, newTree);
-		updatePlaylistUIOptimized();
-		if (!fileLoaded) loadMedia(fileEntries[0].file);
-	} else {
-		showError("No supported media files found in directory.");
-	}
-	showLoading(false);
-	event.target.value = '';
-};
-
-const mergeTrees = (mainTree, newTree) => {
-	newTree.forEach(newItem => {
-		const existingItem = mainTree.find(item => item.name === newItem.name && item.type === newItem.type);
-		if (existingItem && existingItem.type === 'folder') {
-			existingItem.children = mergeTrees(existingItem.children, newItem.children);
-		} else if (!existingItem) {
-			mainTree.push(newItem);
-		}
-	});
-	return mainTree;
-};
-
-const removeItemFromPath = (nodes, path) => {
-	const pathParts = path.split('/').filter(Boolean);
-	if (pathParts.length === 0) return;
-
-	const itemName = pathParts[0];
-	for (let i = 0; i < nodes.length; i++) {
-		if (nodes[i].name === itemName) {
-			if (pathParts.length === 1) {
-				nodes.splice(i, 1);
-				return true;
-			} else if (nodes[i].type === 'folder') {
-				const removed = removeItemFromPath(nodes[i].children, pathParts.slice(1).join('/'));
-				if (removed && nodes[i].children.length === 0) {
-					nodes.splice(i, 1);
-				}
-				return removed;
-			}
-		}
-	}
-	return false;
-};
-
-const clearPlaylist = () => {
-	stopAndClear();
-	playlist = [];
-	playlistElementCache.clear();
-	lastRenderedPlaylist = null;
-	updatePlaylistUIOptimized();
-};
-
-const buildTreeFromPaths = (files) => {
-	const tree = [];
-	files.forEach(fileInfo => {
-		const pathParts = fileInfo.path.split('/').filter(Boolean);
-		let currentLevel = tree;
-
-		pathParts.forEach((part, i) => {
-			if (i === pathParts.length - 1) {
-				if (!currentLevel.some(item => item.type === 'file' && item.name === part)) {
-					currentLevel.push({
-						type: 'file',
-						name: part,
-						file: fileInfo.file
-					});
-				}
-			} else {
-				let existingNode = currentLevel.find(item => item.type === 'folder' && item.name === part);
-				if (!existingNode) {
-					existingNode = {
-						type: 'folder',
-						name: part,
-						children: []
-					};
-					currentLevel.push(existingNode);
-				}
-				currentLevel = existingNode.children;
-			}
-		});
-	});
-	return tree;
-};
-
-const escapeHTML = str => str.replace(/[&<>'"]/g,
-	tag => ({
-		'&': '&amp;',
-		'<': '&lt;',
-		'>': '&gt;',
-		"'": '&#39;',
-		'"': '&quot;'
-	}[tag]));
-
-// === PERFORMANCE OPTIMIZATION: Incremental DOM updates ===
-const createPlaylistElement = (node, currentPath = '') => {
-	const safeName = escapeHTML(node.name);
-	const nodePath = currentPath ? `${currentPath}/${node.name}` : node.name;
-	const safePath = escapeHTML(nodePath);
-
-	if (node.type === 'folder') {
-		const li = document.createElement('li');
-		li.className = 'playlist-folder';
-		li.dataset.path = safePath;
-
-		const details = document.createElement('details');
-		details.open = true;
-
-		const summary = document.createElement('summary');
-		const folderName = document.createElement('span');
-		folderName.className = 'playlist-folder-name';
-		folderName.title = safeName;
-		folderName.textContent = safeName;
-
-		const removeBtn = document.createElement('span');
-		removeBtn.className = 'remove-item';
-		removeBtn.dataset.path = safePath;
-		removeBtn.textContent = '×';
-
-		summary.appendChild(folderName);
-		summary.appendChild(removeBtn);
-		details.appendChild(summary);
-
-		const ul = document.createElement('ul');
-		ul.className = 'playlist-tree';
-		node.children.forEach(child => {
-			ul.appendChild(createPlaylistElement(child, nodePath));
-		});
-		details.appendChild(ul);
-		li.appendChild(details);
-
-		return li;
-	} else {
-		const li = document.createElement('li');
-		const isActive = (currentPlayingFile === node.file);
-		li.className = `playlist-file ${node.isCutClip ? 'cut-clip' : ''} ${isActive ? 'active' : ''}`;
-		li.dataset.path = safePath;
-		li.title = safeName;
-
-		const fileName = document.createElement('span');
-		fileName.className = 'playlist-file-name';
-		fileName.title = safeName;
-		fileName.textContent = safeName;
-		li.appendChild(fileName);
-
-		if (node.isCutClip) {
-			const clipActions = document.createElement('div');
-			clipActions.className = 'clip-actions';
-
-			const downloadBtn = document.createElement('button');
-			downloadBtn.className = 'clip-action-btn';
-			downloadBtn.dataset.action = 'download';
-			downloadBtn.dataset.path = safePath;
-			downloadBtn.textContent = '📥';
-
-			const copyBtn = document.createElement('button');
-			copyBtn.className = 'clip-action-btn';
-			copyBtn.dataset.action = 'copy';
-			copyBtn.dataset.path = safePath;
-			copyBtn.textContent = '📋';
-
-			clipActions.appendChild(downloadBtn);
-			clipActions.appendChild(copyBtn);
-			li.appendChild(clipActions);
-		}
-
-		const removeBtn = document.createElement('span');
-		removeBtn.className = 'remove-item';
-		removeBtn.dataset.path = safePath;
-		removeBtn.textContent = '×';
-		li.appendChild(removeBtn);
-
-		return li;
-	}
-};
-
-// === PERFORMANCE OPTIMIZATION: Smart playlist updates ===
-const updatePlaylistUIOptimized = () => {
-	if (playlist.length === 0) {
-		playlistContent.innerHTML = '<p style="padding:1rem; opacity:0.7; text-align:center;">No files.</p>';
-		playlistElementCache.clear();
-		lastRenderedPlaylist = null;
-		showDropZoneUI();
-		return;
-	}
-
-	// Check if we need a full rebuild
-	const playlistChanged = JSON.stringify(playlist) !== lastRenderedPlaylist;
-
-	if (!playlistChanged) {
-		// Just update active states
-		updateActiveStates();
-		return;
-	}
-
-	// Full rebuild needed
-	const fragment = document.createDocumentFragment();
-	const ul = document.createElement('ul');
-	ul.className = 'playlist-tree';
-
-	playlist.forEach(node => {
-		ul.appendChild(createPlaylistElement(node));
-	});
-
-	fragment.appendChild(ul);
-	playlistContent.innerHTML = '';
-	playlistContent.appendChild(fragment);
-
-	lastRenderedPlaylist = JSON.stringify(playlist);
-};
-
-// === PERFORMANCE OPTIMIZATION: Update only active states ===
-const updateActiveStates = () => {
-	const allFiles = playlistContent.querySelectorAll('.playlist-file');
-	allFiles.forEach(fileEl => {
-		const path = fileEl.dataset.path;
-		const file = findFileByPath(playlist, path);
-		const isActive = (file === currentPlayingFile);
-		fileEl.classList.toggle('active', isActive);
-	});
-};
-
-const setVolume = val => {
-	const vol = parseFloat(val);
-	if (gainNode) gainNode.gain.value = vol * vol;
-	muteBtn.textContent = vol > 0 ? '🔊' : '🔇';
-};
-
-const showControlsTemporarily = () => {
-	clearTimeout(hideControlsTimeout);
-	videoControls.classList.add('show');
-	videoContainer.classList.remove('hide-cursor');
-
-	if (playing) {
-		hideControlsTimeout = setTimeout(() => {
-			if (playing && !isSeeking && !videoControls.matches(':hover') && !document.querySelector('.control-group:hover')) {
-				videoControls.classList.remove('show');
-				videoContainer.classList.add('hide-cursor');
-				hideTrackMenus();
-			}
-		}, 3000);
-	}
-};
-
-const setPlaybackSpeed = (newSpeed) => {
-	if (!playing) {
-		currentPlaybackRate = newSpeed;
-		return;
-	}
-
-	if (newSpeed === currentPlaybackRate) {
-		return;
-	}
-
-	const currentTime = getPlaybackTime();
-
-	asyncId++;
-	audioBufferIterator?.return().catch(() => { });
-	queuedAudioNodes.forEach(node => {
-		try {
-			node.stop();
-		} catch (e) { }
-	});
-	queuedAudioNodes.clear();
-
-	currentPlaybackRate = newSpeed;
-
-	playbackTimeAtStart = currentTime;
-	audioContextStartTime = audioContext.currentTime;
-
-	if (audioSink) {
-		audioBufferIterator = audioSink.buffers(currentTime);
-		runAudioIterator();
-	}
-
-	startVideoIterator();
-};
-
-const updateShortcutKeysVisibility = () => {
-	const panel = $('shortcutKeysPanel');
-	panel.classList.toggle('hidden');
-};
-
-// Function to enter/exit Static Cropping mode
-const toggleStaticCrop = (e, reset = false) => {
-	isCropping = !reset && !isCropping;
-	isPanning = false; // Ensure panning is off
-
-	panScanBtn.textContent = 'Dynamic ✂️';
-	cropBtn.textContent = isCropping ? 'Cropping...' : '✂️';
-
-	cropCanvas.classList.toggle('hidden', !isCropping);
-	panScanBtn.classList.toggle('hover_highlight', isPanning);
-	cropBtn.classList.toggle('hover_highlight');
-	if (reset) cropBtn.classList.remove('hover_highlight');
-
-	if (isCropping) {
-		// Position the crop canvas when entering crop mode
-		cropCanvasDimensions = positionCropCanvas();
-		isCropFixed = false; // Reset fixed state
-		updateFixSizeButton();
-	} else {
-		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
-		cropRect = null;
-		cropCanvasDimensions = null;
-		isCropFixed = false;
-		updateFixSizeButton();
-	}
-};
-
-// Function to enter/exit Dynamic Pan/Crop mode
-const togglePanning = (e, reset = false) => {
-	isPanning = !reset && !isPanning;
-	isCropping = false; // Ensure static cropping is off
-
-	cropBtn.textContent = '✂️';
-	panScanBtn.textContent = isPanning ? 'Cropping...' : 'Dynamic ✂️';
-
-	cropCanvas.classList.toggle('hidden', !isPanning);
-	cropBtn.classList.toggle('hover_highlight', isCropping);
-	panScanBtn.classList.toggle('hover_highlight');
-	if (reset) panScanBtn.classList.remove('hover_highlight');
-
-	panKeyframes = [];
-	panRectSize = null;
-
-	if (isPanning) {
-		// Position the crop canvas when entering panning mode
-		cropCanvasDimensions = positionCropCanvas();
-		isCropFixed = false; // Reset fixed state
-		updateFixSizeButton();
-		guidedPanleInfo("Click and drag on the video to draw your crop area.");
-	} else {
-		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
-		cropCanvasDimensions = null;
-		isCropFixed = false;
-		updateFixSizeButton();
-	}
-};
-
-const guidedPanleInfo = (info) => {
-	const guide_panel = document.getElementById('guide_panel');
-	const guide_info = document.getElementById('guide_info');
-	if (info) {
-		guide_panel.classList.remove('hidden');
-		guide_info.innerText = info
-	} else {
-		guide_panel.classList.add('hidden');
-		guide_info.innerText = info
-	}
-}
-
-// ============================================================================
-// ADD NEW VARIABLES for crop resize/move functionality
-// ============================================================================
-
-let isCropFixed = false; // Is the crop size locked?
-let isDraggingCrop = false; // Are we moving the crop?
-let isResizingCrop = false; // Are we resizing the crop?
-let resizeHandle = null; // Which corner/edge is being resized
-let dragStartPos = { x: 0, y: 0 }; // Starting position for drag
-let originalCropRect = null; // Original crop rect before drag/resize
-
-// Resize handle size in pixels
-const HANDLE_SIZE = 12;
-const HANDLE_HALF = HANDLE_SIZE / 2;
-
-// ============================================================================
-// NEW FUNCTION: Draw crop rectangle with resize handles
-// ============================================================================
-
-const drawCropWithHandles = (rect) => {
-	if (!rect || rect.width <= 0 || rect.height <= 0) return;
-
-	cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
-
-	// Draw semi-transparent overlay
-	const overlayColor = isPanning ? 'rgba(0, 50, 100, 0.6)' : 'rgba(0, 0, 0, 0.6)';
-	cropCtx.fillStyle = overlayColor;
-	cropCtx.fillRect(0, 0, cropCanvas.width, cropCanvas.height);
-
-	// Clear the crop area
-	cropCtx.clearRect(rect.x, rect.y, rect.width, rect.height);
-
-	// Draw border
-	const borderColor = isPanning ? 'rgba(50, 150, 255, 0.9)' : 'rgba(255, 255, 255, 0.8)';
-	cropCtx.strokeStyle = borderColor;
-	cropCtx.lineWidth = 2;
-	cropCtx.strokeRect(rect.x, rect.y, rect.width, rect.height);
-
-	// Draw resize handles if crop is not fixed
-	if (!isCropFixed) {
-		guidedPanleInfo("Adjust the rectangle to your desired size. When ready, press 'L' to lock the size and begin recording.")
-		cropCtx.fillStyle = '#00ffff';
-		cropCtx.strokeStyle = '#ffffff';
-		cropCtx.lineWidth = 1;
-
-		// Corner handles
-		const corners = [
-			{ x: rect.x, y: rect.y, cursor: 'nw' },
-			{ x: rect.x + rect.width, y: rect.y, cursor: 'ne' },
-			{ x: rect.x, y: rect.y + rect.height, cursor: 'sw' },
-			{ x: rect.x + rect.width, y: rect.y + rect.height, cursor: 'se' }
-		];
-
-		corners.forEach(corner => {
-			cropCtx.fillRect(
-				corner.x - HANDLE_HALF,
-				corner.y - HANDLE_HALF,
-				HANDLE_SIZE,
-				HANDLE_SIZE
-			);
-			cropCtx.strokeRect(
-				corner.x - HANDLE_HALF,
-				corner.y - HANDLE_HALF,
-				HANDLE_SIZE,
-				HANDLE_SIZE
-			);
-		});
-
-		// Edge handles
-		const edges = [
-			{ x: rect.x + rect.width / 2, y: rect.y, cursor: 'n' }, // top
-			{ x: rect.x + rect.width / 2, y: rect.y + rect.height, cursor: 's' }, // bottom
-			{ x: rect.x, y: rect.y + rect.height / 2, cursor: 'w' }, // left
-			{ x: rect.x + rect.width, y: rect.y + rect.height / 2, cursor: 'e' } // right
-		];
-
-		edges.forEach(edge => {
-			cropCtx.fillRect(
-				edge.x - HANDLE_HALF,
-				edge.y - HANDLE_HALF,
-				HANDLE_SIZE,
-				HANDLE_SIZE
-			);
-			cropCtx.strokeRect(
-				edge.x - HANDLE_HALF,
-				edge.y - HANDLE_HALF,
-				HANDLE_SIZE,
-				HANDLE_SIZE
-			);
-		});
-	}
+		const imageUrl = URL.createObjectURL(blob);
+		screenshotPreviewImg.src = imageUrl;
+		screenshotOverlay.classList.remove('hidden');
+		hideTrackMenus();
+
+	}, 'image/png');
 };
 
 // ============================================================================
-// NEW FUNCTION: Get resize handle at position
+// CONFIGURATION & SETTINGS
 // ============================================================================
 
-const getResizeHandle = (x, y, rect) => {
-	if (!rect || isCropFixed) return null;
-
-	const handles = [
-		{ name: 'nw', x: rect.x, y: rect.y },
-		{ name: 'ne', x: rect.x + rect.width, y: rect.y },
-		{ name: 'sw', x: rect.x, y: rect.y + rect.height },
-		{ name: 'se', x: rect.x + rect.width, y: rect.y + rect.height },
-		{ name: 'n', x: rect.x + rect.width / 2, y: rect.y },
-		{ name: 's', x: rect.x + rect.width / 2, y: rect.y + rect.height },
-		{ name: 'w', x: rect.x, y: rect.y + rect.height / 2 },
-		{ name: 'e', x: rect.x + rect.width, y: rect.y + rect.height / 2 }
-	];
-
-	for (const handle of handles) {
-		const dist = Math.sqrt(
-			Math.pow(x - handle.x, 2) + Math.pow(y - handle.y, 2)
-		);
-		if (dist <= HANDLE_SIZE) {
-			return handle.name;
-		}
-	}
-
-	return null;
+const updateDynamicCropOptionsUI = () => {
+	scaleOptionContainer.style.display = (dynamicCropMode === 'max-size') ? 'flex' : 'none';
+	blurOptionContainer.style.display = (dynamicCropMode === 'spotlight' || dynamicCropMode === 'max-size') ? 'flex' : 'none';
+	// Show the smooth option for ANY dynamic mode
+	smoothOptionContainer.style.display = (dynamicCropMode !== 'none') ? 'flex' : 'none';
 };
 
-// ============================================================================
-// NEW FUNCTION: Check if point is inside crop rect
-// ============================================================================
-
-const isInsideCropRect = (x, y, rect) => {
-	if (!rect) return false;
-	return x >= rect.x && x <= rect.x + rect.width &&
-		y >= rect.y && y <= rect.y + rect.height;
-};
-
-// ============================================================================
-// NEW FUNCTION: Get cursor style for handle
-// ============================================================================
-
-const getCursorForHandle = (handle) => {
-	const cursors = {
-		'nw': 'nw-resize',
-		'ne': 'ne-resize',
-		'sw': 'sw-resize',
-		'se': 'se-resize',
-		'n': 'n-resize',
-		's': 's-resize',
-		'w': 'w-resize',
-		'e': 'e-resize',
-		'move': 'move'
-	};
-	return cursors[handle] || 'crosshair';
-};
-
-// ============================================================================
-// NEW FUNCTION: Apply resize based on handle
-// ============================================================================
-
-const applyResize = (handle, deltaX, deltaY, originalRect) => {
-	let newRect = { ...originalRect };
-
-	switch (handle) {
-		case 'nw':
-			newRect.x = originalRect.x + deltaX;
-			newRect.y = originalRect.y + deltaY;
-			newRect.width = originalRect.width - deltaX;
-			newRect.height = originalRect.height - deltaY;
-			break;
-		case 'ne':
-			newRect.y = originalRect.y + deltaY;
-			newRect.width = originalRect.width + deltaX;
-			newRect.height = originalRect.height - deltaY;
-			break;
-		case 'sw':
-			newRect.x = originalRect.x + deltaX;
-			newRect.width = originalRect.width - deltaX;
-			newRect.height = originalRect.height + deltaY;
-			break;
-		case 'se':
-			newRect.width = originalRect.width + deltaX;
-			newRect.height = originalRect.height + deltaY;
-			break;
-		case 'n':
-			newRect.y = originalRect.y + deltaY;
-			newRect.height = originalRect.height - deltaY;
-			break;
-		case 's':
-			newRect.height = originalRect.height + deltaY;
-			break;
-		case 'w':
-			newRect.x = originalRect.x + deltaX;
-			newRect.width = originalRect.width - deltaX;
-			break;
-		case 'e':
-			newRect.width = originalRect.width + deltaX;
-			break;
-	}
-
-	// Ensure minimum size
-	if (newRect.width < 20) {
-		newRect.width = 20;
-		if (handle.includes('w')) newRect.x = originalRect.x + originalRect.width - 20;
-	}
-	if (newRect.height < 20) {
-		newRect.height = 20;
-		if (handle.includes('n')) newRect.y = originalRect.y + originalRect.height - 20;
-	}
-
-	// Clamp to canvas bounds
-	return clampRectToVideoBounds(newRect);
-};
-
-// ============================================================================
-// MODIFY toggleStaticCrop to reset fixed state
-// ============================================================================
-
-// ============================================================================
-// NEW FUNCTION: Update Fix Size button visibility and state
-// ============================================================================
-
-const updateFixSizeButton = () => {
-	const fixSizeBtn = document.getElementById('fixSizeBtn');
-	if (!fixSizeBtn) return;
-
-	const shouldShow = (isCropping || isPanning) &&
-		(cropRect || panRectSize);
-
-	if (shouldShow) {
-		fixSizeBtn.style.display = 'inline-block';
-		fixSizeBtn.textContent = isCropFixed ? 'Resize' : 'Fix Size';
-		if (isCropFixed) {
-			fixSizeBtn.classList.add('hover_highlight');
-		} else {
-			fixSizeBtn.classList.remove('hover_highlight');
-		}
-	} else {
-		fixSizeBtn.style.display = 'none';
-	}
-};
-
-// ============================================================================
-// NEW FUNCTION: Toggle crop fixed state
-// ============================================================================
-
-const toggleCropFixed = () => {
-	isCropFixed = !isCropFixed;
-	updateFixSizeButton();
-
-	if (isCropFixed) {
-		// When fixing, ensure even dimensions for video processing
-		if (isCropping && cropRect) {
-			cropRect.width = Math.round(cropRect.width / 2) * 2;
-			cropRect.height = Math.round(cropRect.height / 2) * 2;
-			cropRect = clampRectToVideoBounds(cropRect);
-			drawCropWithHandles(cropRect);
-		} else if (isPanning && panRectSize) {
-			panRectSize.width = Math.round(panRectSize.width / 2) * 2;
-			panRectSize.height = Math.round(panRectSize.height / 2) * 2;
-			// Update the last keyframe with even dimensions
-			if (panKeyframes.length > 0) {
-				const lastFrame = panKeyframes[panKeyframes.length - 1];
-				lastFrame.rect.width = panRectSize.width;
-				lastFrame.rect.height = panRectSize.height;
-				lastFrame.rect = clampRectToVideoBounds(lastFrame.rect);
-			}
-		}
-		guidedPanleInfo("Size Locked! Now, play the video and move the box to record the camera path. Use SHIFT + scroll up/down to perform zooming effect. Press 'R' when you're done.");
-	} else {
-		// Redraw with handles
-		if (isCropping && cropRect) {
-			drawCropWithHandles(cropRect);
-		} else if (isPanning && panKeyframes.length > 0) {
-			const lastFrame = panKeyframes[panKeyframes.length - 1];
-			if (lastFrame) {
-				drawCropWithHandles(lastFrame.rect);
-			}
-		}
-	}
-};
-
-/**
- * Smooths a path of keyframes using a Simple Moving Average.
- * @param {Array} keyframes The original panKeyframes.
- * @param {number} windowSize The number of frames to average (must be an odd number).
- * @returns {Array} A new array of smoothed keyframes.
- */
-const smoothPathWithMovingAverage = (keyframes, windowSize = 15) => {
-	if (keyframes.length < windowSize) {
-		return keyframes; // Not enough data to smooth
-	}
-
-	const smoothedKeyframes = [];
-	const halfWindow = Math.floor(windowSize / 2);
-
-	for (let i = 0; i < keyframes.length; i++) {
-		// Define the bounds for the moving window, clamping at the edges
-		const start = Math.max(0, i - halfWindow);
-		const end = Math.min(keyframes.length - 1, i + halfWindow);
-
-		let sumX = 0, sumY = 0, sumWidth = 0, sumHeight = 0;
-
-		// Sum the properties of the keyframes within the window
-		for (let j = start; j <= end; j++) {
-			sumX += keyframes[j].rect.x;
-			sumY += keyframes[j].rect.y;
-			sumWidth += keyframes[j].rect.width;
-			sumHeight += keyframes[j].rect.height;
-		}
-
-		const count = (end - start) + 1;
-
-		// Create the new smoothed keyframe
-		const newKeyframe = {
-			timestamp: keyframes[i].timestamp, // Keep original timestamp
-			rect: {
-				x: sumX / count,
-				y: sumY / count,
-				width: sumWidth / count,
-				height: sumHeight / count,
-			}
-		};
-
-		smoothedKeyframes.push(newKeyframe);
-	}
-
-	return smoothedKeyframes;
-};
-
-/**
- * Resets all user-configurable editing states to their default values.
- */
 const resetAllConfigs = () => {
 	// 1. Pause the player if it's running
 	if (playing) pause();
@@ -1989,22 +1952,60 @@ const resetAllConfigs = () => {
 	showInfo("All configurations have been reset.");
 };
 
-const cropModeRadios = document.querySelectorAll('input[name="cropMode"]');
-const scaleOptionContainer = $('scaleOptionContainer');
-const scaleWithRatioToggle = $('scaleWithRatioToggle');
-const blurOptionContainer = $('blurOptionContainer');
-const smoothOptionContainer = $('smoothOptionContainer');
-const smoothPathToggle = $('smoothPathToggle');
-const blurBackgroundToggle = $('blurBackgroundToggle');
-const blurAmountInput = $('blurAmountInput');
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
 
-// Helper function to update the visibility of sub-options based on the selected mode
-const updateDynamicCropOptionsUI = () => {
-	scaleOptionContainer.style.display = (dynamicCropMode === 'max-size') ? 'flex' : 'none';
-	blurOptionContainer.style.display = (dynamicCropMode === 'spotlight' || dynamicCropMode === 'max-size') ? 'flex' : 'none';
-	// Show the smooth option for ANY dynamic mode
-	smoothOptionContainer.style.display = (dynamicCropMode !== 'none') ? 'flex' : 'none';
+const parseTime = (timeStr) => {
+	const parts = timeStr.split(':').map(Number);
+	if (parts.some(isNaN)) return NaN;
+	let seconds = 0;
+	if (parts.length === 2) {
+		seconds = parts[0] * 60 + parts[1];
+	} else if (parts.length === 1) {
+		seconds = parts[0];
+	} else {
+		return NaN;
+	}
+	return seconds;
 };
+
+const formatTime = s => {
+	if (!isFinite(s) || s < 0) return '00:00';
+	const minutes = Math.floor(s / 60);
+	const seconds = Math.floor(s % 60);
+	return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+};
+
+const escapeHTML = str => str.replace(/[&<>'"]/g,
+	tag => ({
+		'&': '&amp;',
+		'<': '&lt;',
+		'>': '&gt;',
+		"'": '&#39;',
+		'"': '&quot;'
+	}[tag]));
+
+const guidedPanleInfo = (info) => {
+	const guide_panel = document.getElementById('guide_panel');
+	const guide_info = document.getElementById('guide_info');
+	if (info) {
+		guide_panel.classList.remove('hidden');
+		guide_info.innerText = info
+	} else {
+		guide_panel.classList.add('hidden');
+		guide_info.innerText = info
+	}
+}
+
+const updateShortcutKeysVisibility = () => {
+	const panel = $('shortcutKeysPanel');
+	panel.classList.toggle('hidden');
+};
+
+// ============================================================================
+// EVENT LISTENERS & HANDLERS
+// ============================================================================
 
 const setupEventListeners = () => {
 	$('clearPlaylistBtn').onclick = clearPlaylist;
@@ -2784,9 +2785,6 @@ const setupEventListeners = () => {
 setupEventListeners();
 renderLoop();
 
-const urlParams = new URLSearchParams(window.location.search);
-const videoUrl = urlParams.get('video_url');
-
 if (videoUrl) {
 	try {
 		const decodedUrl = decodeURIComponent(videoUrl);
@@ -2815,7 +2813,6 @@ if ('serviceWorker' in navigator && window.location.protocol.startsWith('http'))
 		.catch(err => console.log('ServiceWorker registration failed:', err));
 }
 
-let resizeTimeout;
 window.addEventListener('resize', () => {
 	clearTimeout(resizeTimeout);
 	resizeTimeout = setTimeout(() => {
@@ -2831,8 +2828,6 @@ window.addEventListener('resize', () => {
 	}, 100);
 });
 
-// Fix Size button handler
-const fixSizeBtn = document.getElementById('fixSizeBtn');
 if (fixSizeBtn) {
 	fixSizeBtn.onclick = (e) => {
 		e.stopPropagation();
