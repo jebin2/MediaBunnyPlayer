@@ -255,7 +255,7 @@
 		const modular = urlParams.get('modular') === 'true';
 
 		if (modular) {
-			import('./main.js')
+			import('./js/main.js')
 				.then(module => {
 					console.log('Loaded main.js');
 				})

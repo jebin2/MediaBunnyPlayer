@@ -1532,8 +1532,8 @@ const setPlaybackSpeed = (newSpeed) => {
 };
 
 const updateShortcutKeysVisibility = () => {
-    const panel = $('shortcutKeysPanel');
-    panel.classList.toggle('hidden');
+	const panel = $('shortcutKeysPanel');
+	panel.classList.toggle('hidden');
 };
 
 // Function to enter/exit Static Cropping mode
@@ -1596,7 +1596,7 @@ const togglePanning = (e, reset = false) => {
 const guidedPanleInfo = (info) => {
 	const guide_panel = document.getElementById('guide_panel');
 	const guide_info = document.getElementById('guide_info');
-	if(info) {
+	if (info) {
 		guide_panel.classList.remove('hidden');
 		guide_info.innerText = info
 	} else {
@@ -1935,58 +1935,58 @@ const smoothPathWithMovingAverage = (keyframes, windowSize = 15) => {
  * Resets all user-configurable editing states to their default values.
  */
 const resetAllConfigs = () => {
-    // 1. Pause the player if it's running
-    if (playing) pause();
+	// 1. Pause the player if it's running
+	if (playing) pause();
 
-    // 2. Deactivate and reset any active cropping/panning modes
-    // Using the reset flag in our existing toggle functions is perfect for this
-    toggleStaticCrop(null, true);
-    togglePanning(null, true);
+	// 2. Deactivate and reset any active cropping/panning modes
+	// Using the reset flag in our existing toggle functions is perfect for this
+	toggleStaticCrop(null, true);
+	togglePanning(null, true);
 
-    // 3. Reset all dynamic crop configuration states
-    dynamicCropMode = 'none';
-    scaleWithRatio = false;
-    useBlurBackground = false;
-    smoothPath = false;
-    blurAmount = 15;
+	// 3. Reset all dynamic crop configuration states
+	dynamicCropMode = 'none';
+	scaleWithRatio = false;
+	useBlurBackground = false;
+	smoothPath = false;
+	blurAmount = 15;
 	updateDynamicCropOptionsUI();
 
-    // 4. Reset the UI for dynamic crop options
-    const cropModeNoneRadio = $('cropModeNone');
-    if (cropModeNoneRadio) cropModeNoneRadio.checked = true;
+	// 4. Reset the UI for dynamic crop options
+	const cropModeNoneRadio = $('cropModeNone');
+	if (cropModeNoneRadio) cropModeNoneRadio.checked = true;
 
-    const scaleWithRatioToggle = $('scaleWithRatioToggle');
-    if (scaleWithRatioToggle) scaleWithRatioToggle.checked = false;
+	const scaleWithRatioToggle = $('scaleWithRatioToggle');
+	if (scaleWithRatioToggle) scaleWithRatioToggle.checked = false;
 
-    const smoothPathToggle = $('smoothPathToggle');
-    if (smoothPathToggle) smoothPathToggle.checked = false;
+	const smoothPathToggle = $('smoothPathToggle');
+	if (smoothPathToggle) smoothPathToggle.checked = false;
 
-    const blurBackgroundToggle = $('blurBackgroundToggle');
-    const blurAmountInput = $('blurAmountInput');
-    if (blurBackgroundToggle) blurBackgroundToggle.checked = false;
-    if (blurAmountInput) {
-        blurAmountInput.value = 15;
-    }
+	const blurBackgroundToggle = $('blurBackgroundToggle');
+	const blurAmountInput = $('blurAmountInput');
+	if (blurBackgroundToggle) blurBackgroundToggle.checked = false;
+	if (blurAmountInput) {
+		blurAmountInput.value = 15;
+	}
 
 
-    // 5. Reset the time range inputs to the full duration of the video
-    if (fileLoaded) {
-        startTimeInput.value = formatTime(0);
-        endTimeInput.value = formatTime(totalDuration);
-    }
+	// 5. Reset the time range inputs to the full duration of the video
+	if (fileLoaded) {
+		startTimeInput.value = formatTime(0);
+		endTimeInput.value = formatTime(totalDuration);
+	}
 
-    // 6. Reset the looping state and UI
-    isLooping = false;
-    loopStartTime = 0;
-    loopEndTime = 0;
-    loopBtn.textContent = 'Loop';
-    loopBtn.classList.remove('hover_highlight');
+	// 6. Reset the looping state and UI
+	isLooping = false;
+	loopStartTime = 0;
+	loopEndTime = 0;
+	loopBtn.textContent = 'Loop';
+	loopBtn.classList.remove('hover_highlight');
 
 	// 8. Remove Guided Panel
 	guidedPanleInfo("");
 
-    // 9. Give user feedback
-    showInfo("All configurations have been reset.");
+	// 9. Give user feedback
+	showInfo("All configurations have been reset.");
 };
 
 const cropModeRadios = document.querySelectorAll('input[name="cropMode"]');
@@ -2707,13 +2707,13 @@ const setupEventListeners = () => {
 		}
 	});
 
-    // Trigger the UI visibility update
-    if(cropModeRadios.length > 0) {
-        // Find the event listener's helper function to call it directly
-        // Note: This assumes updateDynamicCropOptionsUI is available in this scope.
-        // It's better to define it outside the event listener if it's not.
-        updateDynamicCropOptionsUI();
-    }
+	// Trigger the UI visibility update
+	if (cropModeRadios.length > 0) {
+		// Find the event listener's helper function to call it directly
+		// Note: This assumes updateDynamicCropOptionsUI is available in this scope.
+		// It's better to define it outside the event listener if it's not.
+		updateDynamicCropOptionsUI();
+	}
 
 	if (smoothPathToggle) {
 		smoothPathToggle.onchange = (e) => {
@@ -2769,8 +2769,8 @@ const setupEventListeners = () => {
 	}
 	const resetAllBtn = $('resetAllBtn'); // Find our new button ID
 	if (resetAllBtn) {
-        resetAllBtn.onclick = resetAllConfigs; // Simply call our powerful new function
-    }
+		resetAllBtn.onclick = resetAllConfigs; // Simply call our powerful new function
+	}
 	updateDynamicCropOptionsUI();
 
 	document.getElementById('settingsMenu').addEventListener('mouseleave', () => {
@@ -2781,104 +2781,104 @@ const setupEventListeners = () => {
 };
 
 // document.addEventListener('DOMContentLoaded', () => {
-	setupEventListeners();
-	renderLoop();
+setupEventListeners();
+renderLoop();
 
-	const urlParams = new URLSearchParams(window.location.search);
-	const videoUrl = urlParams.get('video_url');
+const urlParams = new URLSearchParams(window.location.search);
+const videoUrl = urlParams.get('video_url');
 
-	if (videoUrl) {
-		try {
-			const decodedUrl = decodeURIComponent(videoUrl);
-			const urlPlayOverlay = $('urlPlayOverlay');
-			if (urlPlayOverlay) {
-				urlPlayOverlay.classList.remove('hidden');
-				const startBtn = urlPlayOverlay.querySelector('button') || urlPlayOverlay;
-				startBtn.addEventListener('click', () => {
-					urlPlayOverlay.classList.add('hidden');
-					loadMedia(decodedUrl);
-				}, {
-					once: true
-				});
-			} else {
+if (videoUrl) {
+	try {
+		const decodedUrl = decodeURIComponent(videoUrl);
+		const urlPlayOverlay = $('urlPlayOverlay');
+		if (urlPlayOverlay) {
+			urlPlayOverlay.classList.remove('hidden');
+			const startBtn = urlPlayOverlay.querySelector('button') || urlPlayOverlay;
+			startBtn.addEventListener('click', () => {
+				urlPlayOverlay.classList.add('hidden');
 				loadMedia(decodedUrl);
-			}
-		} catch (e) {
-			console.error("Error parsing video_url:", e);
+			}, {
+				once: true
+			});
+		} else {
+			loadMedia(decodedUrl);
 		}
+	} catch (e) {
+		console.error("Error parsing video_url:", e);
 	}
+}
 
-	updatePlaylistUIOptimized();
+updatePlaylistUIOptimized();
 
-	if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-		navigator.serviceWorker.register('service-worker.js')
-			.catch(err => console.log('ServiceWorker registration failed:', err));
-	}
+if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+	navigator.serviceWorker.register('service-worker.js')
+		.catch(err => console.log('ServiceWorker registration failed:', err));
+}
 
-	let resizeTimeout;
-	window.addEventListener('resize', () => {
-		clearTimeout(resizeTimeout);
-		resizeTimeout = setTimeout(() => {
-			if ((isCropping || isPanning) && !cropCanvas.classList.contains('hidden')) {
-				cropCanvasDimensions = positionCropCanvas();
-				// Redraw current crop
-				const currentRect = isCropping ? cropRect :
-					(panKeyframes.length > 0 ? panKeyframes[panKeyframes.length - 1].rect : null);
-				if (currentRect) {
-					drawCropWithHandles(currentRect);
-				}
+let resizeTimeout;
+window.addEventListener('resize', () => {
+	clearTimeout(resizeTimeout);
+	resizeTimeout = setTimeout(() => {
+		if ((isCropping || isPanning) && !cropCanvas.classList.contains('hidden')) {
+			cropCanvasDimensions = positionCropCanvas();
+			// Redraw current crop
+			const currentRect = isCropping ? cropRect :
+				(panKeyframes.length > 0 ? panKeyframes[panKeyframes.length - 1].rect : null);
+			if (currentRect) {
+				drawCropWithHandles(currentRect);
 			}
-		}, 100);
-	});
+		}
+	}, 100);
+});
 
-	// Fix Size button handler
-	const fixSizeBtn = document.getElementById('fixSizeBtn');
-	if (fixSizeBtn) {
-		fixSizeBtn.onclick = (e) => {
-			e.stopPropagation();
-			toggleCropFixed();
-		};
-		// Update the 'R' key handler for panning mode
-		document.addEventListener('keydown', (e) => {
-			if (e.key.toLowerCase() === 'l') {
-				e.stopPropagation();
-				toggleCropFixed();
-			}
-		});
-	}
-
+// Fix Size button handler
+const fixSizeBtn = document.getElementById('fixSizeBtn');
+if (fixSizeBtn) {
+	fixSizeBtn.onclick = (e) => {
+		e.stopPropagation();
+		toggleCropFixed();
+	};
 	// Update the 'R' key handler for panning mode
 	document.addEventListener('keydown', (e) => {
-		if (isPanning && panRectSize && e.key.toLowerCase() === 'r' && !isCropFixed) {
-			e.preventDefault();
+		if (e.key.toLowerCase() === 'l') {
+			e.stopPropagation();
 			toggleCropFixed();
-			if (isCropFixed && !playing) {
-				play(); // Auto-start playback when fixing size in pan mode
-			}
-		} else if (e.key.toLowerCase() === 's') {
-			e.preventDefault();
-			takeScreenshot()
-		} else if (e.key.toLowerCase() === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-			e.preventDefault();
-			handleCutAction()
-		} else if (e.key.toLowerCase() === 'escape') {
-			e.preventDefault();
-			resetAllConfigs()
 		}
-		// Only consider printable characters
-  if (e.key.length === 1) {
-    buffer += e.key;
-
-    // Keep only last 2 characters
-    if (buffer.length > 2) buffer = buffer.slice(-2);
-
-    // Check for double slash
-    if (buffer === '//') {
-      updateShortcutKeysVisibility();
-      buffer = ''; // reset buffer after trigger
-    }
-  } else if (e.key === 'Backspace') {
-    buffer = buffer.slice(0, -1);
-  }
 	});
+}
+
+// Update the 'R' key handler for panning mode
+document.addEventListener('keydown', (e) => {
+	if (isPanning && panRectSize && e.key.toLowerCase() === 'r' && !isCropFixed) {
+		e.preventDefault();
+		toggleCropFixed();
+		if (isCropFixed && !playing) {
+			play(); // Auto-start playback when fixing size in pan mode
+		}
+	} else if (e.key.toLowerCase() === 's') {
+		e.preventDefault();
+		takeScreenshot()
+	} else if (e.key.toLowerCase() === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+		e.preventDefault();
+		handleCutAction()
+	} else if (e.key.toLowerCase() === 'escape') {
+		e.preventDefault();
+		resetAllConfigs()
+	}
+	// Only consider printable characters
+	if (e.key.length === 1) {
+		buffer += e.key;
+
+		// Keep only last 2 characters
+		if (buffer.length > 2) buffer = buffer.slice(-2);
+
+		// Check for double slash
+		if (buffer === '//') {
+			updateShortcutKeysVisibility();
+			buffer = ''; // reset buffer after trigger
+		}
+	} else if (e.key === 'Backspace') {
+		buffer = buffer.slice(0, -1);
+	}
+});
 // });
