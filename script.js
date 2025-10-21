@@ -2031,9 +2031,9 @@ const dynamicVideoUrl = () => {
 
 const registerServiceWorker = () => {
 	if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
-	navigator.serviceWorker.register('service-worker.js')
-		.catch(err => console.log('ServiceWorker registration failed:', err));
-}
+		navigator.serviceWorker.register('service-worker.js')
+			.catch(err => console.log('ServiceWorker registration failed:', err));
+	}
 }
 
 // ============================================================================
@@ -2858,7 +2858,7 @@ document.addEventListener('keydown', (e) => {
 	} else if (e.key.toLowerCase() === 'escape') {
 		e.preventDefault();
 		resetAllConfigs()
-	}else if (e.key.length === 1) {
+	} else if (e.key.length === 1) {
 		buffer += e.key;
 
 		// Keep only last 2 characters
