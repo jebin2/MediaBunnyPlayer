@@ -19,7 +19,7 @@ import {
 import { $, MEDIABUNNY_URL, playerArea, videoContainer, canvas, dropZone, loading, playBtn, timeDisplay, progressContainer, progressBar, volumeSlider, muteBtn, fullscreenBtn, sidebar, playlistContent, videoControls, progressHandle, startTimeInput, endTimeInput, settingsCtrlBtn, settingsMenu, loopBtn, cutBtn, screenshotBtn, screenshotOverlay, screenshotPreviewImg, closeScreenshotBtn, copyScreenshotBtn, downloadScreenshotBtn, playbackSpeedInput, autoplayToggle, urlModal, urlInput, loadUrlBtn, cancelUrlBtn, showMessage, cropModeRadios, scaleOptionContainer, scaleWithRatioToggle, blurOptionContainer, smoothOptionContainer, smoothPathToggle, blurBackgroundToggle, blurAmountInput, HANDLE_SIZE, HANDLE_HALF, fixSizeBtn, prevBtn, nextBtn, cropBtn, cropCanvas, cropCtx, queuedAudioNodes, panScanBtn, ctx } from './constants.js';
 import { state } from './state.js';
 import { resetAllConfigs, updateDynamicCropOptionsUI } from './config.js'
-import { applyResize, clampRectToVideoBounds, drawCropOverlay,drawCropWithHandles, getCursorForHandle, getInterpolatedCropRect, getResizeHandle, getScaledCoordinates, isInsideCropRect, positionCropCanvas, smoothPathWithMovingAverage, toggleCropFixed, togglePanning, toggleStaticCrop, updateFixSizeButton } from './crop.js'
+import { applyResize, clampRectToVideoBounds, drawCropOverlay, drawCropWithHandles, getCursorForHandle, getInterpolatedCropRect, getResizeHandle, getScaledCoordinates, isInsideCropRect, positionCropCanvas, smoothPathWithMovingAverage, toggleCropFixed, togglePanning, toggleStaticCrop, updateFixSizeButton } from './crop.js'
 import { handleCutAction } from './editing.js'
 import { setupEventListeners } from './eventListeners.js'
 import { checkPlaybackState, ensureSubtitleRenderer, getPlaybackTime, handleConversion, hideTrackMenus, loadMedia, pause, play, playNext, playPrevious, removeSubtitleOverlay, renderLoop, runAudioIterator, scheduleProgressUpdate, seekToTime, setPlaybackSpeed, setVolume, startVideoIterator, stopAndClear, switchAudioTrack, switchSubtitleTrack, toggleLoop, togglePlay, updateNextFrame, updateSubtitlesOptimized, updateTrackMenus } from './player.js'
@@ -194,6 +194,7 @@ const createPlaylistElement = (node, currentPath = '') => {
 		removeBtn.className = 'remove-item';
 		removeBtn.dataset.path = safePath;
 		removeBtn.textContent = '×';
+		removeBtn.title = 'Remove folder';
 
 		summary.appendChild(folderName);
 		summary.appendChild(removeBtn);
@@ -211,16 +212,33 @@ const createPlaylistElement = (node, currentPath = '') => {
 	} else {
 		const li = document.createElement('li');
 		const isActive = (state.currentPlayingFile === node.file);
+		const isSelected = state.selectedFiles?.has(safePath) || false;
+
 		li.className = `playlist-file ${node.isCutClip ? 'cut-clip' : ''} ${isActive ? 'active' : ''}`;
 		li.dataset.path = safePath;
 		li.title = safeName;
 
+		// Checkbox
+		const checkbox = document.createElement('input');
+		checkbox.type = 'checkbox';
+		checkbox.className = 'playlist-file-checkbox';
+		checkbox.checked = isSelected;
+		checkbox.dataset.path = safePath;
+		checkbox.addEventListener('click', (e) => {
+			e.stopPropagation(); // Prevent triggering file play
+			handleCheckboxChange(safePath, e.target.checked);
+		});
+
+		// File name
 		const fileName = document.createElement('span');
 		fileName.className = 'playlist-file-name';
 		fileName.title = safeName;
 		fileName.textContent = safeName;
+
+		li.appendChild(checkbox);
 		li.appendChild(fileName);
 
+		// Clip actions for cut clips
 		if (node.isCutClip) {
 			const clipActions = document.createElement('div');
 			clipActions.className = 'clip-actions';
@@ -230,26 +248,93 @@ const createPlaylistElement = (node, currentPath = '') => {
 			downloadBtn.dataset.action = 'download';
 			downloadBtn.dataset.path = safePath;
 			downloadBtn.textContent = '⬇️';
+			downloadBtn.title = 'Download clip';
 
 			const copyBtn = document.createElement('button');
 			copyBtn.className = 'clip-action-btn';
 			copyBtn.dataset.action = 'copy';
 			copyBtn.dataset.path = safePath;
 			copyBtn.textContent = '📋';
+			copyBtn.title = 'Copy to clipboard';
 
 			clipActions.appendChild(downloadBtn);
 			clipActions.appendChild(copyBtn);
 			li.appendChild(clipActions);
 		}
 
+		// Remove button
 		const removeBtn = document.createElement('span');
 		removeBtn.className = 'remove-item';
 		removeBtn.dataset.path = safePath;
 		removeBtn.textContent = '×';
+		removeBtn.title = 'Remove file';
 		li.appendChild(removeBtn);
 
 		return li;
 	}
+};
+
+const handleCheckboxChange = (path, isChecked) => {
+	if (!state.selectedFiles) {
+		state.selectedFiles = new Set();
+	}
+
+	if (isChecked) {
+		state.selectedFiles.add(path);
+	} else {
+		state.selectedFiles.delete(path);
+	}
+
+	// Log selected files for debugging
+	console.log('Selected files:', Array.from(state.selectedFiles));
+
+	// You can add additional functionality here, such as:
+	// - Enabling/disabling batch operation buttons
+	// - Updating a counter of selected files
+	// - Etc.
+};
+
+// Function to get selected files
+export const getSelectedFiles = () => {
+	if (!state.selectedFiles) return [];
+
+	const files = [];
+	state.selectedFiles.forEach(path => {
+		const file = findFileByPath(state.playlist, path);
+		if (file) {
+			files.push({ path, file });
+		}
+	});
+	return files;
+};
+
+// Function to clear all selections
+export const clearAllSelections = () => {
+	if (state.selectedFiles) {
+		state.selectedFiles.clear();
+	}
+	updatePlaylistUIOptimized();
+};
+
+// Function to select all files
+export const selectAllFiles = () => {
+	if (!state.selectedFiles) {
+		state.selectedFiles = new Set();
+	}
+
+	const addAllFiles = (nodes, currentPath = '') => {
+		nodes.forEach(node => {
+			const nodePath = currentPath ? `${currentPath}/${node.name}` : node.name;
+			if (node.type === 'file') {
+				state.selectedFiles.add(nodePath);
+			} else if (node.type === 'folder') {
+				addAllFiles(node.children, nodePath);
+			}
+		});
+	};
+
+	addAllFiles(state.playlist);
+	updatePlaylistUIOptimized();
 };
 
 export const updatePlaylistUIOptimized = () => {
@@ -294,4 +379,73 @@ const updateActiveStates = () => {
 		const isActive = (file === state.currentPlayingFile);
 		fileEl.classList.toggle('active', isActive);
 	});
+};
+
+export const setupPlaylistEventListeners = () => {
+	// Handle playlist item clicks
+	playlistContent.addEventListener('click', (e) => {
+		// Handle remove buttons
+		if (e.target.classList.contains('remove-item')) {
+			e.stopPropagation();
+			const path = e.target.dataset.path;
+			removeItemFromPath(state.playlist, path);
+			if (state.selectedFiles) {
+				state.selectedFiles.delete(path);
+			}
+			updatePlaylistUIOptimized();
+			return;
+		}
+
+		// Handle clip action buttons
+		if (e.target.classList.contains('clip-action-btn')) {
+			e.stopPropagation();
+			const action = e.target.dataset.action;
+			const path = e.target.dataset.path;
+			handleClipAction(action, path);
+			return;
+		}
+
+		// Handle file clicks (play file)
+		const fileElement = e.target.closest('.playlist-file');
+		if (fileElement && !e.target.classList.contains('playlist-file-checkbox')) {
+			const path = fileElement.dataset.path;
+			const file = findFileByPath(state.playlist, path);
+			if (file) {
+				loadMedia(file);
+			}
+		}
+	});
+};
+
+// Helper function for clip actions
+const handleClipAction = async (action, path) => {
+	const file = findFileByPath(state.playlist, path);
+	if (!file) return;
+
+	try {
+		if (action === 'download') {
+			// Create download link
+			const url = URL.createObjectURL(file);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = file.name || 'clip.mp4';
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+			showInfo('Download started');
+		} else if (action === 'copy') {
+			// Copy blob to clipboard (modern browsers)
+			if (navigator.clipboard && window.ClipboardItem) {
+				const item = new ClipboardItem({ [file.type]: file });
+				await navigator.clipboard.write([item]);
+				showInfo('Copied to clipboard');
+			} else {
+				showError('Clipboard API not supported');
+			}
+		}
+	} catch (error) {
+		console.error('Clip action error:', error);
+		showError(`Failed to ${action} clip`);
+	}
 };

@@ -16,14 +16,14 @@ import {
 	QUALITY_HIGH
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
 
-import { $, MEDIABUNNY_URL, playerArea, videoContainer, canvas, dropZone, loading, playBtn, timeDisplay, progressContainer, progressBar, volumeSlider, muteBtn, fullscreenBtn, sidebar, playlistContent, videoControls, progressHandle, startTimeInput, endTimeInput, settingsCtrlBtn, settingsMenu, loopBtn, cutBtn, screenshotBtn, screenshotOverlay, screenshotPreviewImg, closeScreenshotBtn, copyScreenshotBtn, downloadScreenshotBtn, playbackSpeedInput, autoplayToggle, urlModal, urlInput, loadUrlBtn, cancelUrlBtn, showMessage, cropModeRadios, scaleOptionContainer, scaleWithRatioToggle, blurOptionContainer, smoothOptionContainer, smoothPathToggle, blurBackgroundToggle, blurAmountInput, HANDLE_SIZE, HANDLE_HALF, fixSizeBtn, prevBtn, nextBtn, cropBtn, cropCanvas, cropCtx, queuedAudioNodes, panScanBtn, ctx } from './constants.js';
+import { $, MEDIABUNNY_URL, playerArea, videoContainer, canvas, dropZone, loading, playBtn, timeDisplay, progressContainer, progressBar, volumeSlider, muteBtn, fullscreenBtn, sidebar, videoControls, progressHandle, startTimeInput, endTimeInput, settingsCtrlBtn, settingsMenu, loopBtn, cutBtn, screenshotBtn, screenshotOverlay, screenshotPreviewImg, closeScreenshotBtn, copyScreenshotBtn, downloadScreenshotBtn, playbackSpeedInput, autoplayToggle, urlModal, urlInput, loadUrlBtn, cancelUrlBtn, showMessage, cropModeRadios, scaleOptionContainer, scaleWithRatioToggle, blurOptionContainer, smoothOptionContainer, smoothPathToggle, blurBackgroundToggle, blurAmountInput, HANDLE_SIZE, HANDLE_HALF, fixSizeBtn, prevBtn, nextBtn, cropBtn, cropCanvas, cropCtx, queuedAudioNodes, panScanBtn, ctx } from './constants.js';
 import { state } from './state.js';
 import { resetAllConfigs, updateDynamicCropOptionsUI } from './config.js'
 import { applyResize, clampRectToVideoBounds, drawCropOverlay,drawCropWithHandles, getCursorForHandle, getInterpolatedCropRect, getResizeHandle, getScaledCoordinates, isInsideCropRect, positionCropCanvas, smoothPathWithMovingAverage, toggleCropFixed, togglePanning, toggleStaticCrop, updateFixSizeButton } from './crop.js'
 import { handleCutAction } from './editing.js'
 import { dynamicVideoUrl, escapeHTML, formatTime, guidedPanleInfo, parseTime, registerServiceWorker, updateShortcutKeysVisibility, } from './utility.js'
 import { checkPlaybackState, ensureSubtitleRenderer, getPlaybackTime, handleConversion, hideTrackMenus, loadMedia, pause, play, playNext, playPrevious, removeSubtitleOverlay, renderLoop, runAudioIterator, scheduleProgressUpdate, seekToTime, setPlaybackSpeed, setVolume, startVideoIterator, stopAndClear, switchAudioTrack, switchSubtitleTrack, toggleLoop, togglePlay, updateNextFrame, updateSubtitlesOptimized, updateTrackMenus } from './player.js'
-import { clearPlaylist, findFileByPath, handleFiles, handleFolderSelection, removeItemFromPath, updatePlaylistUIOptimized } from './playlist.js'
+import { clearPlaylist, findFileByPath, handleFiles, handleFolderSelection, removeItemFromPath, updatePlaylistUIOptimized, setupPlaylistEventListeners } from './playlist.js'
 import { takeScreenshot } from './screenshot.js'
 import { hideStatusMessage, showControlsTemporarily, showDropZoneUI, showError, showInfo, showLoading, showPlayerUI, showStatusMessage, updateProgressBarUI, updateTimeInputs } from './ui.js'
 
@@ -223,70 +223,7 @@ export const setupEventListeners = () => {
 	};
 
 	// === PERFORMANCE OPTIMIZATION: Event delegation for playlist clicks ===
-	playlistContent.addEventListener('click', (e) => {
-		setTimeout(() => {
-			state.cropCanvasDimensions = positionCropCanvas();
-		}, 200);
-		const removeButton = e.target.closest('.remove-item');
-		if (removeButton) {
-			e.stopPropagation();
-			const pathToRemove = removeButton.dataset.path;
-			const fileToRemove = findFileByPath(state.playlist, pathToRemove);
-
-			let isPlayingFile = false;
-			if (fileToRemove && state.currentPlayingFile) {
-				isPlayingFile = (fileToRemove instanceof File && state.currentPlayingFile instanceof File) ?
-					fileToRemove === state.currentPlayingFile :
-					fileToRemove === state.currentPlayingFile;
-			}
-
-			removeItemFromPath(state.playlist, pathToRemove);
-			updatePlaylistUIOptimized();
-
-			if (isPlayingFile) {
-				stopAndClear();
-				state.currentPlayingFile = null;
-				showDropZoneUI();
-			}
-			return;
-		}
-
-		const actionButton = e.target.closest('.clip-action-btn');
-		if (actionButton) {
-			e.stopPropagation();
-			const path = actionButton.dataset.path;
-			const blob = findFileByPath(state.playlist, path);
-			if (blob instanceof Blob) {
-				if (actionButton.dataset.action === 'download') {
-					const url = URL.createObjectURL(blob);
-					const a = document.createElement('a');
-					a.href = url;
-					a.download = path.split('/').pop();
-					a.click();
-					URL.revokeObjectURL(url);
-				} else if (actionButton.dataset.action === 'copy') {
-					navigator.clipboard.write([new ClipboardItem({
-						[blob.type]: blob
-					})]).then(() => {
-						showError('Clip copied to clipboard!');
-					}, (err) => {
-						showError('Copy failed. Browser may not support it.');
-						console.error('Copy failed:', err);
-					});
-				}
-			}
-			return;
-		}
-
-		const fileElement = e.target.closest('.playlist-file');
-		if (fileElement && (e.target.classList.contains('playlist-file-name') || e.target === fileElement)) {
-			const path = fileElement.dataset.path;
-			const fileToPlay = findFileByPath(state.playlist, path);
-			if (fileToPlay && fileToPlay !== state.currentPlayingFile) {
-				loadMedia(fileToPlay);
-			}
-		}
-	});
+	setupPlaylistEventListeners();
 
 	document.onkeydown = (e) => {
 		if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || !state.fileLoaded) return;
