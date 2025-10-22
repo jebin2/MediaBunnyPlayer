@@ -147,7 +147,7 @@ export const removeItemFromPath = (nodes, path) => {
 
 	const itemName = pathParts[0];
 	for (let i = 0; i < nodes.length; i++) {
-		if (nodes[i].name === itemName) {
+		if (escapeHTML(nodes[i].name) === itemName) {
 			if (pathParts.length === 1) {
 				nodes.splice(i, 1);
 				return true;
@@ -388,11 +388,24 @@ export const setupPlaylistEventListeners = () => {
 		if (e.target.classList.contains('remove-item')) {
 			e.stopPropagation();
 			const path = e.target.dataset.path;
+			let isPlayingFile = false;
+			const fileToRemove = findFileByPath(state.playlist, path);
+			if (fileToRemove && state.currentPlayingFile) {
+				isPlayingFile = (fileToRemove instanceof File && state.currentPlayingFile instanceof File) ?
+					fileToRemove === state.currentPlayingFile :
+					fileToRemove === state.currentPlayingFile;
+			}
+
 			removeItemFromPath(state.playlist, path);
 			if (state.selectedFiles) {
 				state.selectedFiles.delete(path);
 			}
 			updatePlaylistUIOptimized();
+			if (isPlayingFile) {
+				stopAndClear();
+				state.currentPlayingFile = null;
+				showDropZoneUI();
+			}
 			return;
 		}
 
