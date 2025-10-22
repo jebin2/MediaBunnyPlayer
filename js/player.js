@@ -382,7 +382,7 @@ export const loadMedia = async (resource, isConversionAttempt = false) => {
 		}
 
 		if (!isPlayable && isConversionAttempt) {
-			throw new Error('Converted file is not playable. Its codecs may be unsupported by this browser.');
+			throw new Error('Converted file is not playable. Its codecs may be unsupported.');
 		}
 
 		state.currentPlayingFile = resource;
