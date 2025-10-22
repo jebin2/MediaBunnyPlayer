@@ -141,19 +141,45 @@ export const findFileByPath = (nodes, path) => {
 	return null;
 };
 
-export const removeItemFromPath = (nodes, path) => {
+export const removeItemFromPath = (nodes, path, parentPath = '') => {
 	const pathParts = path.split('/').filter(Boolean);
-	if (pathParts.length === 0) return;
+	if (pathParts.length === 0) return false;
 
 	const itemName = pathParts[0];
 	for (let i = 0; i < nodes.length; i++) {
 		if (escapeHTML(nodes[i].name) === itemName) {
+			const nodeToRemove = nodes[i];
+			const fullPath = parentPath ? `${parentPath}/${escapeHTML(nodeToRemove.name)}` : escapeHTML(nodeToRemove.name);
+
 			if (pathParts.length === 1) {
+				// This is the item to remove
+				if (state.selectedFiles) {
+					if (nodeToRemove.type === 'folder') {
+						// If it's a folder, recursively remove all its children from the selection
+						const removeChildrenFromSelection = (folderNode, folderPath) => {
+							if (!folderNode.children) return;
+							folderNode.children.forEach(child => {
+								const childPath = `${folderPath}/${escapeHTML(child.name)}`;
+								if (child.type === 'file') {
+									state.selectedFiles.delete(childPath);
+								} else if (child.type === 'folder') {
+									removeChildrenFromSelection(child, childPath);
+								}
+							});
+						};
+						removeChildrenFromSelection(nodeToRemove, fullPath);
+					} else {
+						// If it's a file, remove it directly
+						state.selectedFiles.delete(fullPath);
+					}
+				}
+
 				nodes.splice(i, 1);
 				return true;
-			} else if (nodes[i].type === 'folder') {
-				const removed = removeItemFromPath(nodes[i].children, pathParts.slice(1).join('/'));
-				if (removed && nodes[i].children.length === 0) {
+			} else if (nodeToRemove.type === 'folder') {
+				const removed = removeItemFromPath(nodeToRemove.children, pathParts.slice(1).join('/'), fullPath);
+				if (removed && nodeToRemove.children.length === 0) {
+					// If the folder becomes empty after the child is removed, remove the folder itself.
 					nodes.splice(i, 1);
 				}
 				return removed;
@@ -397,9 +423,6 @@ export const setupPlaylistEventListeners = () => {
 			}
 
 			removeItemFromPath(state.playlist, path);
-			if (state.selectedFiles) {
-				state.selectedFiles.delete(path);
-			}
 			updatePlaylistUIOptimized();
 			if (isPlayingFile) {
 				stopAndClear();
