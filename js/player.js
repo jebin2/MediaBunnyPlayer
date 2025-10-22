@@ -656,7 +656,7 @@ export const hideTrackMenus = () => {
 // ============================================================================
 
 export const playNext = () => {
-	if (!state.currentPlayingFile || state.playlist.length <= 1) return;
+	if (!state.currentPlayingFile) return;
 
 	const flatten = (nodes) => {
 		let flat = [];
@@ -668,6 +668,7 @@ export const playNext = () => {
 	};
 
 	const flatList = flatten(state.playlist);
+	if (flatList.length <= 1) return;
 	const currentIndex = flatList.findIndex(item => item.file === state.currentPlayingFile);
 
 	if (currentIndex !== -1 && currentIndex < flatList.length - 1) {
@@ -676,7 +677,7 @@ export const playNext = () => {
 };
 
 export const playPrevious = () => {
-	if (!state.currentPlayingFile || state.playlist.length <= 1) return;
+	if (!state.currentPlayingFile) return;
 
 	const flatten = (nodes) => {
 		let flat = [];
@@ -688,6 +689,7 @@ export const playPrevious = () => {
 	};
 
 	const flatList = flatten(state.playlist);
+	if (flatList.length <= 1) return;
 	const currentIndex = flatList.findIndex(item => item.file === state.currentPlayingFile);
 
 	if (currentIndex > 0) {
