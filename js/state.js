@@ -97,5 +97,8 @@ export const state = {
     progressUpdateScheduled: false,
 
     // Resize Timeout
-    resizeTimeout: null
+    resizeTimeout: null,
+
+    //resize video
+    videoAspectRatio: 16/9
 };

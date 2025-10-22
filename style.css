@@ -1593,3 +1593,21 @@ select,
 	0%, 100% { opacity: 0.3; transform: scale(1); }
 	50% { opacity: 0.8; transform: scale(1.05); }
 }
+.resize-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin: 1rem 0;
+}
+.resize-section h4 {
+    margin-bottom: 0.5rem;
+    color: #ccc;
+}
+.dimension-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.dimension-controls .speed-input {
+    width: 100%;
+}

@@ -63,6 +63,17 @@ export const urlInput = $('urlInput');
 export const loadUrlBtn = $('loadUrlBtn');
 export const cancelUrlBtn = $('cancelUrlBtn');
 
+// DOM Elements - Resize Modal
+export const resizeBtn = $('resizeBtn');
+export const resizeModal = $('resizeModal');
+export const resizeWidthInput = $('resizeWidthInput');
+export const resizeHeightInput = $('resizeHeightInput');
+export const keepRatioToggle = $('keepRatioToggle');
+export const resizeStartTimeInput = $('resizeStartTime');
+export const resizeEndTimeInput = $('resizeEndTime');
+export const cancelResizeBtn = $('cancelResizeBtn');
+export const processResizeBtn = $('processResizeBtn');
+
 // DOM Elements - Messages
 export const showMessage = document.querySelector('.showMessage');
 
