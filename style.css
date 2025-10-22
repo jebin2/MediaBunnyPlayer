@@ -1254,6 +1254,7 @@ body::before {
 }
 
 .playlist-file-checkbox {
+    display: none; /* wait for merge feature in media bunny */
     width: 18px;
     height: 18px;
     min-width: 18px;
