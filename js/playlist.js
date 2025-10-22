@@ -229,7 +229,7 @@ const createPlaylistElement = (node, currentPath = '') => {
 			downloadBtn.className = 'clip-action-btn';
 			downloadBtn.dataset.action = 'download';
 			downloadBtn.dataset.path = safePath;
-			downloadBtn.textContent = '📥';
+			downloadBtn.textContent = '⬇️';
 
 			const copyBtn = document.createElement('button');
 			copyBtn.className = 'clip-action-btn';

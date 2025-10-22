@@ -27,7 +27,7 @@
 	--accent-gradient: linear-gradient(135deg, #007aff 0%, #5ac8fa 100%);
 	--success: #34c759;
 	--danger: #ff3b30;
-	
+
 	/* Glass Effects */
 	--glass-blur: blur(20px);
 	--glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
@@ -58,15 +58,22 @@ body::before {
 	width: 200%;
 	height: 200%;
 	background: radial-gradient(circle, rgba(0, 122, 255, 0.1) 0%, transparent 50%),
-				radial-gradient(circle at 80% 80%, rgba(90, 200, 250, 0.08) 0%, transparent 50%);
+		radial-gradient(circle at 80% 80%, rgba(90, 200, 250, 0.08) 0%, transparent 50%);
 	animation: gradientShift 20s ease infinite;
 	pointer-events: none;
 	z-index: 0;
 }
 
 @keyframes gradientShift {
-	0%, 100% { transform: translate(0, 0) rotate(0deg); }
-	50% { transform: translate(-10%, -10%) rotate(180deg); }
+
+	0%,
+	100% {
+		transform: translate(0, 0) rotate(0deg);
+	}
+
+	50% {
+		transform: translate(-10%, -10%) rotate(180deg);
+	}
 }
 
 /* --- App Container --- */
@@ -196,12 +203,12 @@ body::before {
 	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-input:checked + .slider {
+input:checked+.slider {
 	background: var(--accent-primary);
 	border-color: var(--accent-primary);
 }
 
-input:checked + .slider:before {
+input:checked+.slider:before {
 	transform: translateX(20px);
 }
 
@@ -420,8 +427,13 @@ input:checked + .slider:before {
 }
 
 @keyframes shimmer {
-	0% { transform: translateX(-100%); }
-	100% { transform: translateX(100%); }
+	0% {
+		transform: translateX(-100%);
+	}
+
+	100% {
+		transform: translateX(100%);
+	}
 }
 
 .progress-bar {
@@ -601,6 +613,7 @@ input:checked + .slider:before {
 		opacity: 0;
 		transform: translateY(10px);
 	}
+
 	to {
 		opacity: 1;
 		transform: translateY(0);
@@ -796,11 +809,11 @@ input:checked + .slider:before {
 	margin-bottom: 0.75rem;
 }
 
-.playlist-folder > details {
+.playlist-folder>details {
 	margin-bottom: 0.5rem;
 }
 
-.playlist-folder > details > summary {
+.playlist-folder>details>summary {
 	background: var(--glass-bg);
 	backdrop-filter: var(--glass-blur);
 	border: 1px solid var(--glass-border);
@@ -816,11 +829,11 @@ input:checked + .slider:before {
 	align-items: center;
 }
 
-.playlist-folder > details > summary::-webkit-details-marker {
+.playlist-folder>details>summary::-webkit-details-marker {
 	display: none;
 }
 
-.playlist-folder > details > summary::before {
+.playlist-folder>details>summary::before {
 	content: "▶";
 	display: inline-block;
 	margin-right: 0.75rem;
@@ -828,11 +841,11 @@ input:checked + .slider:before {
 	color: var(--accent-primary);
 }
 
-.playlist-folder > details[open] > summary::before {
+.playlist-folder>details[open]>summary::before {
 	transform: rotate(90deg);
 }
 
-.playlist-folder > details > summary:hover {
+.playlist-folder>details>summary:hover {
 	background: rgba(0, 122, 255, 0.1);
 	border-color: var(--accent-primary);
 	transform: translateX(4px);
@@ -921,7 +934,9 @@ input:checked + .slider:before {
 }
 
 @keyframes spin {
-	to { transform: rotate(360deg); }
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 #statusMessage {
@@ -949,8 +964,13 @@ input:checked + .slider:before {
 }
 
 @keyframes fadeIn {
-	from { opacity: 0; }
-	to { opacity: 1; }
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
 }
 
 .screenshot-overlay.hidden {
@@ -1172,7 +1192,7 @@ input:checked + .slider:before {
 	color: var(--text-primary);
 }
 
-.trim-mode-selector > div {
+.trim-mode-selector>div {
 	display: flex;
 	align-items: center;
 	padding: 0.5rem 0.75rem;
@@ -1180,7 +1200,7 @@ input:checked + .slider:before {
 	transition: var(--transition-smooth);
 }
 
-.trim-mode-selector > div:hover {
+.trim-mode-selector>div:hover {
 	background: rgba(0, 122, 255, 0.05);
 }
 
@@ -1243,16 +1263,16 @@ input:checked + .slider:before {
 }
 
 /* Checked state */
-.trim-mode-selector input[type="radio"]:checked + label::before {
+.trim-mode-selector input[type="radio"]:checked+label::before {
 	border-color: var(--accent-primary);
 	background: rgba(0, 122, 255, 0.1);
 }
 
-.trim-mode-selector input[type="radio"]:checked + label::after {
+.trim-mode-selector input[type="radio"]:checked+label::after {
 	transform: translateY(-50%) scale(1);
 }
 
-.trim-mode-selector input[type="radio"]:checked + label {
+.trim-mode-selector input[type="radio"]:checked+label {
 	color: var(--accent-primary);
 	font-weight: 600;
 }
@@ -1277,6 +1297,7 @@ input:checked + .slider:before {
 		opacity: 0;
 		transform: translateY(-10px);
 	}
+
 	to {
 		opacity: 1;
 		transform: translateY(0);
@@ -1400,6 +1421,7 @@ input:checked + .slider:before {
 		opacity: 0;
 		transform: translateX(100px);
 	}
+
 	to {
 		opacity: 1;
 		transform: translateX(0);
@@ -1440,10 +1462,13 @@ input:checked + .slider:before {
 }
 
 @keyframes glowPulse {
-	0%, 100% {
+
+	0%,
+	100% {
 		box-shadow: 0 4px 16px rgba(0, 122, 255, 0.2);
 		border-color: rgba(0, 122, 255, 0.3);
 	}
+
 	50% {
 		box-shadow: 0 8px 32px rgba(0, 122, 255, 0.5);
 		border-color: rgba(0, 122, 255, 0.6);
@@ -1457,7 +1482,7 @@ input:checked + .slider:before {
 
 .showMessage {
 	position: fixed;
-    width: fit-content;
+	width: fit-content;
 	left: 50%;
 	transform: translateX(-50%);
 	background: rgba(13, 13, 20, 0.95);
@@ -1479,6 +1504,7 @@ input:checked + .slider:before {
 		opacity: 0;
 		transform: translateX(-50%) translateY(20px);
 	}
+
 	to {
 		opacity: 1;
 		transform: translateX(-50%) translateY(0);
@@ -1573,7 +1599,7 @@ input,
 select,
 .track-item,
 .playlist-file,
-.playlist-folder > details > summary {
+.playlist-folder>details>summary {
 	-webkit-tap-highlight-color: transparent;
 }
 
@@ -1590,28 +1616,52 @@ select,
 }
 
 @keyframes pulse {
-	0%, 100% { opacity: 0.3; transform: scale(1); }
-	50% { opacity: 0.8; transform: scale(1.05); }
+
+	0%,
+	100% {
+		opacity: 0.3;
+		transform: scale(1);
+	}
+
+	50% {
+		opacity: 0.8;
+		transform: scale(1.05);
+	}
 }
+
 .resize-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-    margin: 1rem 0;
+	display: flex;
+	flex-direction: column;
+	gap: 1.5rem;
+	margin: 1rem 0;
 }
+
 .resize-section h4 {
-    margin-bottom: 0.5rem;
-    color: #ccc;
+	margin-bottom: 0.5rem;
+	color: #ccc;
 }
+
 .dimension-controls {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
 }
+
 .dimension-controls .speed-input {
-    width: 100%;
+	width: 100%;
 }
+
 .remove-item {
-    float: right;
-    color: red;
+	float: right;
+	color: red;
+}
+
+.clip-action-btn {
+	background: none;
+	border: none;
+	cursor: pointer;
+	padding: 4px;
+	color: #ddd;
+	/* or any accent color */
+	transition: color 0.2s ease;
 }
