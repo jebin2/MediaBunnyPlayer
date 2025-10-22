@@ -870,7 +870,6 @@ body::before {
 .track-menu {
     position: absolute;
     bottom: 100%;
-    right: 0;
     margin-bottom: 12px;
     background: rgba(13, 13, 20, 0.95);
     backdrop-filter: var(--glass-blur);
@@ -883,6 +882,10 @@ body::before {
     box-shadow: var(--glass-shadow);
     z-index: 200;
     animation: slideUp 0.3s ease;
+}
+
+.track-menu.settingsMenu {
+    right: 0;
 }
 
 .track-menu.hidden {
