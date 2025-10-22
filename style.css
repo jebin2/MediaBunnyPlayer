@@ -1457,7 +1457,7 @@ input:checked + .slider:before {
 
 .showMessage {
 	position: fixed;
-	bottom: 24px;
+    width: fit-content;
 	left: 50%;
 	transform: translateX(-50%);
 	background: rgba(13, 13, 20, 0.95);
