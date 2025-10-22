@@ -691,8 +691,8 @@ export const setupEventListeners = () => {
 				state.scaleWithRatio = false;
 			}
 			if (smoothPathToggle) {
-				smoothPathToggle.checked = false;
-				state.smoothPath = false;
+				smoothPathToggle.checked = true;
+				state.smoothPath = true;
 			}
 			if (blurBackgroundToggle) {
 				blurBackgroundToggle.checked = false;

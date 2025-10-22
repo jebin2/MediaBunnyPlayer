@@ -16,7 +16,7 @@ import {
 	QUALITY_HIGH
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
 
-import { $, MEDIABUNNY_URL, playerArea, videoContainer, canvas, dropZone, loading, playBtn, timeDisplay, progressContainer, progressBar, volumeSlider, muteBtn, fullscreenBtn, sidebar, playlistContent, videoControls, progressHandle, startTimeInput, endTimeInput, settingsCtrlBtn, settingsMenu, loopBtn, cutBtn, screenshotBtn, screenshotOverlay, screenshotPreviewImg, closeScreenshotBtn, copyScreenshotBtn, downloadScreenshotBtn, playbackSpeedInput, autoplayToggle, urlModal, urlInput, loadUrlBtn, cancelUrlBtn, showMessage, cropModeRadios, scaleOptionContainer, scaleWithRatioToggle, blurOptionContainer, smoothOptionContainer, smoothPathToggle, blurBackgroundToggle, blurAmountInput, HANDLE_SIZE, HANDLE_HALF, fixSizeBtn, prevBtn, nextBtn, cropBtn, cropCanvas, cropCtx, queuedAudioNodes, panScanBtn, ctx } from './constants.js';
+import { $, MEDIABUNNY_URL, playerArea, videoContainer, canvas, dropZone, loading, playBtn, timeDisplay, progressContainer, progressBar, volumeSlider, muteBtn, fullscreenBtn, sidebar, playlistContent, videoControls, progressHandle, startTimeInput, endTimeInput, settingsCtrlBtn, settingsMenu, loopBtn, cutBtn, screenshotBtn, screenshotOverlay, screenshotPreviewImg, closeScreenshotBtn, copyScreenshotBtn, downloadScreenshotBtn, playbackSpeedInput, autoplayToggle, urlModal, urlInput, loadUrlBtn, cancelUrlBtn, showMessage, cropModeRadios, scaleOptionContainer, scaleWithRatioToggle, blurOptionContainer, smoothOptionContainer, smoothPathToggle, cropModeNoneRadio, blurBackgroundToggle, blurAmountInput, HANDLE_SIZE, HANDLE_HALF, fixSizeBtn, prevBtn, nextBtn, cropBtn, cropCanvas, cropCtx, queuedAudioNodes, panScanBtn, ctx } from './constants.js';
 import { state } from './state.js';
 import { dynamicVideoUrl, escapeHTML, formatTime, guidedPanleInfo, parseTime, registerServiceWorker, updateShortcutKeysVisibility, } from './utility.js'
 import { applyResize, clampRectToVideoBounds, drawCropOverlay,drawCropWithHandles, getCursorForHandle, getInterpolatedCropRect, getResizeHandle, getScaledCoordinates, isInsideCropRect, positionCropCanvas, smoothPathWithMovingAverage, toggleCropFixed, togglePanning, toggleStaticCrop, updateFixSizeButton } from './crop.js'
@@ -47,22 +47,17 @@ export const resetAllConfigs = () => {
 	state.dynamicCropMode = 'none';
 	state.scaleWithRatio = false;
 	state.useBlurBackground = false;
-	state.smoothPath = false;
+	state.smoothPath = true;
 	state.blurAmount = 15;
 	updateDynamicCropOptionsUI();
 
 	// 4. Reset the UI for dynamic crop options
-	const cropModeNoneRadio = $('cropModeNone');
 	if (cropModeNoneRadio) cropModeNoneRadio.checked = true;
 
-	const scaleWithRatioToggle = $('scaleWithRatioToggle');
 	if (scaleWithRatioToggle) scaleWithRatioToggle.checked = false;
 
-	const smoothPathToggle = $('smoothPathToggle');
-	if (smoothPathToggle) smoothPathToggle.checked = false;
+	if (smoothPathToggle) smoothPathToggle.checked = true;
 
-	const blurBackgroundToggle = $('blurBackgroundToggle');
-	const blurAmountInput = $('blurAmountInput');
 	if (blurBackgroundToggle) blurBackgroundToggle.checked = false;
 	if (blurAmountInput) {
 		blurAmountInput.value = 15;

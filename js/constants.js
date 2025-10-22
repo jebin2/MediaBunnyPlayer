@@ -85,6 +85,7 @@ export const fixSizeBtn = document.getElementById('fixSizeBtn');
 
 // DOM Elements - Dynamic Crop Options
 export const cropModeRadios = document.querySelectorAll('input[name="cropMode"]');
+export const cropModeNoneRadio = $('cropModeNone');
 export const scaleOptionContainer = $('scaleOptionContainer');
 export const scaleWithRatioToggle = $('scaleWithRatioToggle');
 export const blurOptionContainer = $('blurOptionContainer');

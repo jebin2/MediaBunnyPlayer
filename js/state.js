@@ -67,7 +67,7 @@ export const state = {
     // Crop Configuration State
     scaleWithRatio: false,
     useBlurBackground: false,
-    smoothPath: false,
+    smoothPath: true,
     blurAmount: 15,
     dynamicCropMode: 'none',
 
