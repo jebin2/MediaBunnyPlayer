@@ -1652,8 +1652,8 @@ select,
 }
 
 .remove-item {
-	float: right;
 	color: red;
+    display: block;
 }
 
 .clip-action-btn {
