@@ -15,6 +15,7 @@ export const videoContainer = $('videoContainer');
 export const canvas = $('videoCanvas');
 export const dropZone = $('dropZone');
 export const loading = $('loading');
+export const audioTrack = $('audioTrackMenu');
 
 // DOM Elements - Playback Controls
 export const playBtn = $('playBtn');

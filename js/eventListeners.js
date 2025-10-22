@@ -26,6 +26,7 @@ import { checkPlaybackState, ensureSubtitleRenderer, getPlaybackTime, handleConv
 import { clearPlaylist, findFileByPath, handleFiles, handleFolderSelection, removeItemFromPath, updatePlaylistUIOptimized, setupPlaylistEventListeners } from './playlist.js'
 import { takeScreenshot } from './screenshot.js'
 import { hideStatusMessage, showControlsTemporarily, showDropZoneUI, showError, showInfo, showLoading, showPlayerUI, showStatusMessage, updateProgressBarUI, updateTimeInputs } from './ui.js'
+import { audioEventlistener } from './audio.js';
 
 export const setupEventListeners = () => {
 	$('clearPlaylistBtn').onclick = clearPlaylist;
@@ -224,6 +225,7 @@ export const setupEventListeners = () => {
 
 	// === PERFORMANCE OPTIMIZATION: Event delegation for playlist clicks ===
 	setupPlaylistEventListeners();
+	audioEventlistener();
 
 	document.onkeydown = (e) => {
 		if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || !state.fileLoaded) return;

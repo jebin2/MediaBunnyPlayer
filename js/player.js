@@ -525,17 +525,32 @@ export const updateTrackMenus = () => {
 
 	state.availableAudioTracks.forEach((track, index) => {
 		const li = document.createElement('li');
-		li.className = `track-item ${track === state.currentAudioTrack ? 'active' : ''}`;
+		li.className = `playlist-file ${track === state.currentAudioTrack ? 'active' : ''}`;
+
+		// Clickable area for switching the track
+		const trackInfo = document.createElement('div');
+		trackInfo.className = 'playlist-file-name track-info';
+		trackInfo.dataset.trackIndex = index;
 		const langCode = track.languageCode;
 		const label = (langCode && langCode !== 'und') ? langCode : `Audio ${index + 1}`;
-		li.innerHTML = `<span>${label}</span>`;
-		li.onclick = () => switchAudioTrack(index);
+		trackInfo.innerHTML = `<span>${label}</span>`;
+		trackInfo.title = `Switch to ${label}`;
+
+		// Download button
+		const downloadBtn = document.createElement('button');
+		downloadBtn.className = 'clip-action-btn download-btn';
+		downloadBtn.dataset.trackIndex = index;
+		downloadBtn.textContent = '⬇️';
+		downloadBtn.title = 'Download this audio track';
+
+		li.appendChild(trackInfo);
+		li.appendChild(downloadBtn);
 		audioTrackList.appendChild(li);
 	});
 
 	const subtitleTrackList = $('subtitleTrackList');
 	const noneOption = document.createElement('li');
-	noneOption.className = `track-item ${!state.currentSubtitleTrack ? 'active' : ''}`;
+	noneOption.className = `playlist-file ${!state.currentSubtitleTrack ? 'active' : ''}`;
 	noneOption.innerHTML = `<span>Off</span>`;
 	noneOption.onclick = () => switchSubtitleTrack('none');
 	subtitleTrackList.innerHTML = '';
@@ -543,7 +558,7 @@ export const updateTrackMenus = () => {
 
 	state.availableSubtitleTracks.forEach((track, index) => {
 		const li = document.createElement('li');
-		li.className = `track-item ${track === state.currentSubtitleTrack ? 'active' : ''}`;
+		li.className = `playlist-file ${track === state.currentSubtitleTrack ? 'active' : ''}`;
 		const langCode = track.languageCode;
 		const label = (langCode && langCode !== 'und') ? langCode : `Subtitle ${index + 1}`;
 		li.innerHTML = `<span>${label}</span>`;
