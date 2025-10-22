@@ -155,5 +155,6 @@ export const handleCutAction = async () => {
 	} finally {
 		if (input) input.dispose();
 		guidedPanleInfo("");
+		resetAllConfigs();
 	}
 };

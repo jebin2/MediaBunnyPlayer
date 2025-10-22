@@ -770,7 +770,7 @@ document.addEventListener('keydown', (e) => {
 		handleCutAction()
 	} else if (e.key.toLowerCase() === 'escape') {
 		e.preventDefault();
-		resetAllConfigs()
+		resetAllConfigs();
 	} else if (e.key === 'Backspace') {
 		state.buffer = state.buffer.slice(0, -1);
 	} else if (e.key.toLowerCase() === 'l') {

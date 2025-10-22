@@ -1597,15 +1597,16 @@ body::before {
 
 /* --- Guide Panel --- */
 .guide_panel {
-    top: 24px;
+    /* top: 24px; */
     left: 50%;
     transform: translateX(-50%);
-    width: fit-content;
-    max-width: 600px;
+    /* width: fit-content;
+    max-width: 90vw; */
     font-size: 0.95rem;
     text-align: center;
     animation: glowPulse 3s ease-in-out infinite;
-    padding: 1rem 2rem;
+    /* padding: 1rem 2rem; */
+    width: 90vw;
 }
 
 .guide_panel #guide_info {
