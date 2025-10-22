@@ -1611,3 +1611,7 @@ select,
 .dimension-controls .speed-input {
     width: 100%;
 }
+.remove-item {
+    float: right;
+    color: red;
+}
