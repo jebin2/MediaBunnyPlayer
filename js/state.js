@@ -5,6 +5,7 @@
 export const state = {
     // Playlist State
     playlist: [],
+    selectedFiles: [],
     currentPlayingFile: null,
     fileLoaded: false,
 
