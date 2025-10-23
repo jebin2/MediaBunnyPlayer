@@ -131,7 +131,8 @@
 						<!-- Moved to the end of the menu for better clarity -->
 						<div class="trim-menu-actions">
 							<button class="control-btn track-btn btn" id="resetAllBtn">Reset All</button>
-							<button id="cutBtn" class="control-btn track-btn btn" title="Press 'C' to Process">Process Clip</button>
+							<button id="cutBtn" class="control-btn track-btn btn" title="Press 'C' to Process">Process
+								Clip</button>
 						</div>
 
 					</div>
@@ -335,6 +336,21 @@
 			<div class="screenshot-actions">
 				<button class="btn" id="cancelResizeBtn">Cancel</button>
 				<button class="btn" id="processResizeBtn">Resize</button>
+			</div>
+		</div>
+	</div>
+	<div class="screenshot-overlay hidden" id="recordingModeModal">
+		<div class="screenshot-modal">
+			<h3>Choose Recording Mode</h3>
+			<p style="margin: 1rem 0; color: #ccc;">How would you like to record?</p>
+
+			<div class="screenshot-actions" style="justify-content: center; gap: 15px;">
+				<button class="btn" id="recordFullAreaBtn">Record Full Area</button>
+				<button class="btn" id="selectCropAreaBtn">Select & Crop Area</button>
+			</div>
+
+			<div class="screenshot-actions" style="margin-top: 1.5rem; justify-content: center;">
+				<button class="btn" id="cancelRecordingBtn" style="background-color: #6e3c3c;">Cancel</button>
 			</div>
 		</div>
 	</div>

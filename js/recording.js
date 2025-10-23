@@ -57,6 +57,57 @@ const rec = {
 };
 rec.ctx = rec.canvas.getContext('2d');
 
+const showRecordingModePrompt = (stream) => {
+    // Get references to the modal and its buttons from the HTML
+    const modal = document.getElementById('recordingModeModal');
+    const fullAreaBtn = document.getElementById('recordFullAreaBtn');
+    const cropAreaBtn = document.getElementById('selectCropAreaBtn');
+    const cancelBtn = document.getElementById('cancelRecordingBtn');
+
+    // A simple function to hide the modal
+    const hideModal = () => {
+        modal.classList.add('hidden');
+    };
+
+    // Define the action for the "Full Area" button
+    fullAreaBtn.onclick = () => {
+        hideModal();
+        const videoTrack = stream.getVideoTracks()[0];
+        const settings = videoTrack.getSettings();
+
+        // Define the selection as the full dimensions of the stream
+        rec.selection = {
+            x: 0, y: 0,
+            width: Math.round(settings.width / 2) * 2,   // Enforce even dimensions for the codec
+            height: Math.round(settings.height / 2) * 2,
+        };
+
+        document.getElementById("guideinforec").classList.add("hidden");
+        rec.mode = 'recording';
+        state.tempStream = stream; // Store stream for startRecording() to use
+        startRecording();
+        updateUI(); // This will show the floating timer/stop controls
+    };
+
+    // Define the action for the "Crop Area" button
+    cropAreaBtn.onclick = () => {
+        hideModal();
+        // Proceed with the original cropping UI flow
+        createInteractiveUI(stream);
+    };
+
+    // Define the action for the "Cancel" button
+    cancelBtn.onclick = () => {
+        hideModal();
+        // Stop all stream tracks to release the screen share and turn off the browser's "sharing" indicator
+        stream.getTracks().forEach(track => track.stop());
+        showInfo("Recording cancelled.");
+    };
+
+    // Finally, make the modal visible
+    modal.classList.remove('hidden');
+};
+
 /**
  * [STEP 1] Asks for screen permission.
  */
@@ -69,7 +120,7 @@ export const initiateScreenRecording = async () => {
             surfaceSwitching: "include",
             audio: { echoCancellation: true, noiseSuppression: true }
         });
-        createInteractiveUI(stream);
+        showRecordingModePrompt(stream);
     } catch (err) {
         showError("Screen recording permission was denied.");
     }
@@ -274,15 +325,34 @@ const onPointerUp = () => {
         // =======================================================================
 
         rec.mode = 'selected';
-        rec.isSelectionInteractive = true; 
+        rec.isSelectionInteractive = true;
     }
     rec.isResizing = false;
     rec.isDragging = false;
     updateUI(); // Update UI to show the (potentially) adjusted selection box size
 };
 
+const updateFloatingControlsUI = () => {
+    if (rec.mode === 'selected') {
+        recordingControls.classList.remove('hidden');
+        startRecFloatingBtn.style.display = 'block';
+        pauseRecBtn.style.display = 'none';
+        stopRecBtn.style.display = 'none';
+        recTimer.style.display = 'none';
+    } else if (rec.mode === 'recording') {
+        recordingControls.classList.remove('hidden');
+        startRecFloatingBtn.style.display = 'none';
+        pauseRecBtn.style.display = 'block';
+        stopRecBtn.style.display = 'block';
+        recTimer.style.display = 'block';
+    } else { // Handles 'idle' and other states
+        recordingControls.classList.add('hidden');
+    }
+};
+
 // --- UI UPDATE & DRAWING ---
 const updateUI = () => {
+    updateFloatingControlsUI();
     if (!rec.selectionContainer) return;
 
     // Update canvas overlay
@@ -297,23 +367,6 @@ const updateUI = () => {
         ctx.fillStyle = '#fff';
         ctx.textAlign = 'center';
         ctx.fillText('Click and drag to select an area', width / 2, height / 2);
-    }
-
-    // Update the state of the top floating controls
-    if (rec.mode === 'selected') {
-        recordingControls.classList.remove('hidden');
-        startRecFloatingBtn.style.display = 'block';
-        pauseRecBtn.style.display = 'none';
-        stopRecBtn.style.display = 'none';
-        recTimer.style.display = 'none';
-    } else if (rec.mode === 'recording') {
-        recordingControls.classList.remove('hidden');
-        startRecFloatingBtn.style.display = 'none';
-        pauseRecBtn.style.display = 'block';
-        stopRecBtn.style.display = 'block';
-        recTimer.style.display = 'block';
-    } else {
-        recordingControls.classList.add('hidden');
     }
 
     if (rec.mode === 'recording' || rec.mode === 'selected') {
@@ -473,7 +526,7 @@ export const lenvetlistener = () => {
     rec.isSelectionInteractive = !rec.isSelectionInteractive;
     // Re-run the UI update to apply the new pointer-events and border style
     updateUI();
-    
+
     // Optional: Show a quick message to the user
     const message = rec.isSelectionInteractive ? "Selection Unlocked" : "Selection Locked";
     if (rec.isSelectionInteractive) {
