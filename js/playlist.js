@@ -454,7 +454,7 @@ export const setupPlaylistEventListeners = () => {
 	$('togglePlaylistBtn').onclick = () => {
 		playerArea.classList.toggle('playlist-visible');
 		setTimeout(() => {
-			cropCanvasDimensions = positionCropCanvas();
+			state.cropCanvasDimensions = positionCropCanvas();
 		}, 200);
 	}
 };
@@ -463,7 +463,7 @@ export const openPlaylist = () => {
 	if (playerArea.classList.contains('playlist-visible')) return;
 	playerArea.classList.toggle('playlist-visible');
 	setTimeout(() => {
-		cropCanvasDimensions = positionCropCanvas();
+		state.cropCanvasDimensions = positionCropCanvas();
 	}, 200);
 }
 
@@ -471,7 +471,7 @@ export const closePlaylist = () => {
 	if (!playerArea.classList.contains('playlist-visible')) return;
 	playerArea.classList.toggle('playlist-visible');
 	setTimeout(() => {
-		cropCanvasDimensions = positionCropCanvas();
+		state.cropCanvasDimensions = positionCropCanvas();
 	}, 200);
 }
 

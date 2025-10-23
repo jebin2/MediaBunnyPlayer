@@ -68,6 +68,7 @@ body::before {
 
 /* --- Global Animations --- */
 @keyframes gradientShift {
+
     0%,
     100% {
         transform: translate(0, 0) rotate(0deg);
@@ -141,6 +142,7 @@ body::before {
 }
 
 @keyframes glowPulse {
+
     0%,
     100% {
         box-shadow: 0 4px 16px rgba(0, 122, 255, 0.2);
@@ -166,6 +168,7 @@ body::before {
 }
 
 @keyframes pulse {
+
     0%,
     100% {
         opacity: 0.3;
@@ -240,7 +243,7 @@ body::before {
 }
 
 .drop-zone-content img {
-	width: 50%;
+    width: 50%;
 }
 
 
@@ -1253,7 +1256,8 @@ body::before {
 }
 
 .playlist-file-checkbox {
-    display: none; /* wait for merge feature in media bunny */
+    display: none;
+    /* wait for merge feature in media bunny */
     width: 18px;
     height: 18px;
     min-width: 18px;
@@ -1473,7 +1477,8 @@ body::before {
     flex-direction: column;
 }
 
-#screenshotPreviewImg, #imagePreview {
+#screenshotPreviewImg,
+#imagePreview {
     max-width: 100%;
     max-height: calc(90vh - 200px);
     width: auto;
@@ -1865,9 +1870,10 @@ select,
         justify-content: center;
     }
 
-	.drop-zone-content img {
-		width: 10% !important;
-	}
+    .drop-zone-content img {
+        width: 10% !important;
+    }
+
     .player-area.playlist-visible .sidebar {
         width: 280px;
     }
@@ -1900,10 +1906,11 @@ select,
 }
 
 @media (max-height: 768px) {
-	.drop-zone-content img {
-		width: 10%;
-	}
+    .drop-zone-content img {
+        width: 10%;
+    }
 }
+
 #settingsMenu {
     position: fixed;
     top: 80px;
@@ -1913,12 +1920,16 @@ select,
     max-height: calc(100vh - 120px);
     overflow-y: auto;
 }
+
 #imageVideoAudioBtn {
     border-radius: initial;
 }
-#selectImageBtn, #imageDurationInput {
+
+#selectImageBtn,
+#imageDurationInput {
     width: 100%;
 }
+
 .recording-controls-container {
     position: fixed;
     top: 20px;
@@ -1931,8 +1942,9 @@ select,
     display: flex;
     gap: 10px;
     align-items: center;
-    z-index: 10000;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    /* This is the key property to add/update */
+    z-index: 10000;
 }
 
 .recording-controls-container.hidden {

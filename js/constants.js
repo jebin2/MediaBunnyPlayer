@@ -126,6 +126,7 @@ export const audioFileName = document.getElementById("audioFileName");
 // DOM Elements - Recording
 export const recordScreenBtn = $('recordScreenBtn');
 export const recordingControls = $('recordingControls');
+export const startRecFloatingBtn = $('startRecFloatingBtn');
 export const pauseRecBtn = $('pauseRecBtn');
 export const stopRecBtn = $('stopRecBtn');
 export const recTimer = $('recTimer');
