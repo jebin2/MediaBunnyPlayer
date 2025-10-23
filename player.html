@@ -53,18 +53,25 @@
 
 				<div class="track-menu settingsMenu hidden" id="settingsMenu">
 					<div class="track-menu-content">
+
+						<!-- Section 1: Playback Settings -->
 						<h4>Playback</h4>
 						<div class="trim-option">
 							<input type="checkbox" id="autoplayToggle" checked>
 							<label for="autoplayToggle">Autoplay Next Video</label>
 						</div>
+
 						<hr class="menu-divider">
+
+						<!-- Section 2: Clipping & Time Selection -->
 						<h4>Time Range</h4>
 						<div class="trim-menu-controls">
 							<input type="text" id="startTime" class="time-input" placeholder="00:00" title="Start Time">
 							<span>-</span>
 							<input type="text" id="endTime" class="time-input" placeholder="00:00" title="End Time">
 						</div>
+
+						<!-- Section 3: Primary Actions & Tools -->
 						<h4>Actions</h4>
 						<div class="trim-menu-actions">
 							<button id="loopBtn" class="control-btn track-btn btn">Loop</button>
@@ -73,15 +80,18 @@
 							<button id="resizeBtn" class="control-btn track-btn btn">Resize</button>
 							<button id="imageToVideoBtn" class="control-btn track-btn btn">Image to Video</button>
 						</div>
+
 						<hr class="menu-divider">
+
+						<!-- Section 4: Advanced Cropping Tools -->
 						<h4>Cropping</h4>
 						<div class="trim-menu-actions">
 							<button id="cropBtn" class="control-btn track-btn btn hidden">✂️</button>
 							<button id="panScanBtn" class="control-btn track-btn btn">Dynamic ✂️</button>
 						</div>
-						<!-- All our dynamic options are now neatly organized here -->
+
+						<!-- Dynamic options are now correctly grouped under the main Cropping section -->
 						<div id="dynamicCropOptionsContainer">
-							<!-- This is our new mode selector -->
 							<fieldset class="trim-mode-selector">
 								<legend>Dynamic Crop Mode</legend>
 								<div>
@@ -98,7 +108,7 @@
 								</div>
 							</fieldset>
 
-							<!-- The sub-options are now separate and will be shown/hidden as needed -->
+							<!-- Sub-options for dynamic cropping -->
 							<div class="trim-option" id="scaleOptionContainer" style="display: none;">
 								<input type="checkbox" id="scaleWithRatioToggle">
 								<label for="scaleWithRatioToggle">Scale to Fit</label>
@@ -113,12 +123,17 @@
 								<input id="blurAmountInput" class="speed-input" value="15" min="1" max="100"
 									title="Blur amount in pixels">
 							</div>
-							<!-- ADD THE NEW RESET BUTTON HERE -->
-							<div class="trim-menu-actions">
-								<button class="control-btn track-btn btn" id="resetAllBtn">Reset
-									All</button>
-							</div>
 						</div>
+
+						<hr class="menu-divider">
+
+						<!-- Section 5: Global Reset Action -->
+						<!-- Moved to the end of the menu for better clarity -->
+						<div class="trim-menu-actions">
+							<button class="control-btn track-btn btn" id="resetAllBtn">Reset
+								All</button>
+						</div>
+
 					</div>
 				</div>
 			</div>
@@ -236,7 +251,8 @@
 
 				<div class="resize-section">
 					<h4>Duration (seconds)</h4>
-					<input id="imageDurationInput" class="speed-input" min="1" max="300" value="5" placeholder="Duration in seconds">
+					<input id="imageDurationInput" class="speed-input" min="1" max="300" value="5"
+						placeholder="Duration in seconds">
 				</div>
 				<div class="resize-section">
 					<h4>Dimensions</h4>
@@ -279,11 +295,11 @@
 	<div class="screenshot-overlay hidden" id="resizeModal">
 		<div class="screenshot-modal">
 			<h3>Resize Video</h3>
-			<p>Select a time range and new dimensions for the clip.</p>
+			<p>Select a trim range and new dimensions for the clip.</p>
 
 			<div class="resize-controls">
 				<div class="resize-section">
-					<h4>Time Range</h4>
+					<h4>Trim Range</h4>
 					<div class="trim-menu-controls">
 						<input type="text" id="resizeStartTime" class="time-input" placeholder="00:00"
 							title="Start Time">
