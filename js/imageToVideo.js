@@ -169,6 +169,24 @@ const createImageVideo = async (options) => {
     });
     output.addVideoTrack(canvasSource, { frameRate: fps });
 
+    // --- PROGRESS REPORTING LOGIC ---
+    let videoProgress = 0;
+    let audioProgress = 0;
+    let hasAudio = false; // We'll set this to true if audio is successfully added
+
+    // This function calculates the combined progress and calls the callback
+    const updateOverallProgress = () => {
+        if (!onProgress) return;
+
+        // We'll give 50% weight to video and 50% to audio if it exists
+        const overallProgress = hasAudio
+            ? (videoProgress * 0.5) + (audioProgress * 0.5)
+            : videoProgress;
+
+        onProgress(overallProgress);
+    };
+    // --- END PROGRESS LOGIC ---
+
     // This promise will handle piping audio data. It resolves immediately if there's no audio.
     let audioPipePromise = Promise.resolve();
 
@@ -181,6 +199,7 @@ const createImageVideo = async (options) => {
         const audioTrack = await audioInput.getPrimaryAudioTrack();
 
         if (audioTrack) {
+            hasAudio = true; // Audio track found!
             const audioDecoderConfig = await audioTrack.getDecoderConfig();
             const audioSource = new EncodedAudioPacketSource(audioTrack.codec);
             output.addAudioTrack(audioSource);
@@ -197,6 +216,9 @@ const createImageVideo = async (options) => {
                         const metadata = firstPacket ? { decoderConfig: audioDecoderConfig } : undefined;
                         await audioSource.add(packet, metadata);
                         firstPacket = false;
+                        // Update progress based on timestamp
+                        audioProgress = Math.min(packet.timestamp / duration, 1.0);
+                        updateOverallProgress();
                     }
                 } else {
                     let timeOffset = 0;
@@ -213,14 +235,18 @@ const createImageVideo = async (options) => {
                             firstPacketEver = false;
                         }
                         timeOffset += audioDuration;
+                        // Update progress based on the time offset
+                        audioProgress = Math.min(timeOffset / duration, 1.0);
+                        updateOverallProgress();
                     }
                 }
+                audioProgress = 1.0; // Ensure it reaches 100%
+                updateOverallProgress();
                 audioSource.close();
             };
-
             audioPipePromise = pipeAudio();
         } else {
-             console.warn("Could not find an audio track in the provided file.");
+            console.warn("Could not find an audio track in the provided file.");
         }
     }
 
@@ -233,13 +259,16 @@ const createImageVideo = async (options) => {
         for (let i = 0; i < totalFrames; i++) {
             const timestamp = i / fps;
             await canvasSource.add(timestamp, 1 / fps);
+            // Update progress based on frames processed
+            videoProgress = (i + 1) / totalFrames;
+            updateOverallProgress();
         }
         canvasSource.close();
     })();
 
     // Wait for both streams to finish
     await Promise.all([videoPipePromise, audioPipePromise]);
-
+    onProgress(1.0);
     // 7. Finalize the MP4 file
     await output.finalize();
 
@@ -269,7 +298,7 @@ const handleCreateImageVideo = async () => {
 
     try {
         showStatusMessage('Encoding video...');
-        
+
         const mp4Blob = await createImageVideo({
             imageFile: state.selectedImageFile,
             duration: duration,
@@ -298,5 +327,12 @@ const handleCreateImageVideo = async () => {
             hideStatusMessage();
         }, 2000);
         resetImageToVideoModal();
+    }
+};
+
+const onProgress = (progress) => {
+    // We check for 1.0 because we'll set a "Finalizing..." message later
+    if (progress < 1.0) {
+        showStatusMessage(`Encoding video... (${Math.round(progress * 100)}%)`);
     }
 };
