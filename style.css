@@ -250,7 +250,7 @@ body::before {
 
 /* --- Header --- */
 .header {
-    background: rgba(13, 13, 20, 0.7);
+    /* background: rgba(13, 13, 20, 0.7); */
     /* backdrop-filter: var(--glass-blur); */
     /* -webkit-backdrop-filter: var(--glass-blur); */
     border-bottom: 1px solid var(--glass-border);
@@ -452,7 +452,7 @@ body::before {
 .action-dropdown-menu {
     position: absolute;
     top: 56px;
-    background: rgba(13, 13, 20, 0.95);
+    /* background: rgba(13, 13, 20, 0.95); */
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
@@ -1136,7 +1136,7 @@ body::before {
 /* --- Sidebar --- */
 .sidebar {
     width: 0;
-    background: rgba(13, 13, 20, 0.95);
+    /* background: rgba(13, 13, 20, 0.95); */
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border-left: 0 solid var(--glass-border);
@@ -1422,7 +1422,7 @@ body::before {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.85);
+    /* background: rgba(0, 0, 0, 0.85); */
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     display: flex;
@@ -1573,9 +1573,9 @@ body::before {
     position: fixed;
     top: 24px;
     right: 24px;
-    background: rgba(255, 59, 48, 0.95);
+    background: rgb(187 30 21 / 95%);
     backdrop-filter: var(--glass-blur);
-    color: white;
+    color: var(--text-primary);
     padding: 1rem 1.5rem;
     border-radius: var(--border-radius-md);
     z-index: 10000;
@@ -1583,7 +1583,6 @@ body::before {
     border: 1px solid rgba(255, 255, 255, 0.2);
     font-weight: 500;
     animation: slideInRight 0.3s ease;
-    color: red;
 }
 
 /* --- Show Info Panel --- */
@@ -1644,7 +1643,7 @@ body::before {
     width: fit-content;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(13, 13, 20, 0.95);
+    /* background: rgba(13, 13, 20, 0.95); */
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
@@ -1913,4 +1912,10 @@ select,
     margin: 0;
     max-height: calc(100vh - 120px);
     overflow-y: auto;
+}
+#imageVideoAudioBtn {
+    border-radius: initial;
+}
+#selectImageBtn, #imageDurationInput {
+    width: 100%;
 }

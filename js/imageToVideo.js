@@ -36,7 +36,7 @@ import {
 } from './constants.js';
 import { state } from './state.js';
 import { showError, showStatusMessage, hideStatusMessage } from './ui.js';
-import { updatePlaylistUIOptimized } from './playlist.js';
+import { updatePlaylistUIOptimized, openPlaylist } from './playlist.js';
 import { hideTrackMenus } from './player.js';
 
 export const setupImageToVideo = () => {
@@ -58,11 +58,18 @@ export const setupImageToVideo = () => {
         const file = e.target.files[0];
         if (file) {
             audioFileName.textContent = file.name;
+            if (audioFileName.classList.contains("hidden")) audioFileName.classList.remove("hidden")
         } else {
             audioFileName.textContent = '';
+            if (!audioFileName.classList.contains("hidden")) audioFileName.classList.add("hidden")
         }
     };
 
+    document.getElementById('removeAudio').onclick = (e) => {
+        audioInput.value = '';
+        audioFileName.textContent = '';
+        if (!audioFileName.classList.contains("hidden")) audioFileName.classList.add("hidden")
+    };
     // Select image button
     selectImageBtn.onclick = () => {
         imageFileInput.click();
@@ -123,6 +130,7 @@ const resetImageToVideoModal = () => {
     imageFileInput.value = '';
     audioInput.value = '';
     audioFileName.textContent = '';
+    if (!audioFileName.classList.contains("hidden")) audioFileName.classList.add("hidden")
     imagePreview.src = '';
     imagePreviewContainer.style.display = 'none';
     imageDurationInput.value = '5';
@@ -318,6 +326,7 @@ const handleCreateImageVideo = async () => {
 
         updatePlaylistUIOptimized();
         showStatusMessage('Video created and added to playlist!');
+        openPlaylist();
 
     } catch (error) {
         console.error("Error creating video from image:", error);
@@ -327,6 +336,7 @@ const handleCreateImageVideo = async () => {
             hideStatusMessage();
         }, 2000);
         resetImageToVideoModal();
+        $('togglePlaylistBtn').click();
     }
 };
 

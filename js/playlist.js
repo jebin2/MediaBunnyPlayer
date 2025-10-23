@@ -451,7 +451,29 @@ export const setupPlaylistEventListeners = () => {
 			}
 		}
 	});
+	$('togglePlaylistBtn').onclick = () => {
+		playerArea.classList.toggle('playlist-visible');
+		setTimeout(() => {
+			cropCanvasDimensions = positionCropCanvas();
+		}, 200);
+	}
 };
+
+export const openPlaylist = () => {
+	if (playerArea.classList.contains('playlist-visible')) return;
+	playerArea.classList.toggle('playlist-visible');
+	setTimeout(() => {
+		cropCanvasDimensions = positionCropCanvas();
+	}, 200);
+}
+
+export const closePlaylist = () => {
+	if (!playerArea.classList.contains('playlist-visible')) return;
+	playerArea.classList.toggle('playlist-visible');
+	setTimeout(() => {
+		cropCanvasDimensions = positionCropCanvas();
+	}, 200);
+}
 
 // Helper function for clip actions
 const handleClipAction = async (action, path) => {

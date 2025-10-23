@@ -35,12 +35,6 @@ export const setupEventListeners = () => {
 		state.fileLoaded = false;
 		$('fileInput').click();
 	};
-	$('togglePlaylistBtn').onclick = () => {
-		playerArea.classList.toggle('playlist-visible');
-		setTimeout(() => {
-			state.cropCanvasDimensions = positionCropCanvas();
-		}, 200);
-	}
 
 	$('fileInput').onclick = (e) => e.target.value = null;
 	$('fileInput').onchange = (e) => handleFiles(e.target.files);

@@ -715,8 +715,8 @@ export const playPrevious = () => {
 };
 
 export const toggleLoop = () => {
-	loopBtn.classList.toggle('hover_highlight');
 	if (state.isLooping) {
+		loopBtn.classList.toggle('hover_highlight');
 		state.isLooping = false;
 		loopBtn.textContent = 'Loop';
 	} else {
@@ -731,6 +731,7 @@ export const toggleLoop = () => {
 			showError("Invalid start or end time for looping.");
 			return;
 		}
+		loopBtn.classList.toggle('hover_highlight');
 
 		state.isLooping = true;
 		state.loopStartTime = start;
