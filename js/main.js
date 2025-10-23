@@ -1,9 +1,10 @@
-import {setupEventListeners } from './eventListeners.js'
-import { renderLoop } from './player.js'
-import { updatePlaylistUIOptimized } from './playlist.js'
-import { dynamicVideoUrl, registerServiceWorker} from './utility.js'
-import { resize_define } from './resize.js'
-import { setupImageToVideo } from './imageToVideo.js'
+import {setupEventListeners } from './eventListeners.js';
+import { renderLoop } from './player.js';
+import { updatePlaylistUIOptimized } from './playlist.js';
+import { dynamicVideoUrl, registerServiceWorker} from './utility.js';
+import { resize_define } from './resize.js';
+import { setupImageToVideo } from './imageToVideo.js';
+import { setupRecordingListeners } from './recording.js';
 
 import { canEncodeAudio } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
 import { registerMp3Encoder } from 'https://cdn.jsdelivr.net/npm/@mediabunny/mp3-encoder@1.24.0/+esm';
@@ -30,6 +31,7 @@ const initialize = async () => {
 	registerServiceWorker();
 	resize_define();
     setupImageToVideo();
+	setupRecordingListeners();
 }
 
 // document.addEventListener('DOMContentLoaded', {

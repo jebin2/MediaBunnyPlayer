@@ -122,3 +122,10 @@ export const keepRatioChk = document.getElementById('imageVideoKeepRatio');
 export const audioInput = document.getElementById('imageVideoAudioInput');
 export const audioInputBtn = document.getElementById('imageVideoAudioBtn');
 export const audioFileName = document.getElementById("audioFileName");
+
+// DOM Elements - Recording
+export const recordScreenBtn = $('recordScreenBtn');
+export const recordingControls = $('recordingControls');
+export const pauseRecBtn = $('pauseRecBtn');
+export const stopRecBtn = $('stopRecBtn');
+export const recTimer = $('recTimer');
