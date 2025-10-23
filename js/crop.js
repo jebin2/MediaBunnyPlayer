@@ -491,7 +491,7 @@ export const toggleCropFixed = () => {
 				lastFrame.rect = clampRectToVideoBounds(lastFrame.rect);
 			}
 		}
-		guidedPanleInfo("Size Locked! Now, play the video and move the box to record the camera path. Use SHIFT + scroll up/down to perform zooming effect. Press 'l' again to resize. Press 'R' when you're done.");
+		guidedPanleInfo("Size Locked! Now, play the video and move the box to record the camera path. Use SHIFT + scroll up/down to perform zooming effect. Press 'L' again to resize. Press 'R' when you're done.");
 	} else {
 		// Redraw with handles
 		if (state.isCropping && state.cropRect) {

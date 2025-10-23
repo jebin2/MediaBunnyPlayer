@@ -1590,21 +1590,32 @@ body::before {
 
 /* --- Guide Panel --- */
 .guide_panel {
-    /* top: 24px; */
+    position: fixed;
     left: 50%;
     transform: translateX(-50%);
-    /* width: fit-content;
-    max-width: 90vw; */
+    width: auto;
+    max-width: 90vw;
     font-size: 0.95rem;
     text-align: center;
     animation: glowPulse 3s ease-in-out infinite;
-    /* padding: 1rem 2rem; */
-    width: 90vw;
+    padding: 1rem 2rem;
+    z-index: 50;
+}
+
+.guide_panel .shortcut-list {
+    display: block;
+    padding: 0;
+    list-style: none;
 }
 
 .guide_panel #guide_info {
+    display: inline-block;
     color: var(--text-primary);
     font-weight: 500;
+    line-height: 1.5;
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 /* --- Show Message --- */
