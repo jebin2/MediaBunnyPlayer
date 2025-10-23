@@ -437,22 +437,15 @@ body::before {
     height: 200px;
 }
 
-/* --- Autoplay Control --- */
-.autoplay-control {
+#settingsHeaderBtn {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    background: var(--glass-bg);
-    backdrop-filter: var(--glass-blur);
-    padding: 0.5rem 1rem;
-    border-radius: var(--border-radius-md);
-    border: 1px solid var(--glass-border);
+    font-weight: 600;
 }
 
-.autoplay-label {
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-    font-weight: 500;
+#settingsHeaderBtn:hover {
+    background: rgba(0, 122, 255, 0.15);
+    border-color: var(--accent-primary);
 }
 
 /* --- Action Dropdown Menu --- */
@@ -1880,4 +1873,13 @@ select,
 	.drop-zone-content img {
 		width: 10%;
 	}
+}
+#settingsMenu {
+    position: fixed;
+    top: 80px;
+    right: 24px;
+    bottom: auto;
+    margin: 0;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
 }

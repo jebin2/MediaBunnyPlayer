@@ -39,7 +39,7 @@ export const startTimeInput = $('startTime');
 export const endTimeInput = $('endTime');
 
 // DOM Elements - Settings & Menu
-export const settingsCtrlBtn = $('settingsCtrlBtn');
+export const settingsCtrlBtn = $('settingsHeaderBtn');
 export const settingsMenu = $('settingsMenu');
 
 // DOM Elements - Loop & Cut Controls

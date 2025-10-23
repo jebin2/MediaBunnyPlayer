@@ -27,6 +27,7 @@ import { clearPlaylist, findFileByPath, handleFiles, handleFolderSelection, remo
 import { takeScreenshot } from './screenshot.js'
 import { hideStatusMessage, showControlsTemporarily, showDropZoneUI, showError, showInfo, showLoading, showPlayerUI, showStatusMessage, updateProgressBarUI, updateTimeInputs } from './ui.js'
 import { audioEventlistener } from './audio.js';
+import { setupSettingsListeners } from './settings.js';
 
 export const setupEventListeners = () => {
 	$('clearPlaylistBtn').onclick = clearPlaylist;
@@ -226,6 +227,7 @@ export const setupEventListeners = () => {
 	// === PERFORMANCE OPTIMIZATION: Event delegation for playlist clicks ===
 	setupPlaylistEventListeners();
 	audioEventlistener();
+	setupSettingsListeners();
 
 	document.onkeydown = (e) => {
 		if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || !state.fileLoaded) return;
@@ -292,15 +294,6 @@ export const setupEventListeners = () => {
 		if (state.playing && !state.isSeeking) {
 			videoControls.classList.remove('show');
 			hideTrackMenus();
-		}
-	};
-
-	settingsCtrlBtn.onclick = (e) => {
-		e.stopPropagation();
-		const isHidden = settingsMenu.classList.contains('hidden');
-		hideTrackMenus();
-		if (isHidden) {
-			settingsMenu.classList.remove('hidden');
 		}
 	};
 

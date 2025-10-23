@@ -663,7 +663,6 @@ export const updateSubtitlesOptimized = (currentTime) => {
 export const hideTrackMenus = () => {
 	$('audioTrackMenu').classList.add('hidden');
 	$('subtitleTrackMenu').classList.add('hidden');
-	$('settingsMenu').classList.add('hidden');
 };
 
 // ============================================================================
