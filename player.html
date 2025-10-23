@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Media Player</title>
+	<link rel="manifest" href="manifest.json">
+	<link rel="stylesheet" href="style.css">
+	<meta name="theme-color" content="#1a1a35">
+	<link rel="icon" type="image/x-icon" href="favicon.ico">
+</head>
+
+<body>
+	<div class="app-container">
+		<div class="header">
+			<div class="logo" style="text-align: center;">
+				<img src="favicon.ico" alt="Logo" style="width: 40px; height: 40px; vertical-align: middle;" />
+
+				<div style="display: inline-block; text-align: left; margin-left: 8px;">
+					<div style="font-size: 1.5em; font-weight: bold;">
+						Media Player
+					</div>
+					<div style="font-size: 0.85em; color: gray; margin-top: 2px;">
+						Powered by <strong>MediaBunny</strong>
+					</div>
+				</div>
+			</div>
+
+			<div class="controls-header">
+				<div class="split-btn-group" id="openActionsContainer">
+					<button class="btn" id="mainActionBtn">Open File</button>
+					<button class="btn btn-dropdown" id="dropdownActionBtn" title="More open options">▼</button>
+				</div>
+
+				<!-- This is the popup menu -->
+				<div class="action-dropdown-menu hidden" id="actionDropdownMenu">
+					<button class="btn" data-action="open-url">Open URL</button>
+					<button class="btn" data-action="open-file">Open File</button>
+					<button class="btn" data-action="add-file">Add File(s)</button>
+					<button class="btn" data-action="add-folder">Add Folder</button>
+				</div>
+
+				<!-- New Split Button for Playlist -->
+				<div class="split-btn-group">
+					<button class="btn" id="togglePlaylistBtn">Playlist</button>
+					<button class="btn" id="clearPlaylistBtn" title="Clear Playlist">&times;</button>
+				</div>
+				<div class="autoplay-control" title="Autoplay Next Video">
+					<label for="autoplayToggle" class="autoplay-label">Autoplay</label>
+					<label class="switch">
+						<input type="checkbox" id="autoplayToggle" checked>
+						<span class="slider round"></span>
+					</label>
+				</div>
+			</div>
+		</div>
+
+		<div class="player-area" id="playerArea">
+			<div class="drop-zone" id="dropZone">
+				<div class="drop-zone-content">
+					<img src="upload.svg" />
+					<h2>Drop media files here</h2>
+					<button class="btn btn-primary" id="chooseFileBtn">Choose Files</button>
+				</div>
+			</div>
+			<div class="video-container" id="videoContainer">
+				<canvas class="video-canvas" id="videoCanvas"></canvas>
+				<canvas id="cropCanvas" class="hidden"></canvas>
+				<div class="video-controls" id="videoControls">
+					<div class="progress-container" id="progressContainer">
+						<div class="progress-bar" id="progressBar"></div>
+						<div class="progress-handle" id="progressHandle"></div>
+						<!-- New Preview Element -->
+						<div id="seekPreview" class="hidden">
+							<canvas id="seekPreviewCanvas" width="160" height="90"></canvas>
+							<span id="seekPreviewTime">00:00</span>
+						</div>
+					</div>
+					<div class="controls-bottom">
+						<div class="controls-left">
+							<button class="play-btn" id="prevBtn" title="Previous">⏮</button>
+							<button class="play-btn" id="playBtn">▶</button>
+							<button class="play-btn" id="nextBtn" title="Next">⏭</button>
+							<div class="time-display" id="timeDisplay">00:00 / 00:00</div>
+							<div class="playback-speed-container">
+								<input id="playbackSpeedInput" class="speed-input" min="0.25" max="4" value="1">
+							</div>
+						</div>
+						<div class="controls-right">
+							<div class="track-controls">
+								<button class="btn track-btn" id="fixSizeBtn" style="display: none;">Fix Size</button>
+								<!-- <button class="btn track-btn" id="editMenuBtn" title="Trim, Crop & Edit">✂️</button> -->
+								<button class="btn track-btn" id="audioTrackCtrlBtn" title="Audio Tracks">🔊</button>
+								<button class="btn track-btn" id="subtitleTrackCtrlBtn" title="Subtitles">CC</button>
+								<button class="btn track-btn" id="settingsCtrlBtn" title="Advance Settings">⚙️</button>
+							</div>
+
+							<!-- Add these dropdown menus after the video-controls div: -->
+							<div class="track-menu hidden" id="audioTrackMenu">
+								<div class="track-menu-content">
+									<h4>Audio Tracks</h4>
+									<ul id="audioTrackList"></ul>
+								</div>
+							</div>
+
+							<div class="track-menu hidden" id="subtitleTrackMenu">
+								<div class="track-menu-content">
+									<h4>Subtitle Tracks</h4>
+									<ul id="subtitleTrackList">
+										<li class="track-item" data-track-id="none">
+											<span>None</span>
+										</li>
+									</ul>
+								</div>
+							</div>
+							<div class="track-menu settingsMenu hidden" id="settingsMenu">
+								<div class="track-menu-content">
+									<h4>Time Range</h4>
+									<div class="trim-menu-controls">
+										<input type="text" id="startTime" class="time-input" placeholder="00:00"
+											title="Start Time">
+										<span>-</span>
+										<input type="text" id="endTime" class="time-input" placeholder="00:00"
+											title="End Time">
+									</div>
+									<h4>Actions</h4>
+									<div class="trim-menu-actions">
+										<button id="loopBtn" class="control-btn track-btn btn">Loop</button>
+										<button id="cutBtn" class="control-btn track-btn btn">Process Clip</button>
+										<button id="screenshotBtn" class="control-btn track-btn btn">Screenshot</button>
+										<button id="resizeBtn" class="control-btn track-btn btn">Resize</button>
+									</div>
+									<hr class="menu-divider">
+									<h4>Cropping</h4>
+									<div class="trim-menu-actions">
+										<button id="cropBtn" class="control-btn track-btn btn hidden">✂️</button>
+										<button id="panScanBtn" class="control-btn track-btn btn">Dynamic ✂️</button>
+									</div>
+									<!-- All our dynamic options are now neatly organized here -->
+									<div id="dynamicCropOptionsContainer">
+										<!-- This is our new mode selector -->
+										<fieldset class="trim-mode-selector">
+											<legend>Dynamic Crop Mode</legend>
+											<div>
+												<input type="radio" id="cropModeNone" name="cropMode" value="none"
+													checked>
+												<label for="cropModeNone">Default</label>
+											</div>
+											<div>
+												<input type="radio" id="cropModeSpotlight" name="cropMode"
+													value="spotlight">
+												<label for="cropModeSpotlight">Spotlight</label>
+											</div>
+											<div>
+												<input type="radio" id="cropModeMaxSize" name="cropMode"
+													value="max-size">
+												<label for="cropModeMaxSize">Max Size</label>
+											</div>
+										</fieldset>
+
+										<!-- The sub-options are now separate and will be shown/hidden as needed -->
+										<div class="trim-option" id="scaleOptionContainer" style="display: none;">
+											<input type="checkbox" id="scaleWithRatioToggle">
+											<label for="scaleWithRatioToggle">Scale to Fit</label>
+										</div>
+										<div class="trim-option" id="smoothOptionContainer" style="display: none;">
+											<input type="checkbox" id="smoothPathToggle" checked>
+											<label for="smoothPathToggle">Smooth Crop Movement</label>
+										</div>
+										<div class="trim-option" id="blurOptionContainer" style="display: none;">
+											<input type="checkbox" id="blurBackgroundToggle">
+											<label for="blurBackgroundToggle">Blurred Background</label>
+											<input id="blurAmountInput" class="speed-input" value="15" min="1" max="100"
+												title="Blur amount in pixels">
+										</div>
+										<!-- ADD THE NEW RESET BUTTON HERE -->
+										<div class="trim-menu-actions">
+											<button class="control-btn track-btn btn" id="resetAllBtn">Reset
+												All</button>
+										</div>
+									</div>
+								</div>
+							</div>
+							<div class="volume-container">
+								<button class="btn" id="muteBtn">🔊</button>
+								<input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.01"
+									value="0.7">
+							</div>
+							<button class="fullscreen-btn" id="fullscreenBtn">⛶</button>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="url-play-overlay hidden" id="urlPlayOverlay">
+				<div class="play-button-overlay">▶</div>
+				<p>Click to play video</p>
+			</div>
+			<div class="sidebar" id="sidebar">
+				<div id="playlistContent"></div>
+			</div>
+		</div>
+		<div class="loading hidden" id="loading">
+			<div class="spinner"></div>
+			<div id="statusMessage"></div>
+		</div>
+	</div>
+	<div class="screenshot-overlay hidden" id="screenshotOverlay">
+		<div class="screenshot-modal">
+			<button class="close-btn" id="closeScreenshotBtn">&times;</button>
+			<h3>Screenshot Preview</h3>
+			<img id="screenshotPreviewImg" src="" alt="Screenshot Preview">
+			<div class="screenshot-actions">
+				<button class="btn" id="copyScreenshotBtn">Copy Image</button>
+				<button class="btn" id="downloadScreenshotBtn">Download</button>
+			</div>
+		</div>
+	</div>
+	<div class="screenshot-overlay hidden" id="urlModal">
+		<div class="screenshot-modal">
+			<h3>Enter Video URL</h3>
+			<p>Enter the direct URL to a video file (e.g., MP4, WebM).</p>
+			<input type="url" id="urlInput" class="speed-input url-class" placeholder="https://example.com/video.mp4">
+			<div class="screenshot-actions">
+				<button class="btn" id="cancelUrlBtn">Cancel</button>
+				<button class="btn" id="loadUrlBtn">Load</button>
+			</div>
+		</div>
+	</div>
+	<div class="screenshot-overlay hidden" id="resizeModal">
+		<div class="screenshot-modal">
+			<h3>Resize Video</h3>
+			<p>Select a time range and new dimensions for the clip.</p>
+
+			<div class="resize-controls">
+				<div class="resize-section">
+					<h4>Time Range</h4>
+					<div class="trim-menu-controls">
+						<input type="text" id="resizeStartTime" class="time-input" placeholder="00:00"
+							title="Start Time">
+						<span>-</span>
+						<input type="text" id="resizeEndTime" class="time-input" placeholder="00:00" title="End Time">
+					</div>
+				</div>
+
+				<div class="resize-section">
+					<h4>Dimensions</h4>
+					<div class="dimension-controls">
+						<input id="resizeWidthInput" class="speed-input" placeholder="Width">
+						<span>&times;</span>
+						<input id="resizeHeightInput" class="speed-input" placeholder="Height">
+					</div>
+					<div class="trim-option">
+						<input type="checkbox" id="keepRatioToggle" checked>
+						<label for="keepRatioToggle">Keep Aspect Ratio</label>
+					</div>
+				</div>
+			</div>
+
+			<div class="screenshot-actions">
+				<button class="btn" id="cancelResizeBtn">Cancel</button>
+				<button class="btn" id="processResizeBtn">Resize</button>
+			</div>
+		</div>
+	</div>
+	<div class="shortcut-keys-panel hidden" id="shortcutKeysPanel">
+		<ul class="shortcut-list">
+			<li><span>Draw a rectangle and press <kbd>l</kbd> to fix the crop size. Crop will move along the cursor or
+					keep cursor as it is for static crop. Finally Press <kbd>r</kbd> to lock its position. or continue
+					moving until video end. Finally press <kbd>c</kbd> to create the video.</span></li>
+			<li><kbd>n</kbd><span>Move to Next Frame(on pause)</span></li>
+			<li><kbd>p</kbd><span>Move to Previous Frame(on pause)</span></li>
+			<li><kbd>s</kbd><span>Take Screenshot</span></li>
+			<li><kbd>l</kbd><span>Lock Crop Size and Start Recording</span></li>
+			<li><kbd>r</kbd><span>To lock its position.</span></li>
+			<li><kbd>Shift</kbd> + <kbd>Scroll</kbd><span>Zoom In / Out (while moving)</span></li>
+			<li><kbd>c</kbd><span>To Process the clip</span></li>
+			<li><kbd>Esc</kbd><span>To Reset All</span></li>
+		</ul>
+	</div>
+	<div class="shortcut-keys-panel guide_panel hidden" id="guide_panel">
+		<ul class="shortcut-list">
+			<span id="guide_info">
+				Hello Welcome
+			</span>
+		</ul>
+	</div>
+
+	<div class="showMessage hidden" id="showMessage">
+	</div>
+	<input type="file" id="fileInput" multiple accept="video/*,audio/*,.mkv,.webm">
+	<input type="file" id="folderInput" webkitdirectory multiple>
+	<script type="module">
+		document.addEventListener('DOMContentLoaded', () => {
+			const urlParams = new URLSearchParams(window.location.search);
+			const modular = urlParams.get('modular') !== 'true';
+
+			if (modular) {
+				import('./js/main.js')
+					.then(module => {
+						console.log('Loaded main.js');
+						inlineCall();
+					})
+					.catch(err => {
+						console.error('Failed to load main.js', err);
+					});
+			} else {
+				import('./script.js')
+					.then(module => {
+						console.log('Loaded script.js');
+						inlineCall();
+					})
+					.catch(err => {
+						console.error('Failed to load script.js', err);
+					});
+			}
+		});
+		function inlineCall() {
+			// Check if we came here from "Choose Files"
+			if (sessionStorage.getItem('triggerFileInput') === 'true') {
+				sessionStorage.removeItem('triggerFileInput'); // clear flag
+
+				// Trigger file input click
+				const fileInput = document.getElementById('fileInput');
+				if (fileInput) {
+					fileInput.click();
+				} else {
+					console.warn('fileInput element not found on player.html');
+				}
+			}
+		}
+	</script>
+
+
+</body>
+
+</html>

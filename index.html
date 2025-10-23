@@ -1,321 +1,429 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Media Player</title>
-	<link rel="manifest" href="manifest.json">
-	<link rel="stylesheet" href="style.css">
-	<meta name="theme-color" content="#1a1a35">
-	<link rel="icon" type="image/x-icon" href="favicon.ico">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Player</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #13131a;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --accent-primary: #007aff;
+            --accent-secondary: #5ac8fa;
+            --accent-gradient: linear-gradient(135deg, #007aff 0%, #5ac8fa 100%);
+            --glass-blur: blur(20px);
+            --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            --border-radius-md: 12px;
+            --border-radius-lg: 16px;
+            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #16213e 100%);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        /* Drop Zone */
+        .drop-zone {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            border: 2px dashed var(--glass-border);
+            border-radius: var(--border-radius-lg);
+            padding: 3rem;
+            text-align: center;
+            margin-bottom: 3rem;
+            transition: var(--transition-smooth);
+        }
+
+        .drop-zone:hover {
+            border-color: var(--accent-primary);
+            background: rgba(0, 122, 255, 0.05);
+        }
+
+        .drop-zone h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .upload-btn {
+            background: var(--accent-gradient);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: var(--border-radius-md);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(0, 122, 255, 0.4);
+        }
+
+        .launch-player-btn {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            color: var(--text-primary);
+            border: 1px solid var(--glass-border);
+            padding: 1rem 2rem;
+            border-radius: var(--border-radius-md);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .launch-player-btn:hover {
+            background: rgba(0, 122, 255, 0.15);
+            border-color: var(--accent-primary);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(0, 122, 255, 0.2);
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 1.5rem;
+        }
+
+        /* Feature Grid */
+        .features-section {
+            margin-bottom: 3rem;
+        }
+
+        .features-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .features-header h2 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .features-header p {
+            color: var(--text-secondary);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .feature-card {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius-lg);
+            padding: 2rem;
+            transition: var(--transition-smooth);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--accent-gradient);
+            transform: scaleX(0);
+            transition: var(--transition-smooth);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+            border-color: var(--accent-primary);
+            box-shadow: 0 12px 40px rgba(0, 122, 255, 0.2);
+        }
+
+        .feature-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            display: inline-block;
+        }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            font-size: 0.9rem;
+        }
+
+        /* Featured Feature (Larger Card) */
+        .featured-feature {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            align-items: center;
+            background: linear-gradient(135deg, rgba(0, 122, 255, 0.1) 0%, rgba(90, 200, 250, 0.05) 100%);
+        }
+
+        .featured-content {
+            padding: 1rem;
+        }
+
+        .featured-image {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--border-radius-md);
+            padding: 1.5rem;
+            min-height: 250px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .featured-image img {
+            max-width: 100%;
+            border-radius: var(--border-radius-md);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Badge */
+        .badge {
+            display: inline-block;
+            padding: 0.35rem 0.75rem;
+            background: var(--accent-gradient);
+            color: white;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+        }
+
+        /* Quick Action Bar */
+        .quick-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 2rem;
+        }
+
+        .action-chip {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            padding: 0.65rem 1.25rem;
+            border-radius: 25px;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            transition: var(--transition-smooth);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .action-chip:hover {
+            background: rgba(0, 122, 255, 0.15);
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+            transform: translateY(-2px);
+        }
+
+        @media (max-width: 768px) {
+            .featured-feature {
+                grid-template-columns: 1fr;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .feature-card {
+            animation: fadeInUp 0.6s ease backwards;
+        }
+
+        .feature-card:nth-child(1) { animation-delay: 0.1s; }
+        .feature-card:nth-child(2) { animation-delay: 0.2s; }
+        .feature-card:nth-child(3) { animation-delay: 0.3s; }
+        .feature-card:nth-child(4) { animation-delay: 0.4s; }
+    </style>
 </head>
-
 <body>
-	<div class="app-container">
-		<div class="header">
-			<div class="logo" style="text-align: center;">
-				<img src="favicon.ico" alt="Logo" style="width: 40px; height: 40px; vertical-align: middle;" />
+    <div class="container">
+        <div class="header">
+            <h1>Media Player</h1>
+            <p>Powered by <strong>MediaBunny</strong></p>
+        </div>
 
-				<div style="display: inline-block; text-align: left; margin-left: 8px;">
-					<div style="font-size: 1.5em; font-weight: bold;">
-						Media Player
-					</div>
-					<div style="font-size: 0.85em; color: gray; margin-top: 2px;">
-						Powered by <strong>MediaBunny</strong>
-					</div>
-				</div>
-			</div>
+        <div class="drop-zone">
+            <div style="font-size: 4rem; margin-bottom: 1rem;">🎬</div>
+            <!-- <h2>Drop media files here</h2> -->
+            <div class="cta-buttons">
+				<!-- <button class="upload-btn" id="showChooseFileBtn">Choose Files</button> -->
+                <button class="launch-player-btn" onclick="window.location.href='./player.html'">
+                    Launch Player
+                    <span style="margin-left: 0.5rem;">→</span>
+                </button>
+            </div>
+        </div>
 
-			<div class="controls-header">
-				<div class="split-btn-group" id="openActionsContainer">
-					<button class="btn" id="mainActionBtn">Open File</button>
-					<button class="btn btn-dropdown" id="dropdownActionBtn" title="More open options">▼</button>
-				</div>
+        <div class="features-section">
+            <div class="features-header">
+                <h2>Powerful Features</h2>
+                <p>Professional video editing tools right in your browser</p>
+            </div>
 
-				<!-- This is the popup menu -->
-				<div class="action-dropdown-menu hidden" id="actionDropdownMenu">
-					<button class="btn" data-action="open-url">Open URL</button>
-					<button class="btn" data-action="open-file">Open File</button>
-					<button class="btn" data-action="add-file">Add File(s)</button>
-					<button class="btn" data-action="add-folder">Add Folder</button>
-				</div>
+            <div class="features-grid">
+                <!-- Featured Feature - Dynamic Cropping -->
+                <div class="feature-card featured-feature">
+                    <div class="featured-content">
+                        <span class="badge">⭐ FEATURED</span>
+                        <div class="feature-icon">✂️</div>
+                        <h3>Dynamic Cropping</h3>
+                        <p style="font-size: 1rem; margin-bottom: 1rem;">
+                            Create professional spotlight effects with intelligent pan-and-scan. Perfect for vertical videos, focus tracking, and automated cropping with smooth motion paths.
+                        </p>
+                        <div class="quick-actions">
+                            <span class="action-chip">🎯 Spotlight Mode</span>
+                            <span class="action-chip">📐 Max Size Mode</span>
+                            <span class="action-chip">🌫️ Blur Background</span>
+                        </div>
+                    </div>
+                    <div class="featured-image">
+                        <img src="https://via.placeholder.com/400x300/1a1a2e/5ac8fa?text=Dynamic+Crop+Preview" alt="Dynamic Cropping">
+                    </div>
+                </div>
 
-				<!-- New Split Button for Playlist -->
-				<div class="split-btn-group">
-					<button class="btn" id="togglePlaylistBtn">Playlist</button>
-					<button class="btn" id="clearPlaylistBtn" title="Clear Playlist">&times;</button>
-				</div>
-				<div class="autoplay-control" title="Autoplay Next Video">
-					<label for="autoplayToggle" class="autoplay-label">Autoplay</label>
-					<label class="switch">
-						<input type="checkbox" id="autoplayToggle" checked>
-						<span class="slider round"></span>
-					</label>
-				</div>
-			</div>
-		</div>
+                <!-- Screenshot Feature -->
+                <div class="feature-card">
+                    <div class="feature-icon">📸</div>
+                    <h3>Instant Screenshots</h3>
+                    <p>
+                        Capture perfect frames with a single click or press 'S'. Copy to clipboard or download instantly. High-quality PNG output at full resolution.
+                    </p>
+                </div>
 
-		<div class="player-area" id="playerArea">
-			<div class="drop-zone" id="dropZone">
-				<div class="drop-zone-content">
-					<img src="upload.svg" />
-					<h2>Drop media files here</h2>
-					<button class="btn btn-primary" id="chooseFileBtn">Choose Files</button>
-				</div>
-			</div>
-			<div class="video-container" id="videoContainer">
-				<canvas class="video-canvas" id="videoCanvas"></canvas>
-				<canvas id="cropCanvas" class="hidden"></canvas>
-				<div class="video-controls" id="videoControls">
-					<div class="progress-container" id="progressContainer">
-						<div class="progress-bar" id="progressBar"></div>
-						<div class="progress-handle" id="progressHandle"></div>
-						<!-- New Preview Element -->
-						<div id="seekPreview" class="hidden">
-							<canvas id="seekPreviewCanvas" width="160" height="90"></canvas>
-							<span id="seekPreviewTime">00:00</span>
-						</div>
-					</div>
-					<div class="controls-bottom">
-						<div class="controls-left">
-							<button class="play-btn" id="prevBtn" title="Previous">⏮</button>
-							<button class="play-btn" id="playBtn">▶</button>
-							<button class="play-btn" id="nextBtn" title="Next">⏭</button>
-							<div class="time-display" id="timeDisplay">00:00 / 00:00</div>
-							<div class="playback-speed-container">
-								<input id="playbackSpeedInput" class="speed-input" min="0.25" max="4" value="1">
-							</div>
-						</div>
-						<div class="controls-right">
-							<div class="track-controls">
-								<button class="btn track-btn" id="fixSizeBtn" style="display: none;">Fix Size</button>
-								<!-- <button class="btn track-btn" id="editMenuBtn" title="Trim, Crop & Edit">✂️</button> -->
-								<button class="btn track-btn" id="audioTrackCtrlBtn" title="Audio Tracks">🔊</button>
-								<button class="btn track-btn" id="subtitleTrackCtrlBtn" title="Subtitles">CC</button>
-								<button class="btn track-btn" id="settingsCtrlBtn" title="Advance Settings">⚙️</button>
-							</div>
+                <!-- Process Clip -->
+                <div class="feature-card">
+                    <div class="feature-icon">🎞️</div>
+                    <h3>Trim & Process</h3>
+                    <p>
+                        Select time ranges, trim clips, and process videos with precision. Loop sections, extract segments, and create custom cuts effortlessly.
+                    </p>
+                </div>
 
-							<!-- Add these dropdown menus after the video-controls div: -->
-							<div class="track-menu hidden" id="audioTrackMenu">
-								<div class="track-menu-content">
-									<h4>Audio Tracks</h4>
-									<ul id="audioTrackList"></ul>
-								</div>
-							</div>
+                <!-- Resize -->
+                <div class="feature-card">
+                    <div class="feature-icon">📏</div>
+                    <h3>Smart Resize</h3>
+                    <p>
+                        Resize videos to any dimension while maintaining aspect ratio. Perfect for social media formats, mobile optimization, or custom outputs.
+                    </p>
+                </div>
 
-							<div class="track-menu hidden" id="subtitleTrackMenu">
-								<div class="track-menu-content">
-									<h4>Subtitle Tracks</h4>
-									<ul id="subtitleTrackList">
-										<li class="track-item" data-track-id="none">
-											<span>None</span>
-										</li>
-									</ul>
-								</div>
-							</div>
-							<div class="track-menu settingsMenu hidden" id="settingsMenu">
-								<div class="track-menu-content">
-									<h4>Time Range</h4>
-									<div class="trim-menu-controls">
-										<input type="text" id="startTime" class="time-input" placeholder="00:00"
-											title="Start Time">
-										<span>-</span>
-										<input type="text" id="endTime" class="time-input" placeholder="00:00"
-											title="End Time">
-									</div>
-									<h4>Actions</h4>
-									<div class="trim-menu-actions">
-										<button id="loopBtn" class="control-btn track-btn btn">Loop</button>
-										<button id="cutBtn" class="control-btn track-btn btn">Process Clip</button>
-										<button id="screenshotBtn" class="control-btn track-btn btn">Screenshot</button>
-										<button id="resizeBtn" class="control-btn track-btn btn">Resize</button>
-									</div>
-									<hr class="menu-divider">
-									<h4>Cropping</h4>
-									<div class="trim-menu-actions">
-										<button id="cropBtn" class="control-btn track-btn btn hidden">✂️</button>
-										<button id="panScanBtn" class="control-btn track-btn btn">Dynamic ✂️</button>
-									</div>
-									<!-- All our dynamic options are now neatly organized here -->
-									<div id="dynamicCropOptionsContainer">
-										<!-- This is our new mode selector -->
-										<fieldset class="trim-mode-selector">
-											<legend>Dynamic Crop Mode</legend>
-											<div>
-												<input type="radio" id="cropModeNone" name="cropMode" value="none"
-													checked>
-												<label for="cropModeNone">Default</label>
-											</div>
-											<div>
-												<input type="radio" id="cropModeSpotlight" name="cropMode"
-													value="spotlight">
-												<label for="cropModeSpotlight">Spotlight</label>
-											</div>
-											<div>
-												<input type="radio" id="cropModeMaxSize" name="cropMode"
-													value="max-size">
-												<label for="cropModeMaxSize">Max Size</label>
-											</div>
-										</fieldset>
+                <!-- Multi-track Support -->
+                <div class="feature-card">
+                    <div class="feature-icon">🔊</div>
+                    <h3>Multi-Track Audio</h3>
+                    <p>
+                        Switch between multiple audio tracks seamlessly. Support for MKV containers with multiple language tracks and audio sources.
+                    </p>
+                </div>
 
-										<!-- The sub-options are now separate and will be shown/hidden as needed -->
-										<div class="trim-option" id="scaleOptionContainer" style="display: none;">
-											<input type="checkbox" id="scaleWithRatioToggle">
-											<label for="scaleWithRatioToggle">Scale to Fit</label>
-										</div>
-										<div class="trim-option" id="smoothOptionContainer" style="display: none;">
-											<input type="checkbox" id="smoothPathToggle" checked>
-											<label for="smoothPathToggle">Smooth Crop Movement</label>
-										</div>
-										<div class="trim-option" id="blurOptionContainer" style="display: none;">
-											<input type="checkbox" id="blurBackgroundToggle">
-											<label for="blurBackgroundToggle">Blurred Background</label>
-											<input id="blurAmountInput" class="speed-input" value="15" min="1" max="100"
-												title="Blur amount in pixels">
-										</div>
-										<!-- ADD THE NEW RESET BUTTON HERE -->
-										<div class="trim-menu-actions">
-											<button class="control-btn track-btn btn" id="resetAllBtn">Reset
-												All</button>
-										</div>
-									</div>
-								</div>
-							</div>
-							<div class="volume-container">
-								<button class="btn" id="muteBtn">🔊</button>
-								<input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.01"
-									value="0.7">
-							</div>
-							<button class="fullscreen-btn" id="fullscreenBtn">⛶</button>
-						</div>
-					</div>
-				</div>
-			</div>
-			<div class="url-play-overlay hidden" id="urlPlayOverlay">
-				<div class="play-button-overlay">▶</div>
-				<p>Click to play video</p>
-			</div>
-			<div class="sidebar" id="sidebar">
-				<div id="playlistContent"></div>
-			</div>
-		</div>
-		<div class="loading hidden" id="loading">
-			<div class="spinner"></div>
-			<div id="statusMessage"></div>
-		</div>
-	</div>
-	<div class="screenshot-overlay hidden" id="screenshotOverlay">
-		<div class="screenshot-modal">
-			<button class="close-btn" id="closeScreenshotBtn">&times;</button>
-			<h3>Screenshot Preview</h3>
-			<img id="screenshotPreviewImg" src="" alt="Screenshot Preview">
-			<div class="screenshot-actions">
-				<button class="btn" id="copyScreenshotBtn">Copy Image</button>
-				<button class="btn" id="downloadScreenshotBtn">Download</button>
-			</div>
-		</div>
-	</div>
-	<div class="screenshot-overlay hidden" id="urlModal">
-		<div class="screenshot-modal">
-			<h3>Enter Video URL</h3>
-			<p>Enter the direct URL to a video file (e.g., MP4, WebM).</p>
-			<input type="url" id="urlInput" class="speed-input url-class" placeholder="https://example.com/video.mp4">
-			<div class="screenshot-actions">
-				<button class="btn" id="cancelUrlBtn">Cancel</button>
-				<button class="btn" id="loadUrlBtn">Load</button>
-			</div>
-		</div>
-	</div>
-	<div class="screenshot-overlay hidden" id="resizeModal">
-		<div class="screenshot-modal">
-			<h3>Resize Video</h3>
-			<p>Select a time range and new dimensions for the clip.</p>
+                <!-- Subtitle Support -->
+                <div class="feature-card">
+                    <div class="feature-icon">CC</div>
+                    <h3>Subtitle Support</h3>
+                    <p>
+                        Load and display subtitles with full customization. Support for SRT, VTT, and embedded subtitle tracks in video containers.
+                    </p>
+                </div>
 
-			<div class="resize-controls">
-				<div class="resize-section">
-					<h4>Time Range</h4>
-					<div class="trim-menu-controls">
-						<input type="text" id="resizeStartTime" class="time-input" placeholder="00:00"
-							title="Start Time">
-						<span>-</span>
-						<input type="text" id="resizeEndTime" class="time-input" placeholder="00:00" title="End Time">
-					</div>
-				</div>
+                <!-- Playlist Management -->
+                <div class="feature-card">
+                    <div class="feature-icon">📋</div>
+                    <h3>Smart Playlist</h3>
+                    <p>
+                        Organize multiple videos and audio files. Autoplay, folder structure support, and easy navigation through your media library.
+                    </p>
+                </div>
+            </div>
+        </div>
 
-				<div class="resize-section">
-					<h4>Dimensions</h4>
-					<div class="dimension-controls">
-						<input id="resizeWidthInput" class="speed-input" placeholder="Width">
-						<span>&times;</span>
-						<input id="resizeHeightInput" class="speed-input" placeholder="Height">
-					</div>
-					<div class="trim-option">
-						<input type="checkbox" id="keepRatioToggle" checked>
-						<label for="keepRatioToggle">Keep Aspect Ratio</label>
-					</div>
-				</div>
-			</div>
-
-			<div class="screenshot-actions">
-				<button class="btn" id="cancelResizeBtn">Cancel</button>
-				<button class="btn" id="processResizeBtn">Resize</button>
-			</div>
-		</div>
-	</div>
-	<div class="shortcut-keys-panel hidden" id="shortcutKeysPanel">
-		<ul class="shortcut-list">
-			<li><span>Draw a rectangle and press <kbd>l</kbd> to fix the crop size. Crop will move along the cursor or
-					keep cursor as it is for static crop. Finally Press <kbd>r</kbd> to lock its position. or continue
-					moving until video end. Finally press <kbd>c</kbd> to create the video.</span></li>
-			<li><kbd>n</kbd><span>Move to Next Frame(on pause)</span></li>
-			<li><kbd>p</kbd><span>Move to Previous Frame(on pause)</span></li>
-			<li><kbd>s</kbd><span>Take Screenshot</span></li>
-			<li><kbd>l</kbd><span>Lock Crop Size and Start Recording</span></li>
-			<li><kbd>r</kbd><span>To lock its position.</span></li>
-			<li><kbd>Shift</kbd> + <kbd>Scroll</kbd><span>Zoom In / Out (while moving)</span></li>
-			<li><kbd>c</kbd><span>To Process the clip</span></li>
-			<li><kbd>Esc</kbd><span>To Reset All</span></li>
-		</ul>
-	</div>
-	<div class="shortcut-keys-panel guide_panel hidden" id="guide_panel">
-		<ul class="shortcut-list">
-			<span id="guide_info">
-				Hello Welcome
-			</span>
-		</ul>
-	</div>
-
-	<div class="showMessage hidden" id="showMessage">
-	</div>
-	<input type="file" id="fileInput" multiple accept="video/*,audio/*,.mkv,.webm">
-	<input type="file" id="folderInput" webkitdirectory multiple>
-	<script type="module">
-		document.addEventListener('DOMContentLoaded', () => {
-			const urlParams = new URLSearchParams(window.location.search);
-			const modular = urlParams.get('modular') !== 'true';
-
-			if (modular) {
-				import('./js/main.js')
-					.then(module => {
-						console.log('Loaded main.js');
-					})
-					.catch(err => {
-						console.error('Failed to load main.js', err);
-					});
-			} else {
-				import('./script.js')
-					.then(module => {
-						console.log('Loaded script.js');
-					})
-					.catch(err => {
-						console.error('Failed to load script.js', err);
-					});
-			}
-		});
-	</script>
-
-
+        <div style="text-align: center; margin-top: 3rem; color: var(--text-secondary);">
+            <p>🚀 All processing happens locally in your browser - fast, private, and secure</p>
+        </div>
+    </div>
 </body>
-
 </html>
