@@ -71,6 +71,7 @@
 							<button id="cutBtn" class="control-btn track-btn btn">Process Clip</button>
 							<button id="screenshotBtn" class="control-btn track-btn btn">Screenshot</button>
 							<button id="resizeBtn" class="control-btn track-btn btn">Resize</button>
+							<button id="imageToVideoBtn" class="control-btn track-btn btn">Image to Video</button>
 						</div>
 						<hr class="menu-divider">
 						<h4>Cropping</h4>
@@ -215,6 +216,37 @@
 			</div>
 		</div>
 	</div>
+	<!-- Image to Video Modal -->
+	<div class="screenshot-overlay hidden" id="imageToVideoModal">
+		<div class="screenshot-modal">
+			<button class="close-btn" id="closeImageToVideoBtn">&times;</button>
+			<h3>Create Video from Image</h3>
+			<p>Upload an image and set the duration to create a video clip.</p>
+
+			<div class="resize-controls">
+				<div class="resize-section">
+					<h4>Select Image</h4>
+					<input type="file" id="imageFileInput" accept="image/*" style="display: none;">
+					<button class="btn" id="selectImageBtn">Choose Image</button>
+					<div id="imagePreviewContainer" style="margin-top: 1rem; display: none;">
+						<img id="imagePreview"
+							style="max-width: 100%; max-height: 300px; border-radius: 8px; border: 1px solid var(--glass-border);" />
+					</div>
+				</div>
+
+				<div class="resize-section">
+					<h4>Duration (seconds)</h4>
+					<input id="imageDurationInput" class="speed-input" type="number" min="1" max="300" value="5"
+						placeholder="Duration in seconds">
+				</div>
+			</div>
+
+			<div class="screenshot-actions">
+				<button class="btn" id="cancelImageToVideoBtn">Cancel</button>
+				<button class="btn" id="createImageVideoBtn" disabled>Create Video</button>
+			</div>
+		</div>
+	</div>
 	<div class="screenshot-overlay hidden" id="urlModal">
 		<div class="screenshot-modal">
 			<h3>Enter Video URL</h3>
@@ -284,7 +316,6 @@
 			</span>
 		</ul>
 	</div>
-
 	<div class="showMessage hidden" id="showMessage">
 	</div>
 	<input type="file" id="fileInput" multiple accept="video/*,audio/*,.mkv,.webm">

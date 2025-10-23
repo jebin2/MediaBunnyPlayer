@@ -1462,7 +1462,7 @@ body::before {
     padding: 2rem;
     max-width: 90%;
     max-height: 90vh;
-    overflow: hidden;
+    overflow: auto;
     box-shadow: var(--glass-shadow);
     position: relative;
     animation: slideUp 0.3s ease;
@@ -1470,7 +1470,7 @@ body::before {
     flex-direction: column;
 }
 
-#screenshotPreviewImg {
+#screenshotPreviewImg, #imagePreview {
     max-width: 100%;
     max-height: calc(90vh - 200px);
     width: auto;
@@ -1484,6 +1484,7 @@ body::before {
     margin-left: auto;
     margin-right: auto;
     flex-shrink: 1;
+    min-height: 0;
 }
 
 .screenshot-actions {

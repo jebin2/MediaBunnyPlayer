@@ -104,3 +104,15 @@ export const cropCtx = cropCanvas.getContext('2d');
 
 // Audio Nodes Set
 export const queuedAudioNodes = new Set();
+
+// DOM Elements - Image to Video Modal
+export const imageToVideoBtn = $('imageToVideoBtn');
+export const imageToVideoModal = $('imageToVideoModal');
+export const imageFileInput = $('imageFileInput');
+export const selectImageBtn = $('selectImageBtn');
+export const imagePreview = $('imagePreview');
+export const imagePreviewContainer = $('imagePreviewContainer');
+export const imageDurationInput = $('imageDurationInput');
+export const closeImageToVideoBtn = $('closeImageToVideoBtn');
+export const cancelImageToVideoBtn = $('cancelImageToVideoBtn');
+export const createImageVideoBtn = $('createImageVideoBtn');

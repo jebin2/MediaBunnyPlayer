@@ -101,5 +101,9 @@ export const state = {
     resizeTimeout: null,
 
     //resize video
-    videoAspectRatio: 16/9
+    videoAspectRatio: 16/9,
+
+    // Image to Video State
+    selectedImageFile: null,
+    selectedImageBlob: null,
 };
