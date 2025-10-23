@@ -106,4 +106,7 @@ export const state = {
     // Image to Video State
     selectedImageFile: null,
     selectedImageBlob: null,
+
+    // recording
+    screenrecording: false,
 };

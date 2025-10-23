@@ -284,21 +284,67 @@ const createImageVideo = async (options) => {
     return new Blob([output.target.buffer], { type: 'video/mp4' });
 };
 
+const getAudioDuration = (audioFile) => {
+    return new Promise((resolve, reject) => {
+        if (!audioFile || !audioFile.type.startsWith('audio/')) {
+            return reject(new Error("Invalid audio file provided."));
+        }
+
+        const audio = new Audio();
+        const objectUrl = URL.createObjectURL(audioFile);
+
+        // This event fires when the browser has loaded metadata like duration.
+        audio.addEventListener('loadedmetadata', () => {
+            URL.revokeObjectURL(objectUrl); // Clean up the object URL to prevent memory leaks
+            resolve(audio.duration);
+        });
+
+        // Handle any errors during loading
+        audio.addEventListener('error', () => {
+            URL.revokeObjectURL(objectUrl);
+            reject(new Error("Failed to load audio file to determine its duration."));
+        });
+
+        // Set the source to trigger the loading process
+        audio.src = objectUrl;
+    });
+};
 
 const handleCreateImageVideo = async () => {
     if (!state.selectedImageFile) {
         showError("Please select an image first.");
         return;
     }
-    const duration = parseFloat(imageDurationInput.value) || 1;
-    if (isNaN(duration) || duration < 0) {
-        showError("Duration must be a positive number.");
-        return;
+    let duration = parseFloat(imageDurationInput.value) || 0;
+    const width = parseInt(imageVideoWidthInput.value) || null; // Corrected ID from your HTML
+    const height = parseInt(imageVideoHeightInput.value) || null; // Corrected ID from your HTML
+    const audioFile = imageVideoAudioInput.files[0] || null; // Corrected ID from your HTML
+
+    // NEW LOGIC: If duration is 0, try to use audio duration
+    if (duration <= 0) {
+        if (audioFile) {
+            showStatusMessage('Getting audio duration...');
+            try {
+                // Await the result from our new helper function
+                duration = await getAudioDuration(audioFile);
+            } catch (err) {
+                console.error(err);
+                showError("Could not read the audio file's duration. Please set a duration manually.");
+                hideStatusMessage(); // Hide the status message on error
+                return; // Stop the process
+            }
+        } else {
+            // No audio file and duration is 0, so show an error
+            showError("Duration must be at least 1 second, or an audio file must be provided.");
+            return; // Stop the process
+        }
     }
 
-    const width = parseInt(imageWidthInput.value) || null;
-    const height = parseInt(imageHeightInput.value) || null;
-    const audioFile = audioInput.files[0] || null;
+    // Final check to ensure we have a valid, positive duration before proceeding
+    if (isNaN(duration) || duration <= 0) {
+        showError("The final duration must be a positive number.");
+        return;
+    }
 
     hideImageToVideoModal();
     hideTrackMenus();

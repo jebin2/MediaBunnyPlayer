@@ -50,7 +50,10 @@ const rec = {
     resizeHandle: null,
     dragStartPos: { x: 0, y: 0 },
     originalSelection: null,
-    mode: 'idle', // States: 'idle', 'drawing', 'selected', 'recording'
+    maxWidth: 0,
+    maxHeight: 0,
+    mode: 'idle',
+    isSelectionInteractive: true,
 };
 rec.ctx = rec.canvas.getContext('2d');
 
@@ -129,8 +132,10 @@ const startRecording = async () => {
     rec.elapsedPausedTime = 0;
 
     // Dimensions are now guaranteed to be even.
-    rec.canvas.width = rec.selection.width;
-    rec.canvas.height = rec.selection.height;
+    rec.maxWidth = Math.round(rec.selection.width / 2) * 2;
+    rec.maxHeight = Math.round(rec.selection.height / 2) * 2;
+    rec.canvas.width = rec.maxWidth;
+    rec.canvas.height = rec.maxHeight;
     rec.videoElement.srcObject = rec.mediaStream;
 
     // Wait for the video to be ready to avoid a black screen race condition.
@@ -143,7 +148,12 @@ const startRecording = async () => {
         format: new Mp4OutputFormat({ fastStart: 'fragmented' }),
         target: new StreamTarget(new WritableStream({ write: chunk => rec.chunks.push(chunk.data) })),
     });
-    rec.videoSource = new CanvasSource(rec.canvas, { codec: 'avc', bitrate: QUALITY_HIGH });
+    rec.videoSource = new CanvasSource(rec.canvas, {
+        codec: 'avc',
+        bitrate: QUALITY_HIGH,
+        // Add this line to allow the video dimensions to change during recording.
+        sizeChangeBehavior: 'passThrough' // or 'crop' depending on desired behavior
+    });
     rec.output.addVideoTrack(rec.videoSource, { frameRate: FRAME_RATE });
     const audioTrack = rec.mediaStream.getAudioTracks()[0];
     if (audioTrack) {
@@ -160,19 +170,42 @@ const startRecording = async () => {
 const captureFrame = () => {
     if (!rec.isRecording || rec.isPaused || !rec.selection) return;
 
-    // FIX: Also enforce even dimensions during live resizing.
-    const newWidth = Math.round(rec.selection.width / 2) * 2;
-    const newHeight = Math.round(rec.selection.height / 2) * 2;
+    // --- MODIFICATION START ---
+    // Ensure current selection dimensions are even
+    const currentWidth = Math.round(rec.selection.width / 2) * 2;
+    const currentHeight = Math.round(rec.selection.height / 2) * 2;
 
-    if (rec.canvas.width !== newWidth || rec.canvas.height !== newHeight) {
-        rec.canvas.width = newWidth;
-        rec.canvas.height = newHeight;
+    // Check if the selection has grown larger than our canvas
+    let needsResize = false;
+    if (currentWidth > rec.maxWidth) {
+        rec.maxWidth = currentWidth;
+        needsResize = true;
+    }
+    if (currentHeight > rec.maxHeight) {
+        rec.maxHeight = currentHeight;
+        needsResize = true;
     }
 
+    // Resize the canvas if necessary to fit the largest selection
+    if (needsResize) {
+        rec.canvas.width = rec.maxWidth;
+        rec.canvas.height = rec.maxHeight;
+    }
+
+    // Fill the entire canvas with black. This creates the "padding".
+    rec.ctx.fillStyle = '#000';
+    rec.ctx.fillRect(0, 0, rec.canvas.width, rec.canvas.height);
+
+    // Calculate the centered position for the current selection
+    const destX = (rec.canvas.width - currentWidth) / 2;
+    const destY = (rec.canvas.height - currentHeight) / 2;
+
+    // Draw the current video selection onto the center of our (potentially larger) black canvas
     rec.ctx.drawImage(rec.videoElement,
-        rec.selection.x, rec.selection.y, rec.selection.width, rec.selection.height,
-        0, 0, rec.canvas.width, rec.canvas.height
+        rec.selection.x, rec.selection.y, rec.selection.width, rec.selection.height, // Source
+        destX, destY, currentWidth, currentHeight // Destination (centered)
     );
+    // --- MODIFICATION END ---
 
     const elapsedTime = (Date.now() - rec.startTime - rec.elapsedPausedTime) / 1000;
     if (elapsedTime >= 0) {
@@ -241,6 +274,7 @@ const onPointerUp = () => {
         // =======================================================================
 
         rec.mode = 'selected';
+        rec.isSelectionInteractive = true; 
     }
     rec.isResizing = false;
     rec.isDragging = false;
@@ -283,14 +317,23 @@ const updateUI = () => {
     }
 
     if (rec.mode === 'recording' || rec.mode === 'selected') {
-        // After selection, make the background non-interactive ("click-through")
-        rec.selectionContainer.style.pointerEvents = 'none';
-        // But keep the selection box itself interactive for moving/resizing
-        rec.selectionBox.style.pointerEvents = 'auto';
+        if (rec.isSelectionInteractive) {
+            // UNLOCKED: We can move/resize the box, but page is blocked.
+            rec.selectionContainer.style.pointerEvents = 'auto';
+            rec.selectionBox.style.pointerEvents = 'auto';
+            rec.selectionBox.style.border = '2px dashed #fff'; // Visual feedback: Dashed = editable
+        } else {
+            // LOCKED: We can interact with the page, but the box is static.
+            rec.selectionContainer.style.pointerEvents = 'none';
+            // The box also needs to be 'none' to allow clicks to pass through.
+            rec.selectionBox.style.pointerEvents = 'none';
+            rec.selectionBox.style.border = '2px solid #007bff'; // Visual feedback: Solid blue = locked
+        }
     } else {
-        // Before selection, the whole container should be interactive for drawing
+        // Default behavior for drawing the initial selection.
         rec.selectionContainer.style.pointerEvents = 'auto';
-        rec.selectionBox.style.pointerEvents = 'auto';
+        rec.selectionBox.style.pointerEvents = 'auto'; // Does not matter much here
+        rec.isSelectionInteractive = true; // Reset state when not selecting
     }
 
     rec.selectionBox.style.display = rec.selection ? 'block' : 'none';
@@ -322,6 +365,8 @@ const cancelSelection = () => {
 };
 
 const stopRecording = async () => {
+    state.screenrecording = false;
+    document.getElementById("guideinforec").classList.remove("hidden");
     if (!rec.isRecording) return;
     rec.isRecording = false;
     cancelSelection();
@@ -416,9 +461,26 @@ export const setupRecordingListeners = () => {
     });
     recordScreenBtn.onclick = (e) => {
         e.stopPropagation();
+        state.screenrecording = true
         settingsMenu.classList.add('hidden');
         initiateScreenRecording();
     };
     pauseRecBtn.addEventListener('click', togglePause);
     stopRecBtn.addEventListener('click', stopRecording);
 };
+
+export const lenvetlistener = () => {
+    rec.isSelectionInteractive = !rec.isSelectionInteractive;
+    // Re-run the UI update to apply the new pointer-events and border style
+    updateUI();
+    
+    // Optional: Show a quick message to the user
+    const message = rec.isSelectionInteractive ? "Selection Unlocked" : "Selection Locked";
+    if (rec.isSelectionInteractive) {
+        document.getElementById("guideinforec").classList.remove("hidden");
+    } else {
+        document.getElementById("guideinforec").classList.add("hidden");
+    }
+    showInfo(message);
+
+}

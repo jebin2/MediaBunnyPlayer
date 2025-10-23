@@ -28,6 +28,7 @@ import { takeScreenshot } from './screenshot.js'
 import { hideStatusMessage, showControlsTemporarily, showDropZoneUI, showError, showInfo, showLoading, showPlayerUI, showStatusMessage, updateProgressBarUI, updateTimeInputs } from './ui.js'
 import { audioEventlistener } from './audio.js';
 import { setupSettingsListeners } from './settings.js';
+import { lenvetlistener } from './recording.js'
 
 export const setupEventListeners = () => {
 	$('clearPlaylistBtn').onclick = clearPlaylist;
@@ -762,7 +763,11 @@ document.addEventListener('keydown', (e) => {
 		state.buffer = state.buffer.slice(0, -1);
 	} else if (e.key.toLowerCase() === 'l') {
 		e.stopPropagation();
-		toggleCropFixed();
+		if (state.screenrecording) {
+			lenvetlistener();
+		} else {
+			toggleCropFixed();
+		}
 	} else if (e.key.length === 1) {
 		state.buffer += e.key;
 
