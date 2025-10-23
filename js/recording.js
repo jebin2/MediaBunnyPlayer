@@ -54,6 +54,7 @@ const rec = {
     maxHeight: 0,
     mode: 'idle',
     isSelectionInteractive: true,
+    areControlsVisible: true,
 };
 rec.ctx = rec.canvas.getContext('2d');
 
@@ -345,6 +346,9 @@ const updateFloatingControlsUI = () => {
         pauseRecBtn.style.display = 'block';
         stopRecBtn.style.display = 'block';
         recTimer.style.display = 'block';
+        if (!rec.areControlsVisible) {
+            recordingControls.classList.add('hidden');
+        }
     } else { // Handles 'idle' and other states
         recordingControls.classList.add('hidden');
     }
@@ -520,6 +524,16 @@ export const setupRecordingListeners = () => {
     };
     pauseRecBtn.addEventListener('click', togglePause);
     stopRecBtn.addEventListener('click', stopRecording);
+    document.addEventListener('keydown', (e) => {
+        const key = e.key.toLowerCase();
+
+        // --- H key: Toggle visibility of the recording controls ---
+        if (key === 'h' && rec.mode === 'recording') {
+            e.preventDefault();
+            rec.areControlsVisible = !rec.areControlsVisible;
+            updateFloatingControlsUI();
+        }
+    });
 };
 
 export const lenvetlistener = () => {

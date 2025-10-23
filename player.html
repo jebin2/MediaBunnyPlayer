@@ -143,7 +143,8 @@
 				<span id="recTimer" class="btn">00:00</span>
 				<button class="btn" id="pauseRecBtn">⏸️ Pause</button>
 				<button class="btn" id="stopRecBtn">⏹️ Stop</button>
-				<p id="guideinforec">Press 'L' to release/lock the crop then other element will be interactable</p>
+				<p id="guideinforec">Press 'L' to lock/unlock the selection area. Then other element will be
+					interactable</p>
 			</div>
 		</div>
 
@@ -343,6 +344,20 @@
 		<div class="screenshot-modal">
 			<h3>Choose Recording Mode</h3>
 			<p style="margin: 1rem 0; color: #ccc;">How would you like to record?</p>
+
+			<!-- START: Added Shortcut Information -->
+			<div class="shortcut-info"
+				style="margin-bottom: 1.5rem; text-align: left; font-size: 0.9em; background: rgba(0,0,0,0.2); padding: 10px 15px; border-radius: 8px;">
+				<ul class="shortcut-list" style="padding-left: 0; margin: 0;">
+					<li>
+						<span>During *any* recording, press <kbd>H</kbd> to hide/show the controls.</span>
+					</li>
+					<li style="margin-top: 8px;">
+						<span>When cropping, press <kbd>L</kbd> to lock/unlock the selection area.</span>
+					</li>
+				</ul>
+			</div>
+			<!-- END: Added Shortcut Information -->
 
 			<div class="screenshot-actions" style="justify-content: center; gap: 15px;">
 				<button class="btn" id="recordFullAreaBtn">Record Full Area</button>
