@@ -4,11 +4,15 @@
 
 import {
     Input,
+    ALL_FORMATS,
+    BlobSource,
     Output,
     BufferTarget,
     Mp4OutputFormat,
     CanvasSource,
-    QUALITY_HIGH
+    EncodedPacketSink, // Use this to READ encoded packets
+    EncodedAudioPacketSource, // Use this to WRITE encoded audio packets
+    QUALITY_HIGH,
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
 
 import {
@@ -22,21 +26,41 @@ import {
     closeImageToVideoBtn,
     cancelImageToVideoBtn,
     createImageVideoBtn,
-    settingsMenu
+    settingsMenu,
+    imageWidthInput,
+    imageHeightInput,
+    keepRatioChk,
+    audioInput,
+    audioInputBtn,
+    audioFileName
 } from './constants.js';
 import { state } from './state.js';
 import { showError, showStatusMessage, hideStatusMessage } from './ui.js';
 import { updatePlaylistUIOptimized } from './playlist.js';
 import { hideTrackMenus } from './player.js';
-import { guidedPanleInfo } from './utility.js';
 
 export const setupImageToVideo = () => {
+    let originalAspectRatio = 1;
     // Open modal
     imageToVideoBtn.onclick = (e) => {
         e.stopPropagation();
         imageToVideoModal.classList.remove('hidden');
         settingsMenu.classList.add('hidden');
         resetImageToVideoModal();
+    };
+
+    audioInputBtn.onclick = (e) => {
+        e.stopPropagation();
+        audioInput.click();
+    };
+
+    audioInput.onchange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            audioFileName.textContent = file.name;
+        } else {
+            audioFileName.textContent = '';
+        }
     };
 
     // Select image button
@@ -49,11 +73,14 @@ export const setupImageToVideo = () => {
         const file = e.target.files[0];
         if (file && file.type.startsWith('image/')) {
             state.selectedImageFile = file;
-
-            // Show preview
             const reader = new FileReader();
             reader.onload = (event) => {
                 imagePreview.src = event.target.result;
+                imagePreview.onload = () => {
+                    imageWidthInput.value = imagePreview.naturalWidth;
+                    imageHeightInput.value = imagePreview.naturalHeight;
+                    originalAspectRatio = imagePreview.naturalWidth / imagePreview.naturalHeight;
+                };
                 imagePreviewContainer.style.display = 'block';
                 createImageVideoBtn.disabled = false;
             };
@@ -62,6 +89,18 @@ export const setupImageToVideo = () => {
             showError("Please select a valid image file.");
         }
     };
+
+    imageWidthInput.addEventListener('input', () => {
+        if (keepRatioChk.checked && originalAspectRatio && imageWidthInput.value) {
+            imageHeightInput.value = Math.round(imageWidthInput.value / originalAspectRatio);
+        }
+    });
+
+    imageHeightInput.addEventListener('input', () => {
+        if (keepRatioChk.checked && originalAspectRatio && imageHeightInput.value) {
+            imageWidthInput.value = Math.round(imageHeightInput.value * originalAspectRatio);
+        }
+    });
 
     // Close modal handlers
     closeImageToVideoBtn.onclick = hideImageToVideoModal;
@@ -82,15 +121,23 @@ const hideImageToVideoModal = () => {
 
 const resetImageToVideoModal = () => {
     imageFileInput.value = '';
+    audioInput.value = '';
+    audioFileName.textContent = '';
     imagePreview.src = '';
     imagePreviewContainer.style.display = 'none';
     imageDurationInput.value = '5';
+    imageWidthInput.value = '';
+    imageHeightInput.value = '';
     createImageVideoBtn.disabled = true;
     state.selectedImageFile = null;
 };
 
-const createImageVideo = async (imageFile, duration, fps = 30) => {
-    // 1. Load the image and draw it to a canvas once
+
+// --- THIS IS THE CORRECTED CORE FUNCTION ---
+const createImageVideo = async (options) => {
+    const { imageFile, duration, fps = 30, dimensions, audioFile } = options;
+
+    // 1. Load image and prepare canvas
     const img = new Image();
     const imageUrl = URL.createObjectURL(imageFile);
     await new Promise((res, rej) => {
@@ -100,70 +147,139 @@ const createImageVideo = async (imageFile, duration, fps = 30) => {
     });
     URL.revokeObjectURL(imageUrl);
 
-    const canvas = document.createElement('canvas');
-    canvas.width = img.width;
-    canvas.height = img.height;
-    const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, 0, 0); // Draw the image just once
+    const targetWidth = dimensions?.width || img.width;
+    const targetHeight = dimensions?.height || img.height;
 
-    // 2. Set up the mediabunny Output and CanvasSource
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+    // 2. Set up the mediabunny Output
     const output = new Output({
         target: new BufferTarget(),
         format: new Mp4OutputFormat({ fastStart: 'in-memory' })
     });
 
+    // 3. Add video track to the output
     const canvasSource = new CanvasSource(canvas, {
-        codec: 'avc', // or 'vp9', 'av1' etc.
+        codec: 'avc',
         bitrate: QUALITY_HIGH
     });
     output.addVideoTrack(canvasSource, { frameRate: fps });
 
-    await output.start();
+    // This promise will handle piping audio data. It resolves immediately if there's no audio.
+    let audioPipePromise = Promise.resolve();
 
-    // 3. Loop and add frames directly to the mediabunny output
-    const totalFrames = duration * fps;
-    for (let i = 0; i < totalFrames; i++) {
-        const timestamp = i / fps;
-        await canvasSource.add(timestamp, 1 / fps);
+    // 4. Set up and add audio track (if it exists) BEFORE starting the output
+    if (audioFile) {
+        const audioInput = new Input({
+            source: new BlobSource(audioFile),
+            formats: ALL_FORMATS
+        });
+        const audioTrack = await audioInput.getPrimaryAudioTrack();
+
+        if (audioTrack) {
+            const audioDecoderConfig = await audioTrack.getDecoderConfig();
+            const audioSource = new EncodedAudioPacketSource(audioTrack.codec);
+            output.addAudioTrack(audioSource);
+
+            // Define the audio processing logic. This will run after output.start()
+            const pipeAudio = async () => {
+                const audioDuration = await audioTrack.computeDuration();
+                if (!audioDuration || audioDuration <= 0) {
+                    console.warn("Audio file has zero or invalid duration. It will not be looped.");
+                    const sink = new EncodedPacketSink(audioTrack);
+                    let firstPacket = true;
+                    for await (const packet of sink.packets()) {
+                        if (packet.timestamp >= duration) break;
+                        const metadata = firstPacket ? { decoderConfig: audioDecoderConfig } : undefined;
+                        await audioSource.add(packet, metadata);
+                        firstPacket = false;
+                    }
+                } else {
+                    let timeOffset = 0;
+                    let firstPacketEver = true;
+                    while (timeOffset < duration) {
+                        const sink = new EncodedPacketSink(audioTrack);
+                        for await (const packet of sink.packets()) {
+                            const newTimestamp = packet.timestamp + timeOffset;
+                            if (newTimestamp >= duration) break;
+
+                            const newPacket = packet.clone({ timestamp: newTimestamp });
+                            const metadata = firstPacketEver ? { decoderConfig: audioDecoderConfig } : undefined;
+                            await audioSource.add(newPacket, metadata);
+                            firstPacketEver = false;
+                        }
+                        timeOffset += audioDuration;
+                    }
+                }
+                audioSource.close();
+            };
+
+            audioPipePromise = pipeAudio();
+        } else {
+             console.warn("Could not find an audio track in the provided file.");
+        }
     }
 
-    // 4. Finalize the MP4 file
+    // 5. Start the output now that all tracks are added
+    await output.start();
+
+    // 6. Start piping video and audio data concurrently
+    const videoPipePromise = (async () => {
+        const totalFrames = duration * fps;
+        for (let i = 0; i < totalFrames; i++) {
+            const timestamp = i / fps;
+            await canvasSource.add(timestamp, 1 / fps);
+        }
+        canvasSource.close();
+    })();
+
+    // Wait for both streams to finish
+    await Promise.all([videoPipePromise, audioPipePromise]);
+
+    // 7. Finalize the MP4 file
     await output.finalize();
 
-    // 5. Return the final MP4 blob
+    // 8. Return the final MP4 blob
     return new Blob([output.target.buffer], { type: 'video/mp4' });
 };
+
 
 const handleCreateImageVideo = async () => {
     if (!state.selectedImageFile) {
         showError("Please select an image first.");
         return;
     }
-
-    const duration = parseInt(imageDurationInput.value, 10);
-    if (isNaN(duration) || duration < 1 || duration > 300) {
-        showError("Duration must be between 1 and 300 seconds.");
+    const duration = parseFloat(imageDurationInput.value) || 1;
+    if (isNaN(duration) || duration < 0) {
+        showError("Duration must be a positive number.");
         return;
     }
 
+    const width = parseInt(imageWidthInput.value) || null;
+    const height = parseInt(imageHeightInput.value) || null;
+    const audioFile = audioInput.files[0] || null;
+
     hideImageToVideoModal();
     hideTrackMenus();
-    guidedPanleInfo('Creating video from image...');
-    showStatusMessage('Processing image...');
+    showStatusMessage('Starting process...');
 
     try {
-        // The entire creation process is now just one function call!
         showStatusMessage('Encoding video...');
-        const mp4Blob = await createImageVideo(state.selectedImageFile, duration);
+        
+        const mp4Blob = await createImageVideo({
+            imageFile: state.selectedImageFile,
+            duration: duration,
+            dimensions: { width, height },
+            audioFile: audioFile
+        });
 
-        // Create filename
-        const originalName = state.selectedImageFile.name.split('.').slice(0, -1).join('') || 'image';
-        const fileName = `${originalName}_${duration}s_video.mp4`;
-
-        // Create file from blob
+        const fileName = `${state.selectedImageFile.name.split('.')[0]}_video.mp4`;
         const videoFile = new File([mp4Blob], fileName, { type: 'video/mp4' });
 
-        // Add to playlist
         state.playlist.push({
             type: 'file',
             name: fileName,
@@ -173,18 +289,14 @@ const handleCreateImageVideo = async () => {
 
         updatePlaylistUIOptimized();
         showStatusMessage('Video created and added to playlist!');
-        guidedPanleInfo('Video created successfully!');
-
-        setTimeout(() => {
-            hideStatusMessage();
-            guidedPanleInfo('');
-        }, 2000);
 
     } catch (error) {
         console.error("Error creating video from image:", error);
         showError(`Failed to create video: ${error.message}`);
-        hideStatusMessage();
-        guidedPanleInfo('');
+    } finally {
+        setTimeout(() => {
+            hideStatusMessage();
+        }, 2000);
         resetImageToVideoModal();
     }
 };

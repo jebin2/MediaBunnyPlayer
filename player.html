@@ -236,8 +236,26 @@
 
 				<div class="resize-section">
 					<h4>Duration (seconds)</h4>
-					<input id="imageDurationInput" class="speed-input" type="number" min="1" max="300" value="5"
-						placeholder="Duration in seconds">
+					<input id="imageDurationInput" class="speed-input" min="1" max="300" value="5" placeholder="Duration in seconds">
+				</div>
+				<div class="resize-section">
+					<h4>Dimensions</h4>
+					<div class="dimension-controls">
+						<input id="imageVideoWidthInput" class="speed-input" placeholder="Width">
+						<span>×</span>
+						<input id="imageVideoHeightInput" class="speed-input" placeholder="Height">
+					</div>
+					<div class="trim-option">
+						<input type="checkbox" id="imageVideoKeepRatio" checked>
+						<label for="imageVideoKeepRatio">Keep Aspect Ratio</label>
+					</div>
+				</div>
+
+				<div class="resize-section">
+					<h4>Optional</h4>
+					<input type="file" id="imageVideoAudioInput" accept="audio/*" style="display: none;">
+					<button class="btn" id="imageVideoAudioBtn">Choose Audio</button>
+					<p id="audioFileName"></p>
 				</div>
 			</div>
 
