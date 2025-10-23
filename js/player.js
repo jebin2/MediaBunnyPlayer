@@ -723,6 +723,10 @@ export const toggleLoop = () => {
 		const start = parseTime(startTimeInput.value);
 		const end = parseTime(endTimeInput.value);
 
+		if (!state.fileLoaded) {
+			showError("Cannot loop: No video loaded.");
+			return;
+		}
 		if (isNaN(start) || isNaN(end) || start >= end || start < 0 || end > state.totalDuration) {
 			showError("Invalid start or end time for looping.");
 			return;

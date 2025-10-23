@@ -23,8 +23,8 @@ import { hideStatusMessage, showError, showStatusMessage } from './ui.js'
 export const resize_define = () => {
     resizeBtn.onclick = (e) => {
         e.stopPropagation();
-        if (!state.videoTrack) {
-            showError("A video must be loaded to use the resize feature.");
+        if (!state.fileLoaded || !state.videoTrack) {
+            showError("Cannot resize: No video loaded.");
             return;
         }
 
