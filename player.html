@@ -299,7 +299,6 @@
 				import('./js/main.js')
 					.then(module => {
 						console.log('Loaded main.js');
-						inlineCall();
 					})
 					.catch(err => {
 						console.error('Failed to load main.js', err);
@@ -308,27 +307,12 @@
 				import('./script.js')
 					.then(module => {
 						console.log('Loaded script.js');
-						inlineCall();
 					})
 					.catch(err => {
 						console.error('Failed to load script.js', err);
 					});
 			}
 		});
-		function inlineCall() {
-			// Check if we came here from "Choose Files"
-			if (sessionStorage.getItem('triggerFileInput') === 'true') {
-				sessionStorage.removeItem('triggerFileInput'); // clear flag
-
-				// Trigger file input click
-				const fileInput = document.getElementById('fileInput');
-				if (fileInput) {
-					fileInput.click();
-				} else {
-					console.warn('fileInput element not found on player.html');
-				}
-			}
-		}
 	</script>
 
 
