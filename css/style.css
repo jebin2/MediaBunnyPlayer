@@ -283,6 +283,8 @@ body::before {
     flex: 1;
     background: var(--bg-primary);
     display: none;
+    container-type: inline-size;
+    container-name: video-player; /* Optional, but good practice */
 }
 
 .video-container.active {
@@ -348,28 +350,29 @@ body::before {
 
 .video-controls {
     position: absolute;
-    bottom: 24px;
-    left: 24px;
-    right: 24px;
+    bottom: 2rem; /* Reduced for a tighter look */
+    left: 50%;   /* Position the element's left edge at the center */
+    /* The 'right' property is removed */
     background: var(--bg-modal);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
     border-radius: var(--border-radius-lg);
-    padding: 0.75rem 1rem;
+    padding: 0.5rem 0.75rem; /* Using the more compact padding */
     display: flex;
     flex-direction: column;
-    gap: 0.75rem;
+    gap: 0.5rem; /* Using the more compact gap */
     opacity: 0;
-    transform: translateY(20px);
+    transform: translate(-50%, 20px); /* Move left by 50% of its own width to center it */
     transition: var(--transition-smooth);
     z-index: 100;
     box-shadow: var(--glass-shadow-lg);
+    align-items: center;
 }
 
 .video-controls.show {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(-50%, 0);
 }
 
 /* --- Progress Container --- */
@@ -457,10 +460,11 @@ body::before {
 
 /* --- Controls Bottom --- */
 .controls-bottom {
-    display: flex;
+    display: grid;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
+    grid-template-columns: auto auto;
 }
 
 .controls-left,
@@ -1723,7 +1727,14 @@ input[type="checkbox"] {
 /* ==========================================
    RESPONSIVE DESIGN
    ========================================== */
-
+@container video-player (max-width: 645px) {
+    .controls-bottom {
+        display: grid;
+        grid-template-columns: auto; /* Stack the left and right controls */
+        justify-content: center; /* Center the stacked content */
+        gap: 0.5rem;
+    }
+}
 @media (max-width: 768px) {
     .header {
         flex-direction: column;
@@ -1743,15 +1754,9 @@ input[type="checkbox"] {
         width: 280px;
     }
 
-    .video-controls {
-        bottom: 12px;
-        left: 12px;
-        right: 12px;
-        padding: 0.5rem 0.75rem;
-    }
-
     .controls-bottom {
-        flex-direction: column;
+        display: grid;
+        grid-template-columns: auto;
         gap: 0.5rem;
     }
 
