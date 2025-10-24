@@ -13,7 +13,7 @@ body::before {
     left: -50%;
     width: 200%;
     height: 200%;
-    background: radial-gradient(circle, rgba(0, 122, 255, 0.1) 0%, transparent 50%),
+    background: var(--gradient-radial),
         radial-gradient(circle at 80% 80%, rgba(90, 200, 250, 0.08) 0%, transparent 50%);
     animation: gradientShift 20s ease infinite;
     pointer-events: none;
@@ -84,9 +84,9 @@ body::before {
 }
 
 .drop-zone.dragover {
-    background: rgba(0, 122, 255, 0.1);
+    background: var(--glass-bg-medium);
     border-color: var(--accent-primary);
-    box-shadow: inset 0 0 40px rgba(0, 122, 255, 0.2);
+    box-shadow: inset 0 0 40px var(--glass-bg-medium);
 }
 
 .drop-zone-content {
@@ -118,7 +118,7 @@ body::before {
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 1rem;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--glass-shadow-lg);
 }
 
 .logo {
@@ -196,7 +196,7 @@ body::before {
 .close-btn:hover {
     background: var(--danger);
     border-color: var(--danger);
-    color: white;
+    color: var(--text-primary);
     transform: rotate(90deg);
 }
 
@@ -214,7 +214,7 @@ body::before {
     width: 0;
     height: 0;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.3);
+    background: var(--glass-bg-hover);
     transform: translate(-50%, -50%);
     transition: width 0.4s, height 0.4s;
 }
@@ -231,7 +231,7 @@ body::before {
 }
 
 #settingsHeaderBtn:hover {
-    background: rgba(0, 122, 255, 0.15);
+    background: var(--glass-bg-hover);
     border-color: var(--accent-primary);
 }
 
@@ -269,7 +269,7 @@ body::before {
 }
 
 .action-dropdown-menu button:hover {
-    background: rgba(0, 122, 255, 0.15);
+    background: var(--glass-bg-hover);
     color: var(--accent-primary);
     transform: translateX(4px);
 }
@@ -281,7 +281,7 @@ body::before {
 .video-container {
     position: relative;
     flex: 1;
-    background: #000;
+    background: var(--bg-primary);
     display: none;
 }
 
@@ -301,7 +301,7 @@ body::before {
     z-index: 10;
     pointer-events: auto;
     border: 2px solid var(--accent-primary);
-    box-shadow: 0 0 20px rgba(0, 122, 255, 0.5);
+    box-shadow: var(--accent-glow);
 }
 
 /* --- URL Play Overlay --- */
@@ -315,7 +315,7 @@ body::before {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.7);
+    background: var(--bg-overlay);
     backdrop-filter: var(--glass-blur);
     color: var(--text-primary);
     cursor: pointer;
@@ -351,7 +351,7 @@ body::before {
     bottom: 24px;
     left: 24px;
     right: 24px;
-    background: rgba(13, 13, 20, 0.8);
+    background: var(--bg-modal);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
@@ -364,7 +364,7 @@ body::before {
     transform: translateY(20px);
     transition: var(--transition-smooth);
     z-index: 100;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    box-shadow: var(--glass-shadow-lg);
 }
 
 .video-controls.show {
@@ -376,7 +376,7 @@ body::before {
 .progress-container {
     width: 100%;
     height: 6px;
-    background: rgba(255, 255, 255, 0.15);
+    background: var(--scrollbar-track);
     border-radius: 10px;
     cursor: pointer;
     position: relative;
@@ -390,7 +390,7 @@ body::before {
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    background: var(--gradient-shimmer);
     animation: shimmer 2s infinite;
 }
 
@@ -400,15 +400,15 @@ body::before {
     width: 0%;
     border-radius: 10px;
     transition: width 0.1s;
-    box-shadow: 0 0 12px rgba(0, 122, 255, 0.5);
+    box-shadow: var(--accent-glow);
 }
 
 .progress-handle {
     width: 14px;
     height: 14px;
     border-radius: 50%;
-    background: white;
-    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.6);
+    background: var(--text-primary);
+    box-shadow: 0 2px 8px var(--scrollbar-thumb);
     position: absolute;
     top: 50%;
     left: 0;
@@ -489,7 +489,7 @@ body::before {
 }
 
 .play-btn:hover {
-    background: rgba(0, 122, 255, 0.2);
+    background: var(--glass-bg-active);
     border-color: var(--accent-primary);
     transform: scale(1.05);
 }
@@ -531,7 +531,7 @@ body::before {
 .speed-input:focus {
     outline: none;
     border-color: var(--accent-primary);
-    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+    box-shadow: 0 0 0 3px var(--glass-bg-active);
 }
 
 /* --- Volume Container --- */
@@ -564,7 +564,7 @@ body::before {
     height: 4px;
     -webkit-appearance: none;
     appearance: none;
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--scrollbar-track);
     border-radius: 10px;
     outline: none;
     cursor: pointer;
@@ -575,10 +575,10 @@ body::before {
     appearance: none;
     width: 14px;
     height: 14px;
-    background: white;
+    background: var(--text-primary);
     border-radius: 50%;
     cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0, 122, 255, 0.4);
+    box-shadow: 0 2px 6px var(--scrollbar-thumb);
     transition: var(--transition-smooth);
 }
 
@@ -589,11 +589,11 @@ body::before {
 .volume-slider::-moz-range-thumb {
     width: 14px;
     height: 14px;
-    background: white;
+    background: var(--text-primary);
     border-radius: 50%;
     cursor: pointer;
     border: none;
-    box-shadow: 0 2px 6px rgba(0, 122, 255, 0.4);
+    box-shadow: 0 2px 6px var(--scrollbar-thumb);
 }
 
 /* --- Fullscreen Button --- */
@@ -615,7 +615,7 @@ body::before {
 }
 
 .fullscreen-btn:hover {
-    background: rgba(0, 122, 255, 0.2);
+    background: var(--glass-bg-active);
     border-color: var(--accent-primary);
     transform: scale(1.05);
 }
@@ -695,13 +695,13 @@ body::before {
 }
 
 .track-item:hover {
-    background: rgba(0, 122, 255, 0.15);
+    background: var(--glass-bg-hover);
     border-color: var(--accent-primary);
     transform: translateX(4px);
 }
 
 .track-item.active {
-    background: rgba(0, 122, 255, 0.25);
+    background: var(--glass-bg-active);
     border-color: var(--accent-primary);
     color: var(--accent-secondary);
 }
@@ -749,7 +749,7 @@ body::before {
 }
 
 .trim-option:hover {
-    background: rgba(0, 122, 255, 0.05);
+    background: var(--glass-bg-subtle);
 }
 
 .trim-option input[type="checkbox"] {
@@ -794,7 +794,7 @@ body::before {
 }
 
 .trim-mode-selector>div:hover {
-    background: rgba(0, 122, 255, 0.05);
+    background: var(--glass-bg-subtle);
 }
 
 .trim-mode-selector input[type="radio"] {
@@ -824,7 +824,7 @@ body::before {
 
 .trim-mode-selector input[type="radio"]:checked+label::before {
     border-color: var(--accent-primary);
-    background: rgba(0, 122, 255, 0.1);
+    background: var(--glass-bg-medium);
 }
 
 .trim-mode-selector input[type="radio"]:checked+label::after {
@@ -846,7 +846,7 @@ body::before {
 
 .resize-section h4 {
     margin-bottom: 0.5rem;
-    color: #ccc;
+    color: var(--text-secondary);
 }
 
 .dimension-controls {
@@ -877,7 +877,7 @@ body::before {
 }
 
 .aspect-ratio-btn {
-    border: 2px dashed #888;
+    border: 2px dashed var(--text-tertiary);
     padding: 0;
     transition: all 0.2s ease-in-out;
     display: flex;
@@ -886,7 +886,7 @@ body::before {
 }
 
 .aspect-ratio-btn.active {
-    background: rgba(0, 122, 255, 0.25);
+    background: var(--glass-bg-active);
     border-color: var(--accent-primary);
     color: var(--accent-secondary);
 }
@@ -938,7 +938,7 @@ body::before {
 }
 
 .segmented-control .btn.active {
-    background: rgba(0, 122, 255, 0.25);
+    background: var(--glass-bg-active);
     border-color: var(--accent-primary);
     color: var(--accent-secondary);
 }
@@ -964,7 +964,7 @@ body::before {
 }
 
 .toggle-option>label>span {
-    color: #ccc;
+    color: var(--text-secondary);
     font-size: 0.95em;
 }
 
@@ -992,7 +992,7 @@ body::before {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: #4a4a5a;
+    background-color: var(--bg-tertiary);
     border-radius: 24px;
     transition: background-color 0.3s;
 }
@@ -1004,13 +1004,13 @@ body::before {
     width: 18px;
     left: 3px;
     bottom: 3px;
-    background-color: white;
+    background-color: var(--text-primary);
     border-radius: 50%;
     transition: transform 0.3s;
 }
 
 .toggle-switch input:checked+.switch-slider {
-    background: rgba(0, 122, 255, 0.25);
+    background: var(--glass-bg-active);
     border-color: var(--accent-primary);
 }
 
@@ -1047,18 +1047,18 @@ body::before {
 }
 
 #playlistContent::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--scrollbar-track);
     border-radius: 10px;
 }
 
 #playlistContent::-webkit-scrollbar-thumb {
-    background: rgba(0, 122, 255, 0.4);
+    background: var(--scrollbar-thumb);
     border-radius: 10px;
-    border: 2px solid rgba(255, 255, 255, 0.03);
+    border: 2px solid var(--scrollbar-track);
 }
 
 #playlistContent::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 122, 255, 0.6);
+    background: var(--scrollbar-thumb-hover);
 }
 
 /* --- Playlist Tree --- */
@@ -1126,7 +1126,7 @@ body::before {
 }
 
 .playlist-folder>details>summary:hover {
-    background: rgba(0, 122, 255, 0.1);
+    background: var(--glass-bg-medium);
     border-color: var(--accent-primary);
     transform: translateX(2px);
 }
@@ -1181,16 +1181,16 @@ body::before {
 }
 
 .playlist-file:hover {
-    background: rgba(0, 122, 255, 0.15);
+    background: var(--glass-bg-hover);
     border-color: var(--accent-primary);
     transform: translateX(2px);
 }
 
 .playlist-file.active {
-    background: rgba(0, 122, 255, 0.25);
+    background: var(--glass-bg-active);
     border-color: var(--accent-primary);
     color: var(--accent-secondary);
-    box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+    box-shadow: var(--accent-shadow);
 }
 
 .playlist-file.cut-clip {
@@ -1218,7 +1218,7 @@ body::before {
 
 .clip-action-btn:hover {
     color: var(--accent-primary);
-    background: rgba(0, 122, 255, 0.15);
+    background: var(--glass-bg-hover);
     border-color: var(--accent-primary);
     transform: scale(1.05);
 }
@@ -1242,7 +1242,7 @@ body::before {
 
 .remove-item:hover {
     color: var(--danger);
-    background: rgba(255, 59, 48, 0.15);
+    background: var(--danger-bg);
     transform: scale(1.1);
 }
 
@@ -1265,7 +1265,7 @@ body::before {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
+    background: var(--bg-overlay);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     display: flex;
@@ -1288,7 +1288,7 @@ body::before {
     left: 0;
     width: 100%;
     height: 100%;
-    background: radial-gradient(circle at center, rgba(0, 122, 255, 0.1) 0%, transparent 70%);
+    background: var(--gradient-radial);
     animation: pulse 2s ease-in-out infinite;
 }
 
@@ -1304,7 +1304,7 @@ body::before {
 .spinner {
     width: 60px;
     height: 60px;
-    border: 4px solid rgba(255, 255, 255, 0.1);
+    border: 4px solid var(--scrollbar-track);
     border-top-color: var(--accent-primary);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
@@ -1371,7 +1371,7 @@ body::before {
     border: 1px solid var(--glass-border);
     border-radius: var(--border-radius-md);
     margin-bottom: 1.5rem;
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--glass-shadow-lg);
     display: block;
     margin-left: auto;
     margin-right: auto;
@@ -1391,7 +1391,7 @@ body::before {
     top: 0;
     width: 480px;
     z-index: 50;
-    background: rgba(13, 13, 20, 0.9);
+    background: var(--bg-modal);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
@@ -1430,7 +1430,7 @@ body::before {
     align-items: center;
     padding: 0.75rem 0;
     gap: 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--scrollbar-track);
 }
 
 .shortcut-list li:last-child {
@@ -1448,7 +1448,7 @@ body::before {
     font-weight: 600;
     min-width: 40px;
     text-align: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--glass-shadow-md);
 }
 
 .shortcut-list span {
@@ -1462,14 +1462,14 @@ body::before {
     position: fixed;
     top: 24px;
     right: 24px;
-    background: rgb(187 30 21 / 95%);
+    background: var(--danger-bright);
     backdrop-filter: var(--glass-blur);
     color: var(--text-primary);
     padding: 1rem 1.5rem;
     border-radius: var(--border-radius-md);
     z-index: 10000;
-    box-shadow: 0 8px 24px rgba(255, 59, 48, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 24px var(--danger-bg);
+    border: 1px solid var(--scrollbar-track);
     font-weight: 500;
     animation: slideInRight 0.3s ease;
 }
@@ -1482,7 +1482,7 @@ body::before {
     padding: 1.25rem;
     width: 440px;
     z-index: 50;
-    background: rgba(13, 13, 20, 0.85);
+    background: var(--bg-modal);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
@@ -1574,7 +1574,7 @@ body::before {
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--scrollbar-track);
     border: 1px solid var(--glass-border);
     transition: var(--transition-smooth);
 }
@@ -1586,9 +1586,9 @@ body::before {
     width: 18px;
     left: 2px;
     bottom: 2px;
-    background: white;
+    background: var(--text-primary);
     transition: var(--transition-smooth);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--glass-shadow-md);
 }
 
 input:checked+.slider {
@@ -1627,7 +1627,7 @@ input:checked+.slider:before {
 .url-class:focus {
     outline: none;
     border-color: var(--accent-primary);
-    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+    box-shadow: 0 0 0 3px var(--glass-bg-active);
 }
 
 .trim-menu-controls {
@@ -1661,7 +1661,7 @@ input:checked+.slider:before {
 .time-input:focus {
     outline: none;
     border-color: var(--accent-primary);
-    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+    box-shadow: 0 0 0 3px var(--glass-bg-active);
 }
 
 /* --- Checkboxes --- */
@@ -1706,7 +1706,7 @@ input[type="checkbox"] {
     display: flex;
     gap: 10px;
     align-items: center;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--glass-shadow-lg);
     z-index: 10000;
 }
 

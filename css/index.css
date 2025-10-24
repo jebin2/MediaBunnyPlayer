@@ -51,7 +51,7 @@ body {
 
 .drop-zone:hover {
     border-color: var(--accent-primary);
-    background: rgba(0, 122, 255, 0.05);
+    background: var(--glass-bg-subtle);
 }
 
 /* --- CTA Buttons --- */
@@ -79,10 +79,10 @@ body {
 }
 
 .launch-player-btn:hover {
-    background: rgba(0, 122, 255, 0.15);
+    background: var(--glass-bg-hover);
     border-color: var(--accent-primary);
     transform: translateY(-2px);
-    box-shadow: 0 6px 24px rgba(0, 122, 255, 0.2);
+    box-shadow: var(--accent-shadow-hover);
 }
 
 /* --- Features Section --- */
@@ -187,7 +187,7 @@ body {
     grid-template-columns: 1fr 1fr;
     gap: 2rem;
     align-items: center;
-    background: linear-gradient(135deg, rgba(0, 122, 255, 0.1) 0%, rgba(90, 200, 250, 0.05) 100%);
+    background: linear-gradient(135deg, var(--glass-bg-medium) 0%, var(--glass-bg-subtle) 100%);
 }
 
 .featured-content {
@@ -215,7 +215,7 @@ body {
     display: inline-block;
     padding: 0.35rem 0.75rem;
     background: var(--accent-gradient);
-    color: white;
+    color: var(--text-primary);
     border-radius: 20px;
     font-size: 0.75rem;
     font-weight: 600;
@@ -247,7 +247,7 @@ body {
 }
 
 .action-chip:hover {
-    background: rgba(0, 122, 255, 0.15);
+    background: var(--glass-bg-hover);
     border-color: var(--accent-primary);
     color: var(--accent-primary);
     transform: translateY(-2px);

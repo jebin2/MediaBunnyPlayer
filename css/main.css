@@ -11,21 +11,59 @@
     --bg-primary: #0a0a0f;
     --bg-secondary: #13131a;
     --bg-tertiary: #1a1a24;
+    --bg-modal: rgba(13, 13, 20, 0.9);
+    --bg-overlay: rgba(0, 0, 0, 0.7);
+
     --glass-bg: rgba(255, 255, 255, 0.05);
     --glass-border: rgba(255, 255, 255, 0.1);
+
     --text-primary: #ffffff;
     --text-secondary: #a0a0b0;
     --text-tertiary: #6b6b7a;
+
     --accent-primary: #007aff;
     --accent-secondary: #5ac8fa;
     --accent-gradient: linear-gradient(135deg, #007aff 0%, #5ac8fa 100%);
+
     --success: #34c759;
     --danger: #ff3b30;
+    --danger-bg: rgba(255, 59, 48, 0.15);
+    --danger-bright: rgb(187, 30, 21);
 
     /* Glass Effects */
     --glass-blur: blur(20px);
     --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    --glass-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
+    --glass-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.2);
+    --glass-shadow-lg: 0 4px 24px rgba(0, 0, 0, 0.3);
     --glass-shadow-hover: 0 12px 40px rgba(0, 122, 255, 0.2);
+    --glass-shadow-hover-lg: 0 6px 24px rgba(0, 122, 255, 0.4);
+
+    /* Accent Shadows & Effects */
+    --accent-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+    --accent-shadow-hover: 0 8px 24px rgba(0, 122, 255, 0.4);
+    --accent-glow: 0 0 20px rgba(0, 122, 255, 0.5);
+
+    /* Backgrounds with Transparency */
+    --glass-bg-hover: rgba(0, 122, 255, 0.15);
+    --glass-bg-active: rgba(0, 122, 255, 0.25);
+    --glass-bg-subtle: rgba(0, 122, 255, 0.05);
+    --glass-bg-medium: rgba(0, 122, 255, 0.1);
+
+    /* Border Colors */
+    --border-accent: rgba(0, 122, 255, 0.4);
+    --border-accent-bright: rgba(0, 122, 255, 0.6);
+
+    /* Scrollbar */
+    --scrollbar-track: rgba(255, 255, 255, 0.05);
+    --scrollbar-thumb: rgba(0, 122, 255, 0.5);
+    --scrollbar-thumb-hover: var(--accent-primary);
+
+    /* Gradients */
+    --popup-bg: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #16213e 100%);
+    --gradient-radial: radial-gradient(circle, rgba(0, 122, 255, 0.1) 0%, transparent 50%);
+    --gradient-shimmer: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+    --gradient-overlay: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%);
 
     /* Sizing & Transitions */
     --border-radius-sm: 8px;
@@ -33,8 +71,6 @@
     --border-radius-lg: 16px;
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-
-    --popup-bg: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #16213e 100%)
 }
 
 /* --- CSS Reset --- */
@@ -68,7 +104,7 @@ body {
     font-family: 'Inter', sans-serif;
     font-weight: 500;
     transition: var(--transition-smooth);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--glass-shadow-sm);
     position: relative;
     overflow: hidden;
 }
@@ -80,15 +116,15 @@ body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%);
+    background: var(--gradient-overlay);
     opacity: 0;
     transition: var(--transition-smooth);
 }
 
 .btn:hover,
 .hover_highlight {
-    background: rgba(0, 122, 255, 0.15);
-    border-color: rgba(0, 122, 255, 0.4);
+    background: var(--glass-bg-hover);
+    border-color: var(--border-accent);
     transform: translateY(-1px);
     box-shadow: var(--glass-shadow-hover);
 }
@@ -99,20 +135,20 @@ body {
 
 .btn:active {
     transform: translateY(0);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--glass-shadow-md);
 }
 
 /* --- Primary Button --- */
 .btn-primary {
     background: var(--accent-gradient);
-    color: white;
+    color: var(--text-primary);
     border-color: transparent;
     font-weight: 600;
-    box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+    box-shadow: var(--accent-shadow);
 }
 
 .btn-primary:hover {
-    box-shadow: 0 6px 24px rgba(0, 122, 255, 0.4);
+    box-shadow: var(--accent-shadow-hover);
     transform: translateY(-2px);
 }
 
@@ -209,13 +245,13 @@ body {
 
     0%,
     100% {
-        box-shadow: 0 4px 16px rgba(0, 122, 255, 0.2);
-        border-color: rgba(0, 122, 255, 0.3);
+        box-shadow: var(--accent-shadow);
+        border-color: var(--border-accent);
     }
 
     50% {
-        box-shadow: 0 8px 32px rgba(0, 122, 255, 0.5);
-        border-color: rgba(0, 122, 255, 0.6);
+        box-shadow: var(--accent-glow);
+        border-color: var(--border-accent-bright);
     }
 }
 
@@ -231,19 +267,19 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--scrollbar-track);
     border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: rgba(0, 122, 255, 0.5);
+    background: var(--scrollbar-thumb);
     border-radius: 10px;
-    border: 2px solid rgba(255, 255, 255, 0.05);
+    border: 2px solid var(--scrollbar-track);
     transition: var(--transition-smooth);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--accent-primary);
+    background: var(--scrollbar-thumb-hover);
 }
 
 /* --- Focus States --- */
