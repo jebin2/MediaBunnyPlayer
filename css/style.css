@@ -1,7 +1,8 @@
 /* ==========================================
-   1. BASE & FOUNDATIONAL SETUP
+   PLAYER.CSS - MEDIA PLAYER INTERFACE STYLES
    ========================================== */
 
+/* --- Import Core Theme --- */
 @import url('main.css');
 
 /* Animated background gradient */
