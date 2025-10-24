@@ -1,8 +1,4 @@
-import { settingsMenu, settingsCtrlBtn, playerArea, sidebar, loopBtn } from './constants.js';
-import { state } from './state.js';
-import { positionCropCanvas } from './crop.js'; // You will need to import this function
-
-import { playerArea, sidebar, startTimeInput, endTimeInput, settingsCtrlBtn, settingsMenu, loopBtn, scaleOptionContainer, scaleWithRatioToggle, blurOptionContainer, smoothOptionContainer, smoothPathToggle, cropModeNoneRadio, blurBackgroundToggle, blurAmountInput } from './constants.js';
+import { settingsMenu, settingsCtrlBtn, playerArea, sidebar, loopBtn, startTimeInput, endTimeInput, scaleOptionContainer, scaleWithRatioToggle, blurOptionContainer, smoothOptionContainer, smoothPathToggle, cropModeNoneRadio, blurBackgroundToggle, blurAmountInput } from './constants.js';
 import { state } from './state.js';
 import { formatTime, guidedPanleInfo, } from './utility.js'
 import { positionCropCanvas, togglePanning, toggleStaticCrop } from './crop.js'
