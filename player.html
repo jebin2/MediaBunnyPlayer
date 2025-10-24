@@ -50,93 +50,6 @@
 					<span style="margin-right: 0.5rem;">⚙️</span>
 					Settings
 				</button>
-
-				<div class="track-menu settingsMenu hidden" id="settingsMenu">
-					<div class="track-menu-content">
-
-						<!-- Section 1: Playback Settings -->
-						<h4>Playback</h4>
-						<div class="trim-option">
-							<input type="checkbox" id="autoplayToggle" checked>
-							<label for="autoplayToggle">Autoplay Next Video</label>
-						</div>
-
-						<hr class="menu-divider">
-
-						<!-- Section 2: Clipping & Time Selection -->
-						<h4>Time Range</h4>
-						<div class="trim-menu-controls">
-							<input type="text" id="startTime" class="time-input" placeholder="00:00" title="Start Time">
-							<span>-</span>
-							<input type="text" id="endTime" class="time-input" placeholder="00:00" title="End Time">
-						</div>
-
-						<!-- Section 3: Primary Actions & Tools -->
-						<h4>Actions</h4>
-						<div class="trim-menu-actions">
-							<button id="loopBtn" class="control-btn track-btn btn">Loop</button>
-							<button id="screenshotBtn" class="control-btn track-btn btn">Screenshot</button>
-							<button id="resizeBtn" class="control-btn track-btn btn">Resize</button>
-							<button id="imageToVideoBtn" class="control-btn track-btn btn">Image to Video</button>
-							<button id="recordScreenBtn" class="control-btn track-btn btn">Record Screen</button>
-						</div>
-
-						<hr class="menu-divider">
-
-						<!-- Section 4: Advanced Cropping Tools -->
-						<h4>Cropping</h4>
-						<div class="trim-menu-actions">
-							<button id="cropBtn" class="control-btn track-btn btn hidden">✂️</button>
-							<button id="panScanBtn" class="control-btn track-btn btn">Dynamic ✂️</button>
-						</div>
-
-						<!-- Dynamic options are now correctly grouped under the main Cropping section -->
-						<div id="dynamicCropOptionsContainer">
-							<fieldset class="trim-mode-selector">
-								<legend>Dynamic Crop Mode</legend>
-								<div>
-									<input type="radio" id="cropModeNone" name="cropMode" value="none" checked>
-									<label for="cropModeNone">Default</label>
-								</div>
-								<div>
-									<input type="radio" id="cropModeSpotlight" name="cropMode" value="spotlight">
-									<label for="cropModeSpotlight">Spotlight</label>
-								</div>
-								<div>
-									<input type="radio" id="cropModeMaxSize" name="cropMode" value="max-size">
-									<label for="cropModeMaxSize">Max Size</label>
-								</div>
-							</fieldset>
-
-							<!-- Sub-options for dynamic cropping -->
-							<div class="trim-option" id="scaleOptionContainer" style="display: none;">
-								<input type="checkbox" id="scaleWithRatioToggle">
-								<label for="scaleWithRatioToggle">Scale to Fit</label>
-							</div>
-							<div class="trim-option" id="smoothOptionContainer" style="display: none;">
-								<input type="checkbox" id="smoothPathToggle" checked>
-								<label for="smoothPathToggle">Smooth Crop Movement</label>
-							</div>
-							<div class="trim-option" id="blurOptionContainer" style="display: none;">
-								<input type="checkbox" id="blurBackgroundToggle">
-								<label for="blurBackgroundToggle">Blurred Background</label>
-								<input id="blurAmountInput" class="speed-input" value="15" min="1" max="100"
-									title="Blur amount in pixels">
-							</div>
-						</div>
-
-						<hr class="menu-divider">
-
-						<!-- Section 5: Global Reset Action -->
-						<!-- Moved to the end of the menu for better clarity -->
-						<div class="trim-menu-actions">
-							<button class="control-btn track-btn btn" id="resetAllBtn">Reset All</button>
-							<button id="cutBtn" class="control-btn track-btn btn" title="Press 'C' to Process">Process
-								Clip</button>
-						</div>
-
-					</div>
-				</div>
 			</div>
 			<div class="recording-controls-container hidden" id="recordingControls">
 				<button class="btn" id="startRecFloatingBtn">▶️ Start</button>
@@ -185,7 +98,6 @@
 								<!-- <button class="btn track-btn" id="editMenuBtn" title="Trim, Crop & Edit">✂️</button> -->
 								<button class="btn track-btn" id="audioTrackCtrlBtn" title="Audio Tracks">🔊</button>
 								<button class="btn track-btn" id="subtitleTrackCtrlBtn" title="Subtitles">CC</button>
-								<!-- <button class="btn track-btn" id="settingsCtrlBtn" title="Advance Settings">⚙️</button> -->
 							</div>
 
 							<!-- Add these dropdown menus after the video-controls div: -->
@@ -220,8 +132,97 @@
 				<div class="play-button-overlay">▶</div>
 				<p>Click to play video</p>
 			</div>
-			<div class="sidebar" id="sidebar">
+			<div class="sidebar hidden" id="sidebar">
 				<div id="playlistContent"></div>
+			</div>
+
+
+			<!-- START: New Location for Settings Menu -->
+			<div class="sidebar hidden" id="settingsMenu">
+				<div class="track-menu-content">
+
+					<!-- Section 1: Playback Settings -->
+					<h4>Playback</h4>
+					<div class="trim-option">
+						<input type="checkbox" id="autoplayToggle" checked>
+						<label for="autoplayToggle">Autoplay Next Video</label>
+					</div>
+					<hr class="menu-divider">
+
+					<!-- Section 2: Clipping & Trim Selection -->
+					<h4>Trim Range</h4>
+					<div class="trim-menu-controls">
+						<input type="text" id="startTime" class="time-input" placeholder="00:00" title="Start Time">
+						<span>-</span>
+						<input type="text" id="endTime" class="time-input" placeholder="00:00" title="End Time">
+					</div>
+					<hr class="menu-divider">
+
+					<!-- Section 3: Primary Actions & Tools -->
+					<h4>Actions</h4>
+					<div class="trim-menu-actions">
+						<button id="loopBtn" class="control-btn track-btn btn">Loop</button>
+						<button id="screenshotBtn" class="control-btn track-btn btn">Screenshot</button>
+						<button id="resizeBtn" class="control-btn track-btn btn">Resize</button>
+						<button id="imageToVideoBtn" class="control-btn track-btn btn">Image to Video</button>
+						<button id="recordScreenBtn" class="control-btn track-btn btn">Record Screen</button>
+					</div>
+
+					<hr class="menu-divider">
+
+					<!-- Section 4: Advanced Cropping Tools -->
+					<h4>Cropping</h4>
+					<div class="trim-menu-actions crop">
+						<button id="cropBtn" class="control-btn track-btn btn hidden">✂️</button>
+						<button id="panScanBtn" class="control-btn track-btn btn">Dynamic ✂️</button>
+					</div>
+
+					<!-- Dynamic options are now correctly grouped under the main Cropping section -->
+					<div id="dynamicCropOptionsContainer">
+						<fieldset class="trim-mode-selector">
+							<legend>Dynamic Crop Mode</legend>
+							<div>
+								<input type="radio" id="cropModeNone" name="cropMode" value="none" checked>
+								<label for="cropModeNone">Default</label>
+							</div>
+							<div>
+								<input type="radio" id="cropModeSpotlight" name="cropMode" value="spotlight">
+								<label for="cropModeSpotlight">Spotlight</label>
+							</div>
+							<div>
+								<input type="radio" id="cropModeMaxSize" name="cropMode" value="max-size">
+								<label for="cropModeMaxSize">Max Size</label>
+							</div>
+						</fieldset>
+
+						<!-- Sub-options for dynamic cropping -->
+						<div class="trim-option" id="scaleOptionContainer" style="display: none;">
+							<input type="checkbox" id="scaleWithRatioToggle">
+							<label for="scaleWithRatioToggle">Scale to Fit</label>
+						</div>
+						<div class="trim-option" id="smoothOptionContainer" style="display: none;">
+							<input type="checkbox" id="smoothPathToggle" checked>
+							<label for="smoothPathToggle">Smooth Crop Movement</label>
+						</div>
+						<div class="trim-option" id="blurOptionContainer" style="display: none;">
+							<input type="checkbox" id="blurBackgroundToggle">
+							<label for="blurBackgroundToggle">Blurred Background</label>
+							<input id="blurAmountInput" class="speed-input" value="15" min="1" max="100"
+								title="Blur amount in pixels">
+						</div>
+					</div>
+
+					<hr class="menu-divider">
+
+					<!-- Section 5: Global Reset Action -->
+					<!-- Moved to the end of the menu for better clarity -->
+					<div class="trim-menu-actions">
+						<button class="control-btn track-btn btn" id="resetAllBtn">Reset All</button>
+						<button id="cutBtn" class="control-btn track-btn btn" title="Press 'C' to Process">Process
+							Clip</button>
+					</div>
+
+				</div>
 			</div>
 		</div>
 		<div class="loading hidden" id="loading">

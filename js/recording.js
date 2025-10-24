@@ -519,7 +519,6 @@ export const setupRecordingListeners = () => {
     recordScreenBtn.onclick = (e) => {
         e.stopPropagation();
         state.screenrecording = true
-        settingsMenu.classList.add('hidden');
         initiateScreenRecording();
     };
     pauseRecBtn.addEventListener('click', togglePause);

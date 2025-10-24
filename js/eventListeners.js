@@ -141,14 +141,6 @@ export const setupEventListeners = () => {
 		if (isHidden) menu.classList.remove('hidden');
 	};
 
-	// $('editMenuBtn').onclick = (e) => {
-	// 	e.stopPropagation();
-	// 	const menu = $('settingsMenu');
-	// 	const isHidden = menu.classList.contains('hidden');
-	// 	hideTrackMenus();
-	// 	if (isHidden) menu.classList.remove('hidden');
-	// };
-
 	// === PERFORMANCE OPTIMIZATION: Event delegation for playlist ===
 	document.addEventListener('click', (e) => {
 		// Find the existing listener and add a check for our new container
@@ -720,12 +712,6 @@ export const setupEventListeners = () => {
 		resetAllBtn.onclick = resetAllConfigs; // Simply call our powerful new function
 	}
 	updateDynamicCropOptionsUI();
-
-	document.getElementById('settingsMenu').addEventListener('mouseleave', () => {
-		if (state.isCropping || state.isPanning || state.isLooping) {
-			settingsMenu.classList.add('hidden');
-		}
-	});
 };
 
 window.addEventListener('resize', () => {

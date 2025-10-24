@@ -452,7 +452,15 @@ export const setupPlaylistEventListeners = () => {
 		}
 	});
 	$('togglePlaylistBtn').onclick = () => {
+		// If settings sidebar is open, close it first
+		if (playerArea.classList.contains('playlist-visible')) {
+			playerArea.classList.remove('playlist-visible');
+		}
+
 		playerArea.classList.toggle('playlist-visible');
+		// Toggle the settings sidebar
+		settingsMenu.classList.add('hidden');
+		sidebar.classList.toggle('hidden');
 		setTimeout(() => {
 			state.cropCanvasDimensions = positionCropCanvas();
 		}, 200);

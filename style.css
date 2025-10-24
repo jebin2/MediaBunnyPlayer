@@ -901,7 +901,7 @@ body::before {
     font-weight: 600;
     margin-bottom: 0.75rem;
     padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--glass-border);
+    /* border-bottom: 1px solid var(--glass-border); */
 }
 
 .track-menu ul {
@@ -939,15 +939,10 @@ body::before {
     margin: 1rem 0;
 }
 
-.trim-menu-controls {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
-}
-
 .trim-menu-actions {
-    display: flex;
+    /* display: flex; */
+    grid-template-columns: auto auto;
+    display: grid;
     gap: 0.5rem;
     margin-bottom: 0.75rem;
 }
@@ -1748,24 +1743,42 @@ input:checked+.slider:before {
     box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
 }
 
+.trim-menu-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 8px;
+}
+
 .time-input {
     flex: 1;
+    min-width: 0;
+    text-align: center;
+    padding: 0.5rem;
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
     color: var(--text-primary);
-    padding: 0.5rem;
     border-radius: var(--border-radius-sm);
     font-size: 0.8rem;
     font-family: 'Inter', sans-serif;
     font-weight: 500;
-    text-align: center;
     transition: var(--transition-smooth);
+}
+
+.trim-menu-controls span {
+    flex-shrink: 0;
+    font-weight: 600;
 }
 
 .time-input:focus {
     outline: none;
     border-color: var(--accent-primary);
     box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+}
+
+.trim-menu-actions.crop {
+    display: flex;
 }
 
 /* --- Checkboxes --- */
@@ -1912,12 +1925,12 @@ select,
 }
 
 #settingsMenu {
-    position: fixed;
-    top: 80px;
+    /* position: fixed; */
+    /* top: 80px;
     right: 24px;
-    bottom: auto;
+    bottom: auto; */
     margin: 0;
-    max-height: calc(100vh - 120px);
+    /* max-height: calc(100vh - 120px); */
     overflow-y: auto;
 }
 

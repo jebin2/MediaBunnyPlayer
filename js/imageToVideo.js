@@ -45,7 +45,6 @@ export const setupImageToVideo = () => {
     imageToVideoBtn.onclick = (e) => {
         e.stopPropagation();
         imageToVideoModal.classList.remove('hidden');
-        settingsMenu.classList.add('hidden');
         resetImageToVideoModal();
     };
 

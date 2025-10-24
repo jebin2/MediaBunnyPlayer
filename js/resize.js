@@ -40,7 +40,6 @@ export const resize_define = () => {
 
         // Show the modal and hide the settings menu
         resizeModal.classList.remove('hidden');
-        settingsMenu.classList.add('hidden');
     };
 
     const hideResizeModal = () => {
