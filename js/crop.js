@@ -262,21 +262,27 @@ export const setupCropListener = () => {
 
 	}, { passive: false });
 
-	// Trigger the UI visibility update
-	if (cropModeRadios.length > 0) {
-		// Find the event listener's helper function to call it directly
-		// Note: This assumes updateDynamicCropOptionsUI is available in this scope.
-		// It's better to define it outside the event listener if it's not.
-		updateDynamicCropOptionsUI();
-	}
+	// ADD THIS NEW CODE for the segmented control
+	const cropModeButtons = document.querySelectorAll('#cropModeBtnGroup .btn');
+	const hiddenCropModeRadios = document.querySelectorAll('input[name="cropMode"]');
 
-	// Listen for changes on any of the radio buttons
-	cropModeRadios.forEach(radio => {
-		radio.addEventListener('change', (e) => {
-			// Update the main state variable with the new mode
-			state.dynamicCropMode = e.target.value;
+	cropModeButtons.forEach(button => {
+		button.addEventListener('click', (e) => {
+			e.preventDefault();
+			const clickedBtn = e.currentTarget;
+			const newValue = clickedBtn.dataset.value;
 
-			// Reset sub-options when the mode changes to prevent leftover state
+			// Update state and UI
+			state.dynamicCropMode = newValue;
+
+			cropModeButtons.forEach(btn => btn.classList.remove('active'));
+			clickedBtn.classList.add('active');
+
+			// Update the hidden radio button for compatibility if needed elsewhere
+			const radioToSelect = Array.from(hiddenCropModeRadios).find(r => r.value === newValue);
+			if (radioToSelect) radioToSelect.checked = true;
+
+			// Reset sub-options when the mode changes
 			if (scaleWithRatioToggle) {
 				scaleWithRatioToggle.checked = false;
 				state.scaleWithRatio = false;
@@ -288,14 +294,38 @@ export const setupCropListener = () => {
 			if (blurBackgroundToggle) {
 				blurBackgroundToggle.checked = false;
 				state.useBlurBackground = false;
-				blurAmountInput.value = 15; // And reset its value
+				blurAmountInput.value = 15;
 				state.blurAmount = 15;
 			}
 
-			// Update the UI to show the correct sub-options
+			// Update the UI to show/hide the correct sub-options
 			updateDynamicCropOptionsUI();
 		});
 	});
+
+	if (scaleWithRatioToggle) {
+		scaleWithRatioToggle.onchange = (e) => {
+			state.scaleWithRatio = e.target.checked;
+		};
+	}
+	if (smoothPathToggle) {
+		smoothPathToggle.onchange = (e) => {
+			state.smoothPath = e.target.checked;
+		};
+	}
+	if (blurBackgroundToggle && blurAmountInput) {
+		blurBackgroundToggle.onchange = (e) => {
+			state.useBlurBackground = e.target.checked;
+		};
+
+		blurAmountInput.oninput = (e) => {
+			// Update the state with the user's chosen blur amount
+			const amount = parseInt(e.target.value, 10);
+			if (!isNaN(amount)) {
+				state.blurAmount = Math.max(1, Math.min(100, amount)); // Clamp value between 1 and 100
+			}
+		};
+	}
 	updateDynamicCropOptionsUI();
 
 	window.addEventListener('resize', () => {

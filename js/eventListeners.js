@@ -3,7 +3,7 @@
 // ============================================================================
 
 
-import { $, videoContainer, canvas, dropZone, playBtn, progressContainer, volumeSlider, muteBtn, fullscreenBtn, videoControls, loopBtn, cutBtn, screenshotBtn, screenshotOverlay, screenshotPreviewImg, closeScreenshotBtn, copyScreenshotBtn, downloadScreenshotBtn, playbackSpeedInput, autoplayToggle, urlModal, urlInput, loadUrlBtn, cancelUrlBtn, scaleWithRatioToggle, smoothPathToggle, blurBackgroundToggle, blurAmountInput, prevBtn, nextBtn, panScanBtn } from './constants.js';
+import { $, videoContainer, canvas, dropZone, playBtn, progressContainer, volumeSlider, muteBtn, fullscreenBtn, videoControls, loopBtn, cutBtn, screenshotBtn, screenshotOverlay, screenshotPreviewImg, closeScreenshotBtn, copyScreenshotBtn, downloadScreenshotBtn, playbackSpeedInput, autoplayToggle, urlModal, urlInput, loadUrlBtn, cancelUrlBtn, prevBtn, nextBtn, panScanBtn } from './constants.js';
 import { state } from './state.js';
 import { resetAllConfigs } from './settings.js'
 import { handleCutAction } from './editing.js'
@@ -399,32 +399,6 @@ export const setupEventListeners = () => {
 			guidedPanleInfo("Path recorded. The crop will now remain fixed. You can now use 'Process Clip' or Press 'c' to create a clip.");
 		}
 	});
-
-	if (smoothPathToggle) {
-		smoothPathToggle.onchange = (e) => {
-			state.smoothPath = e.target.checked;
-		};
-	}
-
-	// Independent listeners for the sub-options
-	if (scaleWithRatioToggle) {
-		scaleWithRatioToggle.onchange = (e) => {
-			state.scaleWithRatio = e.target.checked;
-		};
-	}
-	if (blurBackgroundToggle && blurAmountInput) {
-		blurBackgroundToggle.onchange = (e) => {
-			state.useBlurBackground = e.target.checked;
-		};
-
-		blurAmountInput.oninput = (e) => {
-			// Update the state with the user's chosen blur amount
-			const amount = parseInt(e.target.value, 10);
-			if (!isNaN(amount)) {
-				state.blurAmount = Math.max(1, Math.min(100, amount)); // Clamp value between 1 and 100
-			}
-		};
-	}
 	const resetAllBtn = $('resetAllBtn'); // Find our new button ID
 	if (resetAllBtn) {
 		resetAllBtn.onclick = resetAllConfigs; // Simply call our powerful new function

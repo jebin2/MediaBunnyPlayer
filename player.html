@@ -188,37 +188,66 @@
 								<button class="btn aspect-ratio-btn" data-value="9:16" title="9:16 Ratio">9:16</button>
 							</div>
 						</fieldset>
-						<fieldset class="trim-mode-selector">
-							<legend>Dynamic Crop Mode</legend>
-							<div>
-								<input type="radio" id="cropModeNone" name="cropMode" value="none" checked>
-								<label for="cropModeNone">Default</label>
-							</div>
-							<div>
-								<input type="radio" id="cropModeSpotlight" name="cropMode" value="spotlight">
-								<label for="cropModeSpotlight">Spotlight</label>
-							</div>
-							<div>
-								<input type="radio" id="cropModeMaxSize" name="cropMode" value="max-size">
-								<label for="cropModeMaxSize">Max Size</label>
-							</div>
-						</fieldset>
+						<!-- START: Updated Dynamic Crop Options UI -->
+						<div id="dynamicCropOptionsContainer">
 
-						<!-- Sub-options for dynamic cropping -->
-						<div class="trim-option" id="scaleOptionContainer" style="display: none;">
-							<input type="checkbox" id="scaleWithRatioToggle">
-							<label for="scaleWithRatioToggle">Scale to Fit</label>
+							<fieldset class="trim-mode-selector">
+								<legend>Dynamic Crop Mode</legend>
+
+								<!-- 1. Segmented Control for Main Crop Mode -->
+								<div class="segmented-control" id="cropModeBtnGroup">
+									<button class="btn active" data-value="none">Default</button>
+									<button class="btn" data-value="spotlight">Spotlight</button>
+									<button class="btn" data-value="max-size">Max Size</button>
+								</div>
+
+								<!-- Divider for visual separation -->
+								<hr class="menu-divider" style="margin: 5px 0;">
+
+								<!-- 2. Toggle Switches for Sub-Options (Now inside the fieldset) -->
+								<!-- START: Updated Toggle List HTML -->
+								<div class="toggle-options-list">
+
+									<div class="toggle-option" id="scaleOptionContainer" style="display: none;">
+										<label for="scaleWithRatioToggle">
+											<span>Scale to Fit</span>
+											<div class="toggle-switch">
+												<input type="checkbox" id="scaleWithRatioToggle">
+												<span class="switch-slider"></span>
+											</div>
+										</label>
+									</div>
+
+									<div class="toggle-option" id="smoothOptionContainer" style="display: none;">
+										<label for="smoothPathToggle">
+											<span>Smooth Crop Movement</span>
+											<div class="toggle-switch">
+												<input type="checkbox" id="smoothPathToggle" checked>
+												<span class="switch-slider"></span>
+											</div>
+										</label>
+									</div>
+
+									<div class="toggle-option" id="blurOptionContainer" style="display: none;">
+										<label for="blurBackgroundToggle">
+											<span>Blurred Background</span>
+											<div class="toggle-switch">
+												<input type="checkbox" id="blurBackgroundToggle">
+												<span class="switch-slider"></span>
+											</div>
+										</label>
+										<!-- The input remains outside the label to avoid layout issues -->
+										<input id="blurAmountInput" class="speed-input" value="15" min="1" max="100"
+											title="Blur amount in pixels">
+									</div>
+
+								</div>
+								<!-- END: Updated Toggle List HTML -->
+
+							</fieldset>
+
 						</div>
-						<div class="trim-option" id="smoothOptionContainer" style="display: none;">
-							<input type="checkbox" id="smoothPathToggle" checked>
-							<label for="smoothPathToggle">Smooth Crop Movement</label>
-						</div>
-						<div class="trim-option" id="blurOptionContainer" style="display: none;">
-							<input type="checkbox" id="blurBackgroundToggle">
-							<label for="blurBackgroundToggle">Blurred Background</label>
-							<input id="blurAmountInput" class="speed-input" value="15" min="1" max="100"
-								title="Blur amount in pixels">
-						</div>
+						<!-- END: Updated Dynamic Crop Options UI -->
 					</div>
 
 					<hr class="menu-divider">

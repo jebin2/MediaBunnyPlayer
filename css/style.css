@@ -1031,42 +1031,12 @@ body::before {
 /* Style the label to be the new clickable area */
 .trim-mode-selector label {
     position: relative;
-    padding-left: 28px;
+    padding-left: 0.2rem;
     cursor: pointer;
     font-size: 0.85rem;
     color: var(--text-secondary);
     transition: var(--transition-smooth);
     font-weight: 500;
-}
-
-/* Create the custom radio button's outer circle */
-.trim-mode-selector label::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 18px;
-    height: 18px;
-    border: 2px solid var(--glass-border);
-    border-radius: 50%;
-    background-color: transparent;
-    transition: var(--transition-smooth);
-}
-
-/* Create the inner dot (hidden by default) */
-.trim-mode-selector label::after {
-    content: '';
-    position: absolute;
-    left: 5px;
-    top: 50%;
-    transform: translateY(-50%) scale(0);
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background-color: var(--accent-primary);
-    box-shadow: 0 0 12px rgba(0, 122, 255, 0.6);
-    transition: var(--transition-smooth);
 }
 
 /* --- States --- */
@@ -2006,3 +1976,146 @@ select,
     width: 40px;
     height: calc(40px * 16 / 9);
 }
+
+/* ========================================= */
+/*  New Dynamic Crop UI Styles               */
+/* ========================================= */
+
+/* --- 1. Segmented Control for Crop Mode --- */
+.segmented-control {
+    display: flex;
+    width: 100%;
+    margin-top: 5px;
+    border-radius: 8px;
+    overflow: hidden;
+    /* Ensures child borders don't poke out */
+    border: 1px solid var(--glass-border);
+}
+
+.segmented-control .btn {
+    flex: 1;
+    /* Each button takes up equal space */
+    border-radius: var(--border-radius-md) 0 0 var(--border-radius-md);
+    border: none;
+    background-color: transparent;
+    transition: background-color 0.2s ease-in-out;
+    padding: 8px 5px;
+}
+
+.segmented-control .btn:nth-child(2) {
+    border-radius: 0;
+}
+
+.segmented-control .btn:nth-child(3) {
+    border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0;
+}
+
+.segmented-control .btn:not(:last-child) {
+    border-right: 1px solid var(--glass-border);
+}
+
+.segmented-control .btn.active {
+    background: rgba(0, 122, 255, 0.25);
+    border-color: var(--accent-primary);
+    color: var(--accent-secondary);
+}
+
+/* --- 2. Toggle Switch List for Sub-Options --- */
+.toggle-options-list {
+    margin-top: 15px;
+    display: contents !important;
+}
+
+.toggle-option {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.toggle-option > label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    flex-grow: 1; /* Allows the label to take up available space */
+}
+
+/* Style the text specifically using the new span */
+.toggle-option > label > span {
+    color: #ccc;
+    font-size: 0.95em;
+}
+
+/* For the blur option, we add a small gap between the label and the input */
+.toggle-option > label + #blurAmountInput {
+    margin-left: 10px;
+}
+
+/* The main toggle switch container */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+
+/* Hide the default checkbox */
+.toggle-switch input[type="checkbox"] {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+/* The background of the switch */
+.switch-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #4a4a5a;
+    border-radius: 24px;
+    transition: background-color 0.3s;
+}
+
+/* The moving knob of the switch */
+.switch-slider::before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    border-radius: 50%;
+    transition: transform 0.3s;
+}
+
+/* "On" state styling */
+.toggle-switch input:checked+.switch-slider {
+    background: rgba(0, 122, 255, 0.25);
+    border-color: var(--accent-primary);
+}
+
+.toggle-switch input:checked+.switch-slider::before {
+    transform: translateX(20px);
+}
+
+/* --- 3. Conditional UI for Blur Input --- */
+#blurAmountInput {
+    margin-left: 10px;
+    width: 50px;
+    /* Make the input smaller */
+    /* opacity: 0.5; */
+    /* Greyed out by default */
+    /* pointer-events: none; */
+    /* Not clickable by default */
+    transition: all 0.3s;
+}
+
+/* When the blur toggle is checked, make the input fully visible and interactive */
+/* #blurOptionContainer input[type="checkbox"]:checked~#blurAmountInput {
+    opacity: 1;
+    pointer-events: auto;
+} */
