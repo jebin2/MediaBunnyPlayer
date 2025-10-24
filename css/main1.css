@@ -1,0 +1,291 @@
+/* ==========================================
+   MAIN.CSS - CORE THEME & SHARED STYLES
+   ========================================== */
+
+/* --- Font Import --- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* ENHANCEMENT: Import a monospace font for a more technical feel */
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@500&display=swap');
+
+/* --- CSS Variables (Neo-Brutalism Theme) --- */
+:root {
+    /* Neo-Brutalism Palette */
+    --bg-primary: #f5f5f5;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #e6e6e6;
+    --bg-modal: #ffffff;
+    --bg-overlay: rgba(0, 0, 0, 0.5);
+
+    --text-primary: #0a0a0f;
+    --text-secondary: #333333;
+    --text-tertiary: #5c5c5c;
+
+    --accent-primary: #007aff;
+    --accent-secondary: #5ac8fa;
+    --accent-gradient: linear-gradient(135deg, #007aff 0%, #5ac8fa 100%);
+
+    --success: #34c759;
+    --danger: #ff3b30;
+    --danger-bg: rgba(255, 59, 48, 0.15);
+    --danger-bright: rgb(187, 30, 21);
+
+    /* Brutalist Effects */
+    --border-style: 2px solid var(--text-primary);
+    --shadow-style: 4px 4px 0px var(--text-primary);
+    --shadow-style-sm: 2px 2px 0px var(--text-primary);
+    --shadow-style-md: 4px 4px 0px var(--text-primary);
+    --shadow-style-lg: 6px 6px 0px var(--text-primary);
+    --shadow-style-hover: 6px 6px 0px var(--text-primary);
+
+    /* Re-mapping "Glass" variables to be solid for compatibility */
+    --glass-bg: var(--bg-secondary);
+    --glass-border: var(--text-primary);
+    --glass-blur: none;
+
+    --glass-shadow: var(--shadow-style-md);
+    --glass-shadow-sm: var(--shadow-style-sm);
+    --glass-shadow-md: var(--shadow-style-md);
+    --glass-shadow-lg: var(--shadow-style-lg);
+    --glass-shadow-hover: var(--shadow-style-hover);
+    --glass-shadow-hover-lg: 8px 8px 0px var(--text-primary);
+
+    --glass-bg-hover: var(--bg-tertiary);
+    --glass-bg-active: var(--bg-tertiary);
+    --glass-bg-subtle: var(--bg-secondary);
+    --glass-bg-medium: var(--bg-secondary);
+
+    --border-accent: var(--accent-primary);
+    --border-accent-bright: var(--accent-secondary);
+
+    --scrollbar-track: var(--bg-tertiary);
+    --scrollbar-thumb: var(--text-tertiary);
+    --scrollbar-thumb-hover: var(--accent-primary);
+
+    --popup-bg: var(--bg-modal);
+    --gradient-radial: none;
+    --gradient-shimmer: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.1), transparent);
+    --gradient-overlay: none;
+
+    /* ENHANCEMENT: Introduce a monospace font variable */
+    --font-mono: 'Roboto Mono', monospace;
+
+    /* Sizing & Transitions */
+    --border-radius-sm: 4px;
+    --border-radius-md: 8px;
+    --border-radius-lg: 12px;
+    --transition-smooth: all 0.2s ease-out;
+    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* --- CSS Reset --- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* --- Body Base Styles --- */
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    /* ENHANCEMENT: Subtle dot-grid background pattern */
+    background-color: var(--bg-primary);
+    background-image: radial-gradient(var(--text-primary) 0.5px, transparent 0.5px);
+    background-size: 15px 15px;
+    background-attachment: fixed;
+    color: var(--text-primary);
+    overflow: hidden;
+    height: 100vh;
+    position: relative;
+}
+
+/* --- Shared Button Styles --- */
+.btn {
+    background: var(--bg-secondary);
+    border: var(--border-style);
+    color: var(--text-primary);
+    padding: 0.7rem 1.25rem;
+    border-radius: var(--border-radius-md);
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    transition: var(--transition-smooth);
+    box-shadow: var(--shadow-style);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn::before {
+    display: none;
+}
+
+.btn:hover,
+.hover_highlight {
+    background: var(--accent-secondary);
+    color: var(--text-primary);
+    transform: translate(-2px, -2px);
+    box-shadow: var(--shadow-style-hover);
+}
+
+/* ENHANCEMENT: More tactile "pushed in" active state for buttons */
+.btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: var(--shadow-style-sm);
+}
+
+/* --- Primary Button --- */
+.btn-primary {
+    background: var(--accent-primary);
+    color: var(--bg-secondary);
+    border-color: var(--text-primary);
+}
+
+.btn-primary:hover {
+    background: var(--accent-secondary);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-style-hover);
+    transform: translate(-2px, -2px);
+}
+
+/* --- Global Animations --- */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(100px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+/* --- Utility Classes --- */
+.hidden {
+    display: none !important;
+}
+
+/* --- General Border & Shadow Fix --- */
+.drop-zone,
+.feature-card,
+.header,
+.video-controls,
+.track-menu,
+.playlist-folder>details>summary,
+.playlist-file,
+.screenshot-modal,
+.shortcut-keys-panel,
+.showInfo {
+    border: var(--border-style) !important;
+    box-shadow: var(--shadow-style-md);
+}
+
+/* ENHANCEMENT: Apply mono font to specific UI elements */
+.time-display,
+.time-input,
+.speed-input {
+    font-family: var(--font-mono);
+}
+
+.shortcut-list kbd {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    padding: 0.4rem 0.6rem;
+}
+
+/* --- Scrollbars --- */
+::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--text-tertiary);
+    border: var(--border-style);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-primary);
+}
+
+/* --- Focus States --- */
+/* ENHANCEMENT: Themed dashed focus state */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+    outline: 2px dashed var(--accent-primary);
+    outline-offset: 3px;
+}
+
+/* --- Tap Highlight --- */
+button,
+input,
+select {
+    -webkit-tap-highlight-color: transparent;
+}
