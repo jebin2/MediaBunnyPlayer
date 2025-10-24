@@ -16,6 +16,7 @@ import {
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
 
 import {
+    $,
     imageToVideoBtn,
     imageToVideoModal,
     imageFileInput,
