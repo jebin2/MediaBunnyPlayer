@@ -1,9 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Media Player</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1a1a35">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
@@ -303,6 +307,7 @@
                 opacity: 0;
                 transform: translateY(20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -313,12 +318,24 @@
             animation: fadeInUp 0.6s ease backwards;
         }
 
-        .feature-card:nth-child(1) { animation-delay: 0.1s; }
-        .feature-card:nth-child(2) { animation-delay: 0.2s; }
-        .feature-card:nth-child(3) { animation-delay: 0.3s; }
-        .feature-card:nth-child(4) { animation-delay: 0.4s; }
+        .feature-card:nth-child(1) {
+            animation-delay: 0.1s;
+        }
+
+        .feature-card:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .feature-card:nth-child(3) {
+            animation-delay: 0.3s;
+        }
+
+        .feature-card:nth-child(4) {
+            animation-delay: 0.4s;
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
         <div class="header">
@@ -330,7 +347,7 @@
             <div style="font-size: 4rem; margin-bottom: 1rem;">🎬</div>
             <!-- <h2>Drop media files here</h2> -->
             <div class="cta-buttons">
-				<!-- <button class="upload-btn" id="showChooseFileBtn">Choose Files</button> -->
+                <!-- <button class="upload-btn" id="showChooseFileBtn">Choose Files</button> -->
                 <button class="launch-player-btn" onclick="window.location.href='./player.html'">
                     Launch Player
                     <span style="margin-left: 0.5rem;">→</span>
@@ -352,7 +369,8 @@
                         <div class="feature-icon">✂️</div>
                         <h3>Dynamic Cropping</h3>
                         <p style="font-size: 1rem; margin-bottom: 1rem;">
-                            Create professional spotlight effects with intelligent pan-and-scan. Perfect for vertical videos, focus tracking, and automated cropping with smooth motion paths.
+                            Create professional spotlight effects with intelligent pan-and-scan. Perfect for vertical
+                            videos, focus tracking, and automated cropping with smooth motion paths.
                         </p>
                         <div class="quick-actions">
                             <span class="action-chip">🎯 Spotlight Mode</span>
@@ -370,7 +388,8 @@
                     <div class="feature-icon">📸</div>
                     <h3>Instant Screenshots</h3>
                     <p>
-                        Capture perfect frames with a single click or press 'S'. Copy to clipboard or download instantly. High-quality PNG output at full resolution.
+                        Capture perfect frames with a single click or press 'S'. Copy to clipboard or download
+                        instantly. High-quality PNG output at full resolution.
                     </p>
                 </div>
 
@@ -379,7 +398,8 @@
                     <div class="feature-icon">🎞️</div>
                     <h3>Trim & Process</h3>
                     <p>
-                        Select trim ranges, trim clips, and process videos with precision. Loop sections, extract segments, and create custom cuts effortlessly.
+                        Select trim ranges, trim clips, and process videos with precision. Loop sections, extract
+                        segments, and create custom cuts effortlessly.
                     </p>
                 </div>
 
@@ -388,7 +408,8 @@
                     <div class="feature-icon">📏</div>
                     <h3>Smart Resize</h3>
                     <p>
-                        Resize videos to any dimension while maintaining aspect ratio. Perfect for social media formats, mobile optimization, or custom outputs.
+                        Resize videos to any dimension while maintaining aspect ratio. Perfect for social media formats,
+                        mobile optimization, or custom outputs.
                     </p>
                 </div>
 
@@ -397,7 +418,8 @@
                     <div class="feature-icon">🔊</div>
                     <h3>Multi-Track Audio</h3>
                     <p>
-                        Switch between multiple audio tracks seamlessly. Support for MKV containers with multiple language tracks and audio sources.
+                        Switch between multiple audio tracks seamlessly. Support for MKV containers with multiple
+                        language tracks and audio sources.
                     </p>
                 </div>
 
@@ -406,7 +428,8 @@
                     <div class="feature-icon">CC</div>
                     <h3>Subtitle Support</h3>
                     <p>
-                        Load and display subtitles with full customization. Support for SRT, VTT, and embedded subtitle tracks in video containers.
+                        Load and display subtitles with full customization. Support for SRT, VTT, and embedded subtitle
+                        tracks in video containers.
                     </p>
                 </div>
 
@@ -415,7 +438,8 @@
                     <div class="feature-icon">📋</div>
                     <h3>Smart Playlist</h3>
                     <p>
-                        Organize multiple videos and audio files. Autoplay, folder structure support, and easy navigation through your media library.
+                        Organize multiple videos and audio files. Autoplay, folder structure support, and easy
+                        navigation through your media library.
                     </p>
                 </div>
             </div>
@@ -426,4 +450,5 @@
         </div>
     </div>
 </body>
+
 </html>
