@@ -152,16 +152,16 @@ body::before {
     gap: 0;
     background: var(--glass-bg);
     backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
+    /* border: 1px solid var(--glass-border); */
     border-radius: var(--border-radius-md);
-    overflow: hidden;
+    /* overflow: hidden; */
 }
 
 .split-btn-group .btn:first-child {
     border-top-right-radius: 0;
     border-bottom-right-radius: 0;
     border-right: 1px solid var(--glass-border);
-    border: none;
+    /* border: none; */
 }
 
 .split-btn-group .btn:last-child {
@@ -169,7 +169,7 @@ body::before {
     border-bottom-left-radius: 0;
     padding: 0.7rem 0.9rem;
     font-size: 0.9rem;
-    border: none;
+    /* border: none; */
 }
 
 /* --- Close Button --- */
@@ -230,10 +230,10 @@ body::before {
     font-weight: 600;
 }
 
-#settingsHeaderBtn:hover {
-    background: var(--glass-bg-hover);
-    border-color: var(--accent-primary);
-}
+/* #settingsHeaderBtn:hover { */
+    /* background: var(--glass-bg-hover);
+    border-color: var(--accent-primary); */
+/* } */
 
 /* --- Action Dropdown Menu --- */
 .action-dropdown-menu {
