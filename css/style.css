@@ -258,7 +258,7 @@ body::before {
     padding: 0.65rem 1rem;
     border-radius: var(--border-radius-sm);
     margin-bottom: 0.25rem;
-    background: transparent;
+    /* background: transparent; */
     transition: var(--transition-smooth);
     font-size: 0.875rem;
     font-weight: 500;
