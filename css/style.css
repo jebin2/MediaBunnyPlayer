@@ -1,11 +1,11 @@
 /* ==========================================
-   PLAYER.CSS - MEDIA PLAYER INTERFACE STYLES
+   PLAYER.CSS - MEDIA PLAYER INTERFACE
    ========================================== */
 
 /* --- Import Core Theme --- */
 @import url('main.css');
 
-/* Animated background gradient */
+/* --- Animated Background --- */
 body::before {
     content: "";
     position: fixed;
@@ -20,7 +20,6 @@ body::before {
     z-index: 0;
 }
 
-/* --- Global Animations --- */
 @keyframes gradientShift {
 
     0%,
@@ -30,72 +29,6 @@ body::before {
 
     50% {
         transform: translate(-10%, -10%) rotate(180deg);
-    }
-}
-
-@keyframes shimmer {
-    0% {
-        transform: translateX(-100%);
-    }
-
-    100% {
-        transform: translateX(100%);
-    }
-}
-
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-@keyframes slideUp {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes slideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes slideInRight {
-    from {
-        opacity: 0;
-        transform: translateX(100px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-@keyframes glowPulse {
-
-    0%,
-    100% {
-        box-shadow: 0 4px 16px rgba(0, 122, 255, 0.2);
-        border-color: rgba(0, 122, 255, 0.3);
-    }
-
-    50% {
-        box-shadow: 0 8px 32px rgba(0, 122, 255, 0.5);
-        border-color: rgba(0, 122, 255, 0.6);
     }
 }
 
@@ -111,26 +44,10 @@ body::before {
     }
 }
 
-@keyframes pulse {
-
-    0%,
-    100% {
-        opacity: 0.3;
-        transform: scale(1);
-    }
-
-    50% {
-        opacity: 0.8;
-        transform: scale(1.05);
-    }
-}
-
-
 /* ==========================================
-   2. LAYOUT & CONTAINERS
+   LAYOUT & CONTAINERS
    ========================================== */
 
-/* --- App Container --- */
 .app-container {
     display: flex;
     flex-direction: column;
@@ -139,7 +56,6 @@ body::before {
     z-index: 1;
 }
 
-/* --- Player Area --- */
 .player-area {
     display: flex;
     flex: 1;
@@ -190,16 +106,11 @@ body::before {
     width: 50%;
 }
 
-
 /* ==========================================
-   3. HEADER & NAVIGATION
+   HEADER & NAVIGATION
    ========================================== */
 
-/* --- Header --- */
 .header {
-    /* background: rgba(13, 13, 20, 0.7); */
-    /* backdrop-filter: var(--glass-blur); */
-    /* -webkit-backdrop-filter: var(--glass-blur); */
     border-bottom: 1px solid var(--glass-border);
     padding: 1rem 1.5rem;
     display: flex;
@@ -210,7 +121,6 @@ body::before {
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
 }
 
-/* --- Logo --- */
 .logo {
     display: flex;
     align-items: center;
@@ -225,7 +135,6 @@ body::before {
     font-weight: 700;
 }
 
-/* --- Header Controls --- */
 .controls-header {
     display: flex;
     align-items: center;
@@ -233,9 +142,8 @@ body::before {
     flex-wrap: wrap;
 }
 
-
 /* ==========================================
-   4. BUTTONS & CONTROLS
+   BUTTONS & CONTROLS
    ========================================== */
 
 /* --- Split Button Group --- */
@@ -262,13 +170,6 @@ body::before {
     padding: 0.7rem 0.9rem;
     font-size: 0.9rem;
     border: none;
-}
-
-/* --- Dropdown Button --- */
-.btn-dropdown {
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
 /* --- Close Button --- */
@@ -338,7 +239,6 @@ body::before {
 .action-dropdown-menu {
     position: absolute;
     top: 56px;
-    /* background: rgba(13, 13, 20, 0.95); */
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
@@ -374,12 +274,10 @@ body::before {
     transform: translateX(4px);
 }
 
-
 /* ==========================================
-   5. VIDEO PLAYER & CANVAS
+   VIDEO PLAYER & CANVAS
    ========================================== */
 
-/* --- Video Container --- */
 .video-container {
     position: relative;
     flex: 1;
@@ -391,14 +289,12 @@ body::before {
     display: flex;
 }
 
-/* --- Video Canvas --- */
 .video-canvas {
     width: 100%;
     height: 100%;
     object-fit: contain;
 }
 
-/* --- Crop Canvas --- */
 #cropCanvas {
     position: absolute;
     cursor: crosshair;
@@ -446,12 +342,10 @@ body::before {
     transform: scale(1.1);
 }
 
-
 /* ==========================================
-   6. VIDEO CONTROLS
+   VIDEO CONTROLS
    ========================================== */
 
-/* --- Video Controls Container --- */
 .video-controls {
     position: absolute;
     bottom: 24px;
@@ -726,12 +620,10 @@ body::before {
     transform: scale(1.05);
 }
 
-
 /* ==========================================
-   7. TRACK CONTROLS & MENUS
+   TRACK CONTROLS & MENUS
    ========================================== */
 
-/* --- Track Controls --- */
 .track-controls {
     display: flex;
     gap: 0.5rem;
@@ -784,7 +676,6 @@ body::before {
     font-weight: 600;
     margin-bottom: 0.75rem;
     padding-bottom: 0.5rem;
-    /* border-bottom: 1px solid var(--glass-border); */
 }
 
 .track-menu ul {
@@ -823,7 +714,6 @@ body::before {
 }
 
 .trim-menu-actions {
-    /* display: flex; */
     grid-template-columns: auto auto;
     display: grid;
     gap: 0.5rem;
@@ -832,6 +722,10 @@ body::before {
 
 .trim-menu-actions.screenshot {
     margin-bottom: 0;
+}
+
+.trim-menu-actions.crop {
+    display: flex;
 }
 
 .trim-menu-actions .btn {
@@ -903,7 +797,6 @@ body::before {
     background: rgba(0, 122, 255, 0.05);
 }
 
-/* Hide the default radio button */
 .trim-mode-selector input[type="radio"] {
     opacity: 0;
     position: absolute;
@@ -911,7 +804,6 @@ body::before {
     height: 0;
 }
 
-/* Style the label to be the new clickable area */
 .trim-mode-selector label {
     position: relative;
     padding-left: 0.2rem;
@@ -922,7 +814,6 @@ body::before {
     font-weight: 500;
 }
 
-/* --- States --- */
 .trim-mode-selector label:hover {
     color: var(--text-primary);
 }
@@ -931,7 +822,6 @@ body::before {
     border-color: var(--accent-primary);
 }
 
-/* Checked state */
 .trim-mode-selector input[type="radio"]:checked+label::before {
     border-color: var(--accent-primary);
     background: rgba(0, 122, 255, 0.1);
@@ -979,15 +869,161 @@ body::before {
     width: 70px;
 }
 
+/* --- Aspect Ratio Button Group --- */
+.aspect-ratio-group {
+    display: grid !important;
+    grid-template-columns: auto auto auto;
+    gap: 1rem;
+}
+
+.aspect-ratio-btn {
+    border: 2px dashed #888;
+    padding: 0;
+    transition: all 0.2s ease-in-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.aspect-ratio-btn.active {
+    background: rgba(0, 122, 255, 0.25);
+    border-color: var(--accent-primary);
+    color: var(--accent-secondary);
+}
+
+.aspect-ratio-btn:first-child {
+    width: 40px;
+    height: 40px;
+}
+
+.aspect-ratio-btn:nth-child(2) {
+    width: calc(40px * 16 / 9);
+    height: 40px;
+}
+
+.aspect-ratio-btn:nth-child(3) {
+    width: 40px;
+    height: calc(40px * 16 / 9);
+}
+
+/* --- Segmented Control --- */
+.segmented-control {
+    display: flex;
+    width: 100%;
+    margin-top: 5px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--glass-border);
+}
+
+.segmented-control .btn {
+    flex: 1;
+    border-radius: var(--border-radius-md) 0 0 var(--border-radius-md);
+    border: none;
+    background-color: transparent;
+    transition: background-color 0.2s ease-in-out;
+    padding: 8px 5px;
+}
+
+.segmented-control .btn:nth-child(2) {
+    border-radius: 0;
+}
+
+.segmented-control .btn:nth-child(3) {
+    border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0;
+}
+
+.segmented-control .btn:not(:last-child) {
+    border-right: 1px solid var(--glass-border);
+}
+
+.segmented-control .btn.active {
+    background: rgba(0, 122, 255, 0.25);
+    border-color: var(--accent-primary);
+    color: var(--accent-secondary);
+}
+
+/* --- Toggle Options --- */
+.toggle-options-list {
+    margin-top: 15px;
+    display: contents !important;
+}
+
+.toggle-option {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.toggle-option>label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    flex-grow: 1;
+}
+
+.toggle-option>label>span {
+    color: #ccc;
+    font-size: 0.95em;
+}
+
+.toggle-option>label+#blurAmountInput {
+    margin-left: 10px;
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+
+.toggle-switch input[type="checkbox"] {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.switch-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #4a4a5a;
+    border-radius: 24px;
+    transition: background-color 0.3s;
+}
+
+.switch-slider::before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    border-radius: 50%;
+    transition: transform 0.3s;
+}
+
+.toggle-switch input:checked+.switch-slider {
+    background: rgba(0, 122, 255, 0.25);
+    border-color: var(--accent-primary);
+}
+
+.toggle-switch input:checked+.switch-slider::before {
+    transform: translateX(20px);
+}
 
 /* ==========================================
-   8. SIDEBAR & PLAYLIST
+   SIDEBAR & PLAYLIST
    ========================================== */
 
-/* --- Sidebar --- */
 .sidebar {
     width: 0;
-    /* background: rgba(13, 13, 20, 0.95); */
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border-left: 0 solid var(--glass-border);
@@ -1006,7 +1042,26 @@ body::before {
     overflow-y: auto;
 }
 
-/* --- Playlist Tree Structure --- */
+#playlistContent::-webkit-scrollbar {
+    width: 8px;
+}
+
+#playlistContent::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+}
+
+#playlistContent::-webkit-scrollbar-thumb {
+    background: rgba(0, 122, 255, 0.4);
+    border-radius: 10px;
+    border: 2px solid rgba(255, 255, 255, 0.03);
+}
+
+#playlistContent::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 122, 255, 0.6);
+}
+
+/* --- Playlist Tree --- */
 .playlist-tree {
     list-style: none;
     padding: 0;
@@ -1076,7 +1131,6 @@ body::before {
     transform: translateX(2px);
 }
 
-/* Nested folder structure */
 .playlist-folder .playlist-tree {
     padding-left: 1rem;
     margin-top: 0.5rem;
@@ -1105,7 +1159,6 @@ body::before {
 
 .playlist-file-checkbox {
     display: none;
-    /* wait for merge feature in media bunny */
     width: 18px;
     height: 18px;
     min-width: 18px;
@@ -1193,7 +1246,6 @@ body::before {
     transform: scale(1.1);
 }
 
-/* --- Empty Playlist Message --- */
 #playlistContent p {
     color: var(--text-tertiary);
     text-align: center;
@@ -1202,9 +1254,8 @@ body::before {
     font-style: italic;
 }
 
-
 /* ==========================================
-   9. MODALS & OVERLAYS
+   MODALS & OVERLAYS
    ========================================== */
 
 /* --- Loading Spinner --- */
@@ -1274,7 +1325,6 @@ body::before {
     left: 0;
     right: 0;
     bottom: 0;
-    /* background: rgba(0, 0, 0, 0.85); */
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     display: flex;
@@ -1295,27 +1345,6 @@ body::before {
     border-radius: var(--border-radius-lg);
     padding: 2rem;
     max-width: 90%;
-    max-height: 90%;
-    overflow: auto;
-    box-shadow: var(--glass-shadow);
-    position: relative;
-    animation: slideUp 0.3s ease;
-}
-
-.screenshot-modal h3 {
-    color: var(--text-primary);
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 1.5rem;
-}
-
-.screenshot-modal {
-    background: rgba(13, 13, 20, 0.95);
-    backdrop-filter: var(--glass-blur);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--border-radius-lg);
-    padding: 2rem;
-    max-width: 90%;
     max-height: 90vh;
     overflow: auto;
     box-shadow: var(--glass-shadow);
@@ -1323,6 +1352,13 @@ body::before {
     animation: slideUp 0.3s ease;
     display: flex;
     flex-direction: column;
+}
+
+.screenshot-modal h3 {
+    color: var(--text-primary);
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
 }
 
 #screenshotPreviewImg,
@@ -1496,7 +1532,6 @@ body::before {
     width: fit-content;
     left: 50%;
     transform: translateX(-50%);
-    /* background: rgba(13, 13, 20, 0.95); */
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
@@ -1514,9 +1549,8 @@ body::before {
     display: none;
 }
 
-
 /* ==========================================
-   10. FORM ELEMENTS
+   FORM ELEMENTS
    ========================================== */
 
 /* --- Switch Toggle --- */
@@ -1630,95 +1664,64 @@ input:checked+.slider:before {
     box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
 }
 
-.trim-menu-actions.crop {
-    display: flex;
-}
-
 /* --- Checkboxes --- */
 input[type="checkbox"] {
     cursor: pointer;
     accent-color: var(--accent-primary);
 }
 
-/* --- File Inputs (Hidden) --- */
+/* --- File Inputs --- */
 #fileInput,
 #folderInput {
     display: none;
 }
 
-/* --- Focus States for Accessibility --- */
-button:focus-visible,
-input:focus-visible,
-select:focus-visible {
-    outline: 2px solid var(--accent-primary);
-    outline-offset: 2px;
-}
-
-
 /* ==========================================
-   11. UTILITY CLASSES & STATES
+   ADDITIONAL ELEMENTS
    ========================================== */
 
-/* --- Smooth Transitions --- */
-button,
-input,
-select,
-.track-item,
-.playlist-file,
-.playlist-folder>details>summary {
-    -webkit-tap-highlight-color: transparent;
+#settingsMenu {
+    margin: 0;
+    overflow-y: auto;
 }
 
+#imageVideoAudioBtn {
+    border-radius: initial;
+}
+
+#selectImageBtn,
+#imageDurationInput {
+    width: 100%;
+}
+
+.recording-controls-container {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 8px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 10000;
+}
+
+.recording-controls-container.hidden {
+    display: none;
+}
+
+#blurAmountInput {
+    margin-left: 10px;
+    width: 50px;
+    transition: all 0.3s;
+}
 
 /* ==========================================
-   12. SCROLLBARS
-   ========================================== */
-
-/* --- Global Scrollbar --- */
-::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-}
-
-::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb {
-    background: rgba(0, 122, 255, 0.5);
-    border-radius: 10px;
-    border: 2px solid rgba(255, 255, 255, 0.05);
-    transition: var(--transition-smooth);
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: var(--accent-primary);
-}
-
-/* --- Playlist Scrollbar --- */
-#playlistContent::-webkit-scrollbar {
-    width: 8px;
-}
-
-#playlistContent::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 10px;
-}
-
-#playlistContent::-webkit-scrollbar-thumb {
-    background: rgba(0, 122, 255, 0.4);
-    border-radius: 10px;
-    border: 2px solid rgba(255, 255, 255, 0.03);
-}
-
-#playlistContent::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 122, 255, 0.6);
-}
-
-
-/* ==========================================
-   13. RESPONSIVE DESIGN
+   RESPONSIVE DESIGN
    ========================================== */
 
 @media (max-width: 768px) {
@@ -1772,230 +1775,3 @@ select,
         width: 10%;
     }
 }
-
-#settingsMenu {
-    /* position: fixed; */
-    /* top: 80px;
-    right: 24px;
-    bottom: auto; */
-    margin: 0;
-    /* max-height: calc(100vh - 120px); */
-    overflow-y: auto;
-}
-
-#imageVideoAudioBtn {
-    border-radius: initial;
-}
-
-#selectImageBtn,
-#imageDurationInput {
-    width: 100%;
-}
-
-.recording-controls-container {
-    position: fixed;
-    top: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    background-color: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: 8px;
-    padding: 8px;
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    /* This is the key property to add/update */
-    z-index: 10000;
-}
-
-.recording-controls-container.hidden {
-    display: none;
-}
-
-/* =================================== */
-/*  Aspect Ratio Button Group Styles   */
-/* =================================== */
-
-.aspect-ratio-group {
-    display: grid !important;
-    grid-template-columns: auto auto auto;
-    gap: 1rem;
-}
-
-.aspect-ratio-btn {
-    border: 2px dashed #888;
-    padding: 0;
-    transition: all 0.2s ease-in-out;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.aspect-ratio-btn.active {
-    background: rgba(0, 122, 255, 0.25);
-    border-color: var(--accent-primary);
-    color: var(--accent-secondary);
-}
-
-/* 1️⃣ Custom ratio (Square 1:1) */
-.aspect-ratio-btn:first-child {
-    width: 40px;
-    height: 40px;
-}
-
-/* 2️⃣ 16:9 ratio (Wider landscape) */
-.aspect-ratio-btn:nth-child(2) {
-    width: calc(40px * 16 / 9);
-    height: 40px;
-}
-
-/* 3️⃣ 9:16 ratio (Taller portrait) */
-.aspect-ratio-btn:nth-child(3) {
-    width: 40px;
-    height: calc(40px * 16 / 9);
-}
-
-/* ========================================= */
-/*  New Dynamic Crop UI Styles               */
-/* ========================================= */
-
-/* --- 1. Segmented Control for Crop Mode --- */
-.segmented-control {
-    display: flex;
-    width: 100%;
-    margin-top: 5px;
-    border-radius: 8px;
-    overflow: hidden;
-    /* Ensures child borders don't poke out */
-    border: 1px solid var(--glass-border);
-}
-
-.segmented-control .btn {
-    flex: 1;
-    /* Each button takes up equal space */
-    border-radius: var(--border-radius-md) 0 0 var(--border-radius-md);
-    border: none;
-    background-color: transparent;
-    transition: background-color 0.2s ease-in-out;
-    padding: 8px 5px;
-}
-
-.segmented-control .btn:nth-child(2) {
-    border-radius: 0;
-}
-
-.segmented-control .btn:nth-child(3) {
-    border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0;
-}
-
-.segmented-control .btn:not(:last-child) {
-    border-right: 1px solid var(--glass-border);
-}
-
-.segmented-control .btn.active {
-    background: rgba(0, 122, 255, 0.25);
-    border-color: var(--accent-primary);
-    color: var(--accent-secondary);
-}
-
-/* --- 2. Toggle Switch List for Sub-Options --- */
-.toggle-options-list {
-    margin-top: 15px;
-    display: contents !important;
-}
-
-.toggle-option {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.toggle-option>label {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
-    flex-grow: 1;
-    /* Allows the label to take up available space */
-}
-
-/* Style the text specifically using the new span */
-.toggle-option>label>span {
-    color: #ccc;
-    font-size: 0.95em;
-}
-
-/* For the blur option, we add a small gap between the label and the input */
-.toggle-option>label+#blurAmountInput {
-    margin-left: 10px;
-}
-
-/* The main toggle switch container */
-.toggle-switch {
-    position: relative;
-    display: inline-block;
-    width: 44px;
-    height: 24px;
-}
-
-/* Hide the default checkbox */
-.toggle-switch input[type="checkbox"] {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-/* The background of the switch */
-.switch-slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #4a4a5a;
-    border-radius: 24px;
-    transition: background-color 0.3s;
-}
-
-/* The moving knob of the switch */
-.switch-slider::before {
-    position: absolute;
-    content: "";
-    height: 18px;
-    width: 18px;
-    left: 3px;
-    bottom: 3px;
-    background-color: white;
-    border-radius: 50%;
-    transition: transform 0.3s;
-}
-
-/* "On" state styling */
-.toggle-switch input:checked+.switch-slider {
-    background: rgba(0, 122, 255, 0.25);
-    border-color: var(--accent-primary);
-}
-
-.toggle-switch input:checked+.switch-slider::before {
-    transform: translateX(20px);
-}
-
-/* --- 3. Conditional UI for Blur Input --- */
-#blurAmountInput {
-    margin-left: 10px;
-    width: 50px;
-    /* Make the input smaller */
-    /* opacity: 0.5; */
-    /* Greyed out by default */
-    /* pointer-events: none; */
-    /* Not clickable by default */
-    transition: all 0.3s;
-}
-
-/* When the blur toggle is checked, make the input fully visible and interactive */
-/* #blurOptionContainer input[type="checkbox"]:checked~#blurAmountInput {
-    opacity: 1;
-    pointer-events: auto;
-} */
