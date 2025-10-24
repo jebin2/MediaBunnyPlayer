@@ -109,7 +109,7 @@ const mergeTrees = (mainTree, newTree) => {
 	return mainTree;
 };
 
-export const findFileByPath = (nodes, path) => {
+const findFileByPath = (nodes, path) => {
 	const pathParts = path.split('/').filter(Boolean);
 	if (pathParts.length === 0) return null;
 
@@ -120,6 +120,22 @@ export const findFileByPath = (nodes, path) => {
 	if (pathParts.length === 1 && node.type === 'file') return node.file;
 	if (node.type === 'folder' && pathParts.length > 1) {
 		return findFileByPath(node.children, pathParts.slice(1).join('/'));
+	}
+	return null;
+};
+
+const findPathByFile = (nodes, fileToFind, currentPath = '') => {
+	for (const node of nodes) {
+		const nodePath = currentPath ? `${currentPath}/${escapeHTML(node.name)}` : escapeHTML(node.name);
+		if (node.type === 'file' && node.file === fileToFind) {
+			return nodePath;
+		}
+		if (node.type === 'folder') {
+			const foundPath = findPathByFile(node.children, fileToFind, nodePath);
+			if (foundPath) {
+				return foundPath;
+			}
+		}
 	}
 	return null;
 };
@@ -396,16 +412,23 @@ export const setupPlaylistEventListeners = () => {
 		// Handle remove buttons
 		if (e.target.classList.contains('remove-item')) {
 			e.stopPropagation();
-			const path = e.target.dataset.path;
+			const pathToRemove = e.target.dataset.path;
 			let isPlayingFile = false;
-			const fileToRemove = findFileByPath(state.playlist, path);
-			if (fileToRemove && state.currentPlayingFile) {
-				isPlayingFile = (fileToRemove instanceof File && state.currentPlayingFile instanceof File) ?
-					fileToRemove === state.currentPlayingFile :
-					fileToRemove === state.currentPlayingFile;
+
+			// --- START: MODIFIED LOGIC ---
+			// Check if the item being removed contains the currently playing file.
+			if (state.currentPlayingFile) {
+				// Find the full path of the file that is currently playing.
+				const currentPlayingFilePath = findPathByFile(state.playlist, state.currentPlayingFile);
+
+				// If the playing file's path starts with the path of the item being removed,
+				// it means we are deleting the playing file itself or its parent folder.
+				if (currentPlayingFilePath && currentPlayingFilePath.startsWith(pathToRemove)) {
+					isPlayingFile = true;
+				}
 			}
 
-			removeItemFromPath(state.playlist, path);
+			removeItemFromPath(state.playlist, pathToRemove);
 			updatePlaylistUIOptimized();
 			if (isPlayingFile) {
 				stopAndClear();
