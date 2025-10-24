@@ -13,53 +13,45 @@ export const setupCropListener = () => {
 	panScanBtn.onclick = togglePanning;
 
 	cropCanvas.onpointerdown = (e) => {
-		// This logic now applies to both modes
-		if (!state.isCropping && !state.isPanning) return;
-		e.preventDefault();
-		cropCanvas.setPointerCapture(e.pointerId);
-
-		state.isDrawingCrop = true;
-		const coords = getScaledCoordinates(e);
-		state.cropStart = coords;
-		state.cropEnd = coords;
-	};
-
-	cropCanvas.onpointerdown = (e) => {
 		if (!state.isCropping && !state.isPanning) return;
 		e.preventDefault();
 		cropCanvas.setPointerCapture(e.pointerId);
 
 		const coords = getScaledCoordinates(e);
 
-		// If we have an existing crop rect
+		// Get current rect
 		const currentRect = state.isCropping ? state.cropRect :
 			(state.panKeyframes.length > 0 ? state.panKeyframes[state.panKeyframes.length - 1].rect : null);
 
-		if (currentRect && !state.isCropFixed) {
+		// NEW: For fixed aspect ratios, use maxRatioRect as the current rect if no rect exists yet
+		const activeRect = currentRect || (state.aspectRatioLocked ? state.maxRatioRect : null);
+
+		if (activeRect && !state.isCropFixed) {
 			// Check if clicking on a resize handle
-			state.resizeHandle = getResizeHandle(coords.x, coords.y, currentRect);
+			state.resizeHandle = getResizeHandle(coords.x, coords.y, activeRect);
 
 			if (state.resizeHandle) {
 				state.isResizingCrop = true;
-				state.originalCropRect = { ...currentRect };
+				state.originalCropRect = { ...activeRect };
 				state.dragStartPos = coords;
-			} else if (isInsideCropRect(coords.x, coords.y, currentRect)) {
+			} else if (isInsideCropRect(coords.x, coords.y, activeRect)) {
 				// Clicking inside crop area - start dragging
 				state.isDraggingCrop = true;
-				state.originalCropRect = { ...currentRect };
+				state.originalCropRect = { ...activeRect };
 				state.dragStartPos = coords;
-			} else {
-				// Clicking outside - start drawing new rect
+			} else if (!state.aspectRatioLocked) {
+				// NEW: Only allow drawing new rect if NOT in fixed ratio mode
 				state.isDrawingCrop = true;
 				state.cropStart = coords;
 				state.cropEnd = coords;
 			}
-		} else if (currentRect && state.isCropFixed && state.isPanning) {
+			// NEW: If aspectRatioLocked and clicking outside, do nothing (ignore the click)
+		} else if (activeRect && state.isCropFixed && state.isPanning) {
 			// In panning mode with fixed size, any click starts recording movement
 			state.isDraggingCrop = true;
 			state.dragStartPos = coords;
-		} else {
-			// No existing rect - start drawing
+		} else if (!state.aspectRatioLocked) {
+			// NEW: Only allow drawing if NOT in fixed ratio mode
 			state.isDrawingCrop = true;
 			state.cropStart = coords;
 			state.cropEnd = coords;
@@ -171,19 +163,29 @@ export const setupCropListener = () => {
 		e.preventDefault();
 		cropCanvas.releasePointerCapture(e.pointerId);
 
-		// Finalize drawing new rect
 		if (state.isDrawingCrop) {
-			const finalRect = {
+			let finalRect = {
 				x: Math.min(state.cropStart.x, state.cropEnd.x),
 				y: Math.min(state.cropStart.y, state.cropEnd.y),
 				width: Math.abs(state.cropStart.x - state.cropEnd.x),
 				height: Math.abs(state.cropStart.y - state.cropEnd.y)
 			};
 
+			// NEW: Apply ratio constraints if locked
+			if (state.aspectRatioLocked && state.maxRatioRect) {
+				const [ratioW, ratioH] = state.aspectRatioMode === '16:9' ? [16, 9] : [9, 16];
+				finalRect = constrainToRatio(finalRect, state.maxRatioRect, ratioW / ratioH);
+			}
+
 			if (finalRect.width < 10 || finalRect.height < 10) {
 				state.cropRect = null;
 				state.panRectSize = null;
 				cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
+
+				// Redraw max rect if ratio locked
+				if (state.aspectRatioLocked && state.maxRatioRect) {
+					drawCropWithHandles(state.maxRatioRect);
+				}
 			} else {
 				if (state.isPanning) {
 					state.panRectSize = { width: finalRect.width, height: finalRect.height };
@@ -213,37 +215,52 @@ export const setupCropListener = () => {
 		const lastKeyframe = state.panKeyframes[state.panKeyframes.length - 1];
 		if (!lastKeyframe) return;
 
-		// === NEW: GET MOUSE POSITION FOR CENTERED ZOOM ===
+		// === GET MOUSE POSITION FOR CENTERED ZOOM ===
 		const coords = getScaledCoordinates(e);
 		const ZOOM_SPEED = 0.05;
 
 		const currentRect = lastKeyframe.rect;
-		const zoomFactor = e.deltaY < 0 ? (1 - ZOOM_SPEED) : (1 + ZOOM_SPEED);
-		const aspectRatio = state.panRectSize.width / state.panRectSize.height;
+		const zoomFactor = e.deltaY < 0 ? (1 - ZOOM_SPEED) : (1 + ZOOM_SPEED); // Corrected zoom direction
 
-		// === NEW: CALCULATE MOUSE POSITION AS A RATIO WITHIN THE RECTANGLE ===
-		// This ensures the point under the cursor stays in the same relative position after zoom.
+		const aspectRatio = state.aspectRatioLocked && state.aspectRatioMode !== 'custom'
+			? (state.aspectRatioMode === '16:9' ? 16 / 9 : 9 / 16)
+			: (state.panRectSize.width / state.panRectSize.height);
+
+		// === 1. PRE-CALCULATE AND CONSTRAIN THE NEW SIZE ===
+		let newWidth = currentRect.width * zoomFactor;
+
+		// Apply size constraints (min and max)
+		const minSize = 20; // Set a reasonable minimum size
+		if (newWidth < minSize) {
+			newWidth = minSize;
+		}
+		if (state.aspectRatioLocked && state.maxRatioRect && newWidth > state.maxRatioRect.width) {
+			newWidth = state.maxRatioRect.width;
+		}
+		let newHeight = newWidth / aspectRatio;
+
+
+		// === 2. CALCULATE NEW POSITION BASED ON THE FINAL SIZE ===
 		const ratioX = (coords.x - currentRect.x) / currentRect.width;
 		const ratioY = (coords.y - currentRect.y) / currentRect.height;
 
-		let newWidth = currentRect.width * zoomFactor;
-		let newHeight = newWidth / aspectRatio;
-
-		// === NEW: CALCULATE NEW TOP-LEFT CORNER BASED ON MOUSE POSITION ===
 		let newX = coords.x - (newWidth * ratioX);
 		let newY = coords.y - (newHeight * ratioY);
 
+		// === 3. CREATE AND CLAMP THE FINAL RECTANGLE ===
 		let newZoomedRect = { x: newX, y: newY, width: newWidth, height: newHeight };
+
+		// Use the robust clampRectToVideoBounds instead of constrainToRatio for positioning
 		newZoomedRect = clampRectToVideoBounds(newZoomedRect);
 
+
 		// === CRITICAL SMOOTHNESS FIX ===
-		// Instead of pushing a new keyframe, we UPDATE the last one.
-		// This prevents keyframe overload and makes the zoom feel smooth.
+		// Update the last keyframe instead of pushing a new one
 		lastKeyframe.rect = newZoomedRect;
 
 		drawCropWithHandles(newZoomedRect);
 
-	}, { passive: false }); // { passive: false } is needed for preventDefault() to work reliably
+	}, { passive: false });
 
 	// Trigger the UI visibility update
 	if (cropModeRadios.length > 0) {
@@ -303,6 +320,18 @@ export const setupCropListener = () => {
 				play(); // Auto-start playback when fixing size in pan mode
 			}
 		}
+	});
+	const aspectRatioRadios = document.querySelectorAll('input[name="aspectRatio"]');
+	aspectRatioRadios.forEach(radio => {
+		radio.addEventListener('change', (e) => {
+			state.aspectRatioMode = e.target.value;
+
+			// If currently in panning mode, restart to apply new ratio
+			if (state.isPanning) {
+				togglePanning(null, true); // Reset
+				setTimeout(() => togglePanning(), 50); // Restart with new ratio
+			}
+		});
 	});
 }
 
@@ -440,7 +469,7 @@ export const drawCropOverlay = () => {
 
 export const togglePanning = (e, reset = false) => {
 	state.isPanning = !reset && !state.isPanning;
-	state.isCropping = false; // Ensure static cropping is off
+	state.isCropping = false;
 
 	cropBtn.textContent = '✂️';
 	panScanBtn.textContent = state.isPanning ? 'Cropping...' : 'Dynamic ✂️';
@@ -454,15 +483,35 @@ export const togglePanning = (e, reset = false) => {
 	state.panRectSize = null;
 
 	if (state.isPanning) {
-		// Position the crop canvas when entering panning mode
 		state.cropCanvasDimensions = positionCropCanvas();
-		state.isCropFixed = false; // Reset fixed state
+		state.isCropFixed = false;
 		updateFixSizeButton();
-		guidedPanleInfo("Click and drag on the video to draw your crop area.");
+
+		// NEW: Calculate max ratio rect if using fixed aspect ratio
+		if (state.aspectRatioMode !== 'custom' && canvas.width && canvas.height) {
+			const [ratioW, ratioH] = state.aspectRatioMode === '16:9' ? [16, 9] : [9, 16];
+			state.maxRatioRect = calculateMaxRatioRect(canvas.width, canvas.height, ratioW, ratioH);
+			state.aspectRatioLocked = true;
+
+			// NEW: Initialize with max ratio rect and add first keyframe
+			state.panRectSize = { width: state.maxRatioRect.width, height: state.maxRatioRect.height };
+			state.panKeyframes.push({ timestamp: getPlaybackTime(), rect: { ...state.maxRatioRect } });
+
+			// Draw the max ratio rectangle immediately
+			drawCropWithHandles(state.maxRatioRect);
+
+			guidedPanleInfo(`Resize or move the ${state.aspectRatioMode} crop area. The aspect ratio will be maintained.`);
+		} else {
+			state.maxRatioRect = null;
+			state.aspectRatioLocked = false;
+			guidedPanleInfo("Click and drag on the video to draw your crop area.");
+		}
 	} else {
 		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
 		state.cropCanvasDimensions = null;
 		state.isCropFixed = false;
+		state.maxRatioRect = null;
+		state.aspectRatioLocked = false;
 		updateFixSizeButton();
 	}
 };
@@ -697,55 +746,111 @@ export const getCursorForHandle = (handle) => {
 export const applyResize = (handle, deltaX, deltaY, originalRect) => {
 	let newRect = { ...originalRect };
 
-	switch (handle) {
-		case 'nw':
-			newRect.x = originalRect.x + deltaX;
-			newRect.y = originalRect.y + deltaY;
-			newRect.width = originalRect.width - deltaX;
-			newRect.height = originalRect.height - deltaY;
-			break;
-		case 'ne':
-			newRect.y = originalRect.y + deltaY;
-			newRect.width = originalRect.width + deltaX;
-			newRect.height = originalRect.height - deltaY;
-			break;
-		case 'sw':
-			newRect.x = originalRect.x + deltaX;
-			newRect.width = originalRect.width - deltaX;
-			newRect.height = originalRect.height + deltaY;
-			break;
-		case 'se':
-			newRect.width = originalRect.width + deltaX;
-			newRect.height = originalRect.height + deltaY;
-			break;
-		case 'n':
-			newRect.y = originalRect.y + deltaY;
-			newRect.height = originalRect.height - deltaY;
-			break;
-		case 's':
-			newRect.height = originalRect.height + deltaY;
-			break;
-		case 'w':
-			newRect.x = originalRect.x + deltaX;
-			newRect.width = originalRect.width - deltaX;
-			break;
-		case 'e':
-			newRect.width = originalRect.width + deltaX;
-			break;
-	}
+	// NEW: If aspect ratio is locked, we need to maintain it during resize
+	if (state.aspectRatioLocked && state.maxRatioRect) {
+		const aspectRatio = state.aspectRatioMode === '16:9' ? 16 / 9 : 9 / 16;
+		let potentialWidth;
 
-	// Ensure minimum size
-	if (newRect.width < 20) {
-		newRect.width = 20;
-		if (handle.includes('w')) newRect.x = originalRect.x + originalRect.width - 20;
-	}
-	if (newRect.height < 20) {
-		newRect.height = 20;
-		if (handle.includes('n')) newRect.y = originalRect.y + originalRect.height - 20;
-	}
+		// Determine potential new width based on handle and mouse movement
+		if (handle.includes('e')) {
+			potentialWidth = originalRect.width + deltaX;
+		} else if (handle.includes('w')) {
+			potentialWidth = originalRect.width - deltaX;
+		} else { // Handle 'n' or 's'
+			let potentialHeight = originalRect.height + (handle.includes('n') ? -deltaY : deltaY);
+			potentialWidth = potentialHeight * aspectRatio;
+		}
 
-	// Clamp to canvas bounds
-	return clampRectToVideoBounds(newRect);
+		// For corner handles, let the dominant mouse movement dictate the size
+		if (['nw', 'ne', 'sw', 'se'].includes(handle)) {
+			const widthChange = Math.abs(originalRect.width - (originalRect.width + (handle.includes('w') ? -deltaX : deltaX)));
+			const heightChange = Math.abs(originalRect.height - (originalRect.height + (handle.includes('n') ? -deltaY : deltaY)));
+			if (widthChange > heightChange) {
+				potentialWidth = originalRect.width + (handle.includes('w') ? -deltaX : deltaX);
+			} else {
+				let potentialHeight = originalRect.height + (handle.includes('n') ? -deltaY : deltaY);
+				potentialWidth = potentialHeight * aspectRatio;
+			}
+		}
+
+		// --- Apply Size Constraints ---
+		const minSize = 20;
+		if (potentialWidth < minSize) potentialWidth = minSize;
+		if (potentialWidth > state.maxRatioRect.width) potentialWidth = state.maxRatioRect.width;
+
+		newRect.width = potentialWidth;
+		newRect.height = newRect.width / aspectRatio;
+
+		// --- Adjust Position (Anchor the opposite side) ---
+		if (handle.includes('n')) {
+			newRect.y = originalRect.y + originalRect.height - newRect.height;
+		}
+		if (handle.includes('w')) {
+			newRect.x = originalRect.x + originalRect.width - newRect.width;
+		}
+		// Center position for side handles
+		if (handle === 'n' || handle === 's') {
+			newRect.x = originalRect.x + (originalRect.width - newRect.width) / 2;
+		}
+		if (handle === 'e' || handle === 'w') {
+			newRect.y = originalRect.y + (originalRect.height - newRect.height) / 2;
+		}
+
+		// Use the global video bounds clamp, not the problematic constrainToRatio
+		return clampRectToVideoBounds(newRect);
+
+	} else {
+		// Original resize logic for custom mode
+		switch (handle) {
+			case 'nw':
+				newRect.x = originalRect.x + deltaX;
+				newRect.y = originalRect.y + deltaY;
+				newRect.width = originalRect.width - deltaX;
+				newRect.height = originalRect.height - deltaY;
+				break;
+			case 'ne':
+				newRect.y = originalRect.y + deltaY;
+				newRect.width = originalRect.width + deltaX;
+				newRect.height = originalRect.height - deltaY;
+				break;
+			case 'sw':
+				newRect.x = originalRect.x + deltaX;
+				newRect.width = originalRect.width - deltaX;
+				newRect.height = originalRect.height + deltaY;
+				break;
+			case 'se':
+				newRect.width = originalRect.width + deltaX;
+				newRect.height = originalRect.height + deltaY;
+				break;
+			case 'n':
+				newRect.y = originalRect.y + deltaY;
+				newRect.height = originalRect.height - deltaY;
+				break;
+			case 's':
+				newRect.height = originalRect.height + deltaY;
+				break;
+			case 'w':
+				newRect.x = originalRect.x + deltaX;
+				newRect.width = originalRect.width - deltaX;
+				break;
+			case 'e':
+				newRect.width = originalRect.width + deltaX;
+				break;
+		}
+
+		// Ensure minimum size
+		if (newRect.width < 20) {
+			newRect.width = 20;
+			if (handle.includes('w')) newRect.x = originalRect.x + originalRect.width - 20;
+		}
+		if (newRect.height < 20) {
+			newRect.height = 20;
+			if (handle.includes('n')) newRect.y = originalRect.y + originalRect.height - 20;
+		}
+
+		// Clamp to canvas bounds
+		return clampRectToVideoBounds(newRect);
+	}
 };
 
 export const toggleCropFixed = () => {
@@ -807,4 +912,55 @@ export const updateFixSizeButton = () => {
 fixSizeBtn.onclick = (e) => {
 	e.stopPropagation();
 	toggleCropFixed();
+};
+
+// Calculate maximum rectangle that fits the given aspect ratio within video bounds
+const calculateMaxRatioRect = (videoWidth, videoHeight, ratioW, ratioH) => {
+	const videoAspect = videoWidth / videoHeight;
+	const targetAspect = ratioW / ratioH;
+
+	let width, height, x, y;
+
+	if (videoAspect > targetAspect) {
+		// Video is wider - constrain by height
+		height = videoHeight;
+		width = height * targetAspect;
+		x = (videoWidth - width) / 2;
+		y = 0;
+	} else {
+		// Video is taller - constrain by width
+		width = videoWidth;
+		height = width / targetAspect;
+		x = 0;
+		y = (videoHeight - height) / 2;
+	}
+
+	return { x, y, width, height };
+};
+
+// Constrain rectangle to maintain aspect ratio and max size
+const constrainToRatio = (rect, maxRect, aspectRatio) => {
+	let { x, y, width, height } = rect;
+	const rectCenterX = x + width / 2;
+	const rectCenterY = y + height / 2;
+
+	// Adjust the drawn rectangle's dimensions to fit the aspect ratio
+	// Choose the dimension that makes the new crop area smaller than the drawn one
+	// to ensure it's within the user's intended area.
+	if (width / height > aspectRatio) {
+		// Drawn rect is wider than the target ratio; base new width on height
+		width = height * aspectRatio;
+	} else {
+		// Drawn rect is taller or equal; base new height on width
+		height = width / aspectRatio;
+	}
+
+	// Recalculate x and y to keep the new rectangle centered
+	rect.x = rectCenterX - width / 2;
+	rect.y = rectCenterY - height / 2;
+	rect.width = width;
+	rect.height = height;
+
+	// Finally, ensure the resulting rectangle is within the video's boundaries
+	return clampRectToVideoBounds(rect);
 };

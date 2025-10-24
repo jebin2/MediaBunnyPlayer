@@ -83,6 +83,10 @@ export const cropBtn = $('cropBtn');
 export const cropCanvas = $('cropCanvas');
 export const panScanBtn = $('panScanBtn');
 export const fixSizeBtn = document.getElementById('fixSizeBtn');
+export const ratioCustom = $('#ratioCustom');
+export const ratio16_9 = $('#ratio16_9');
+export const ratio9_16 = $('#ratio9_16');
+export const aspectRatioRadios = document.querySelectorAll('input[name="aspectRatio"]');
 
 // DOM Elements - Dynamic Crop Options
 export const cropModeRadios = document.querySelectorAll('input[name="cropMode"]');

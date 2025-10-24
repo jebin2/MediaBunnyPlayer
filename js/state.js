@@ -58,6 +58,9 @@ export const state = {
     cropStart: { x: 0, y: 0 },
     cropEnd: { x: 0, y: 0 },
     cropRect: null,
+    aspectRatioMode: 'custom', // 'custom', '16:9', or '9:16'
+    maxRatioRect: null, // Stores the maximum rectangle for fixed ratios
+    aspectRatioLocked: false, // Whether we're using a fixed ratio
 
     // Dynamic Crop (Pan/Scan) State
     isPanning: false,
