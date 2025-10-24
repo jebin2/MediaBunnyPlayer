@@ -3,19 +3,19 @@
 // ============================================================================
 
 
-import { $, videoContainer, canvas, dropZone, playBtn, progressContainer, volumeSlider, muteBtn, fullscreenBtn, videoControls, loopBtn, cutBtn, screenshotBtn, screenshotOverlay, screenshotPreviewImg, closeScreenshotBtn, copyScreenshotBtn, downloadScreenshotBtn, playbackSpeedInput, autoplayToggle, urlModal, urlInput, loadUrlBtn, cancelUrlBtn, cropModeRadios, scaleWithRatioToggle, smoothPathToggle, blurBackgroundToggle, blurAmountInput, prevBtn, nextBtn, cropBtn, cropCanvas, cropCtx, panScanBtn } from './constants.js';
+import { $, videoContainer, canvas, dropZone, playBtn, progressContainer, volumeSlider, muteBtn, fullscreenBtn, videoControls, loopBtn, cutBtn, screenshotBtn, screenshotOverlay, screenshotPreviewImg, closeScreenshotBtn, copyScreenshotBtn, downloadScreenshotBtn, playbackSpeedInput, autoplayToggle, urlModal, urlInput, loadUrlBtn, cancelUrlBtn, scaleWithRatioToggle, smoothPathToggle, blurBackgroundToggle, blurAmountInput, prevBtn, nextBtn, panScanBtn } from './constants.js';
 import { state } from './state.js';
-import { resetAllConfigs, updateDynamicCropOptionsUI } from './settings.js'
-import { applyResize, clampRectToVideoBounds, drawCropWithHandles, getCursorForHandle, getResizeHandle, getScaledCoordinates, isInsideCropRect, positionCropCanvas, toggleCropFixed, togglePanning, toggleStaticCrop, updateFixSizeButton } from './crop.js'
+import { resetAllConfigs } from './settings.js'
 import { handleCutAction } from './editing.js'
 import { formatTime, guidedPanleInfo, updateShortcutKeysVisibility, } from './utility.js'
-import { getPlaybackTime, hideTrackMenus, loadMedia, play, playNext, playPrevious, seekToTime, setPlaybackSpeed, setVolume, startVideoIterator, toggleLoop, togglePlay } from './player.js'
+import { getPlaybackTime, hideTrackMenus, loadMedia, playNext, playPrevious, seekToTime, setPlaybackSpeed, setVolume, startVideoIterator, toggleLoop, togglePlay } from './player.js'
 import { clearPlaylist, handleFiles, handleFolderSelection, setupPlaylistEventListeners } from './playlist.js'
 import { takeScreenshot } from './screenshot.js'
 import { showControlsTemporarily, showError, updateProgressBarUI, updateTimeInputs } from './ui.js'
 import { audioEventlistener } from './audio.js';
 import { setupSettingsListeners } from './settings.js';
 import { lenvetlistener } from './recording.js'
+import { toggleCropFixed, setupCropListener } from './crop.js';
 
 export const setupEventListeners = () => {
 	$('clearPlaylistBtn').onclick = clearPlaylist;
@@ -202,6 +202,7 @@ export const setupEventListeners = () => {
 	setupPlaylistEventListeners();
 	audioEventlistener();
 	setupSettingsListeners();
+	setupCropListener();
 
 	document.onkeydown = (e) => {
 		if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || !state.fileLoaded) return;
@@ -368,241 +369,6 @@ export const setupEventListeners = () => {
 		}
 	};
 	// --- End of URL Modal Logic ---
-	cropBtn.onclick = toggleStaticCrop;
-	panScanBtn.onclick = togglePanning;
-
-	cropCanvas.onpointerdown = (e) => {
-		// This logic now applies to both modes
-		if (!state.isCropping && !state.isPanning) return;
-		e.preventDefault();
-		cropCanvas.setPointerCapture(e.pointerId);
-
-		state.isDrawingCrop = true;
-		const coords = getScaledCoordinates(e);
-		state.cropStart = coords;
-		state.cropEnd = coords;
-	};
-
-	cropCanvas.onpointerdown = (e) => {
-		if (!state.isCropping && !state.isPanning) return;
-		e.preventDefault();
-		cropCanvas.setPointerCapture(e.pointerId);
-
-		const coords = getScaledCoordinates(e);
-
-		// If we have an existing crop rect
-		const currentRect = state.isCropping ? state.cropRect :
-			(state.panKeyframes.length > 0 ? state.panKeyframes[state.panKeyframes.length - 1].rect : null);
-
-		if (currentRect && !state.isCropFixed) {
-			// Check if clicking on a resize handle
-			state.resizeHandle = getResizeHandle(coords.x, coords.y, currentRect);
-
-			if (state.resizeHandle) {
-				state.isResizingCrop = true;
-				state.originalCropRect = { ...currentRect };
-				state.dragStartPos = coords;
-			} else if (isInsideCropRect(coords.x, coords.y, currentRect)) {
-				// Clicking inside crop area - start dragging
-				state.isDraggingCrop = true;
-				state.originalCropRect = { ...currentRect };
-				state.dragStartPos = coords;
-			} else {
-				// Clicking outside - start drawing new rect
-				state.isDrawingCrop = true;
-				state.cropStart = coords;
-				state.cropEnd = coords;
-			}
-		} else if (currentRect && state.isCropFixed && state.isPanning) {
-			// In panning mode with fixed size, any click starts recording movement
-			state.isDraggingCrop = true;
-			state.dragStartPos = coords;
-		} else {
-			// No existing rect - start drawing
-			state.isDrawingCrop = true;
-			state.cropStart = coords;
-			state.cropEnd = coords;
-		}
-	};
-
-	cropCanvas.onpointermove = (e) => {
-		const coords = getScaledCoordinates(e);
-
-		// Update cursor based on position
-		if (!state.isDrawingCrop && !state.isDraggingCrop && !state.isResizingCrop) {
-			const currentRect = state.isCropping ? state.cropRect :
-				(state.panKeyframes.length > 0 ? state.panKeyframes[state.panKeyframes.length - 1].rect : null);
-
-			if (currentRect && !state.isCropFixed) {
-				const handle = getResizeHandle(coords.x, coords.y, currentRect);
-				if (handle) {
-					cropCanvas.style.cursor = getCursorForHandle(handle);
-				} else if (isInsideCropRect(coords.x, coords.y, currentRect)) {
-					cropCanvas.style.cursor = 'move';
-				} else {
-					cropCanvas.style.cursor = 'crosshair';
-				}
-			} else if (state.isPanning && state.panRectSize && state.isCropFixed) {
-				// Live panning with fixed size
-				const lastRectSize = state.panKeyframes.length > 0
-					? { width: state.panKeyframes[state.panKeyframes.length - 1].rect.width, height: state.panKeyframes[state.panKeyframes.length - 1].rect.height }
-					: state.panRectSize;
-				let currentRect = {
-					x: coords.x - lastRectSize.width / 2,
-					y: coords.y - lastRectSize.height / 2,
-					width: lastRectSize.width,
-					height: lastRectSize.height
-				};
-				currentRect = clampRectToVideoBounds(currentRect);
-				state.panKeyframes.push({ timestamp: getPlaybackTime(), rect: currentRect });
-				drawCropWithHandles(currentRect);
-				return;
-			}
-		}
-
-		// Handle drawing new rect
-		if (state.isDrawingCrop) {
-			e.preventDefault();
-			state.cropEnd = coords;
-
-			const rect = {
-				x: Math.min(state.cropStart.x, state.cropEnd.x),
-				y: Math.min(state.cropStart.y, state.cropEnd.y),
-				width: Math.abs(state.cropStart.x - state.cropEnd.x),
-				height: Math.abs(state.cropStart.y - state.cropEnd.y)
-			};
-			drawCropWithHandles(rect);
-			return;
-		}
-
-		// Handle resizing
-		if (state.isResizingCrop && state.originalCropRect) {
-			e.preventDefault();
-			const deltaX = coords.x - state.dragStartPos.x;
-			const deltaY = coords.y - state.dragStartPos.y;
-
-			const newRect = applyResize(state.resizeHandle, deltaX, deltaY, state.originalCropRect);
-
-			if (state.isCropping) {
-				state.cropRect = newRect;
-			} else if (state.isPanning && state.panKeyframes.length > 0) {
-				state.panKeyframes[state.panKeyframes.length - 1].rect = newRect;
-				state.panRectSize = { width: newRect.width, height: newRect.height };
-			}
-
-			drawCropWithHandles(newRect);
-			return;
-		}
-
-		// Handle dragging/moving
-		if (state.isDraggingCrop && state.originalCropRect) {
-			e.preventDefault();
-			const deltaX = coords.x - state.dragStartPos.x;
-			const deltaY = coords.y - state.dragStartPos.y;
-
-			let newRect = {
-				x: state.originalCropRect.x + deltaX,
-				y: state.originalCropRect.y + deltaY,
-				width: state.originalCropRect.width,
-				height: state.originalCropRect.height
-			};
-
-			newRect = clampRectToVideoBounds(newRect);
-
-			if (state.isCropping) {
-				state.cropRect = newRect;
-			} else if (state.isPanning) {
-				if (state.isCropFixed) {
-					// Record keyframe while dragging in fixed mode
-					state.panKeyframes.push({ timestamp: getPlaybackTime(), rect: newRect });
-				} else if (state.panKeyframes.length > 0) {
-					state.panKeyframes[state.panKeyframes.length - 1].rect = newRect;
-				}
-			}
-
-			drawCropWithHandles(newRect);
-			return;
-		}
-	};
-
-	cropCanvas.onpointerup = (e) => {
-		if (!state.isDrawingCrop && !state.isDraggingCrop && !state.isResizingCrop) return;
-		e.preventDefault();
-		cropCanvas.releasePointerCapture(e.pointerId);
-
-		// Finalize drawing new rect
-		if (state.isDrawingCrop) {
-			const finalRect = {
-				x: Math.min(state.cropStart.x, state.cropEnd.x),
-				y: Math.min(state.cropStart.y, state.cropEnd.y),
-				width: Math.abs(state.cropStart.x - state.cropEnd.x),
-				height: Math.abs(state.cropStart.y - state.cropEnd.y)
-			};
-
-			if (finalRect.width < 10 || finalRect.height < 10) {
-				state.cropRect = null;
-				state.panRectSize = null;
-				cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
-			} else {
-				if (state.isPanning) {
-					state.panRectSize = { width: finalRect.width, height: finalRect.height };
-					state.panKeyframes.push({ timestamp: getPlaybackTime(), rect: finalRect });
-				} else if (state.isCropping) {
-					state.cropRect = finalRect;
-				}
-				drawCropWithHandles(finalRect);
-			}
-		}
-
-		state.isDrawingCrop = false;
-		state.isDraggingCrop = false;
-		state.isResizingCrop = false;
-		state.resizeHandle = null;
-		state.originalCropRect = null;
-		cropCanvas.style.cursor = 'crosshair';
-
-		updateFixSizeButton();
-	};
-
-	// 2. Add the wheel event listener for zooming
-	cropCanvas.addEventListener('wheel', (e) => {
-		if (!state.isPanning || !state.isShiftPressed || !state.panRectSize) return;
-		e.preventDefault();
-
-		const lastKeyframe = state.panKeyframes[state.panKeyframes.length - 1];
-		if (!lastKeyframe) return;
-
-		// === NEW: GET MOUSE POSITION FOR CENTERED ZOOM ===
-		const coords = getScaledCoordinates(e);
-		const ZOOM_SPEED = 0.05;
-
-		const currentRect = lastKeyframe.rect;
-		const zoomFactor = e.deltaY < 0 ? (1 - ZOOM_SPEED) : (1 + ZOOM_SPEED);
-		const aspectRatio = state.panRectSize.width / state.panRectSize.height;
-
-		// === NEW: CALCULATE MOUSE POSITION AS A RATIO WITHIN THE RECTANGLE ===
-		// This ensures the point under the cursor stays in the same relative position after zoom.
-		const ratioX = (coords.x - currentRect.x) / currentRect.width;
-		const ratioY = (coords.y - currentRect.y) / currentRect.height;
-
-		let newWidth = currentRect.width * zoomFactor;
-		let newHeight = newWidth / aspectRatio;
-
-		// === NEW: CALCULATE NEW TOP-LEFT CORNER BASED ON MOUSE POSITION ===
-		let newX = coords.x - (newWidth * ratioX);
-		let newY = coords.y - (newHeight * ratioY);
-
-		let newZoomedRect = { x: newX, y: newY, width: newWidth, height: newHeight };
-		newZoomedRect = clampRectToVideoBounds(newZoomedRect);
-
-		// === CRITICAL SMOOTHNESS FIX ===
-		// Instead of pushing a new keyframe, we UPDATE the last one.
-		// This prevents keyframe overload and makes the zoom feel smooth.
-		lastKeyframe.rect = newZoomedRect;
-
-		drawCropWithHandles(newZoomedRect);
-
-	}, { passive: false }); // { passive: false } is needed for preventDefault() to work reliably
 
 	// 1. Add global listeners to track the Shift key state
 	document.addEventListener('keydown', (e) => {
@@ -634,46 +400,11 @@ export const setupEventListeners = () => {
 		}
 	});
 
-	// Trigger the UI visibility update
-	if (cropModeRadios.length > 0) {
-		// Find the event listener's helper function to call it directly
-		// Note: This assumes updateDynamicCropOptionsUI is available in this scope.
-		// It's better to define it outside the event listener if it's not.
-		updateDynamicCropOptionsUI();
-	}
-
 	if (smoothPathToggle) {
 		smoothPathToggle.onchange = (e) => {
 			state.smoothPath = e.target.checked;
 		};
 	}
-
-	// Listen for changes on any of the radio buttons
-	cropModeRadios.forEach(radio => {
-		radio.addEventListener('change', (e) => {
-			// Update the main state variable with the new mode
-			state.dynamicCropMode = e.target.value;
-
-			// Reset sub-options when the mode changes to prevent leftover state
-			if (scaleWithRatioToggle) {
-				scaleWithRatioToggle.checked = false;
-				state.scaleWithRatio = false;
-			}
-			if (smoothPathToggle) {
-				smoothPathToggle.checked = true;
-				state.smoothPath = true;
-			}
-			if (blurBackgroundToggle) {
-				blurBackgroundToggle.checked = false;
-				state.useBlurBackground = false;
-				blurAmountInput.value = 15; // And reset its value
-				state.blurAmount = 15;
-			}
-
-			// Update the UI to show the correct sub-options
-			updateDynamicCropOptionsUI();
-		});
-	});
 
 	// Independent listeners for the sub-options
 	if (scaleWithRatioToggle) {
@@ -698,32 +429,12 @@ export const setupEventListeners = () => {
 	if (resetAllBtn) {
 		resetAllBtn.onclick = resetAllConfigs; // Simply call our powerful new function
 	}
-	updateDynamicCropOptionsUI();
 };
 
-window.addEventListener('resize', () => {
-    clearTimeout(state.resizeTimeout);
-    state.resizeTimeout = setTimeout(() => {
-        if ((state.isCropping || state.isPanning) && !cropCanvas.classList.contains('hidden')) {
-            state.cropCanvasDimensions = positionCropCanvas();
-            // Redraw current crop
-            const currentRect = state.isCropping ? state.cropRect :
-                (state.panKeyframes.length > 0 ? state.panKeyframes[state.panKeyframes.length - 1].rect : null);
-            if (currentRect) {
-                drawCropWithHandles(currentRect);
-            }
-        }
-    }, 100);
-});
+
 
 document.addEventListener('keydown', (e) => {
-	if (state.isPanning && state.panRectSize && e.key.toLowerCase() === 'r' && !state.isCropFixed) {
-		e.preventDefault();
-		toggleCropFixed();
-		if (state.isCropFixed && !state.playing) {
-			play(); // Auto-start playback when fixing size in pan mode
-		}
-	} else if (e.key.toLowerCase() === 's') {
+	if (e.key.toLowerCase() === 's') {
 		e.preventDefault();
 		takeScreenshot()
 	} else if (e.key.toLowerCase() === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) {
