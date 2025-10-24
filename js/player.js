@@ -12,20 +12,13 @@ import {
 	Conversion,
 	Output,
 	Mp4OutputFormat,
-	BufferTarget,
-	QUALITY_HIGH
-} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
+	BufferTarget} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
 
-import { $, MEDIABUNNY_URL, playerArea, videoContainer, canvas, dropZone, loading, playBtn, timeDisplay, progressContainer, progressBar, volumeSlider, muteBtn, fullscreenBtn, sidebar, playlistContent, videoControls, progressHandle, startTimeInput, endTimeInput, settingsCtrlBtn, settingsMenu, loopBtn, cutBtn, screenshotBtn, screenshotOverlay, screenshotPreviewImg, closeScreenshotBtn, copyScreenshotBtn, downloadScreenshotBtn, playbackSpeedInput, autoplayToggle, urlModal, urlInput, loadUrlBtn, cancelUrlBtn, showMessage, cropModeRadios, scaleOptionContainer, scaleWithRatioToggle, blurOptionContainer, smoothOptionContainer, smoothPathToggle, blurBackgroundToggle, blurAmountInput, HANDLE_SIZE, HANDLE_HALF, fixSizeBtn, prevBtn, nextBtn, cropBtn, cropCanvas, cropCtx, queuedAudioNodes, panScanBtn, ctx } from './constants.js';
+import { $, MEDIABUNNY_URL, videoContainer, canvas, playBtn, volumeSlider, muteBtn, videoControls, startTimeInput, endTimeInput, loopBtn, playbackSpeedInput, cropCanvas, queuedAudioNodes, ctx } from './constants.js';
 import { state } from './state.js';
-import { resetAllConfigs, updateDynamicCropOptionsUI } from './config.js'
-import { applyResize, clampRectToVideoBounds, drawCropOverlay,drawCropWithHandles, getCursorForHandle, getInterpolatedCropRect, getResizeHandle, getScaledCoordinates, isInsideCropRect, positionCropCanvas, smoothPathWithMovingAverage, toggleCropFixed, togglePanning, toggleStaticCrop, updateFixSizeButton } from './crop.js'
-import { handleCutAction } from './editing.js'
-import { setupEventListeners } from './eventListeners.js'
-import { dynamicVideoUrl, escapeHTML, formatTime, guidedPanleInfo, parseTime, registerServiceWorker, updateShortcutKeysVisibility, } from './utility.js'
-import { clearPlaylist, findFileByPath, handleFiles, handleFolderSelection, removeItemFromPath, updatePlaylistUIOptimized } from './playlist.js'
-import { takeScreenshot } from './screenshot.js'
-import { hideStatusMessage, showControlsTemporarily, showDropZoneUI, showError, showInfo, showLoading, showPlayerUI, showStatusMessage, updateProgressBarUI, updateTimeInputs } from './ui.js'
+import { formatTime, parseTime, } from './utility.js'
+import { updatePlaylistUIOptimized } from './playlist.js'
+import { hideStatusMessage, showControlsTemporarily, showDropZoneUI, showError, showLoading, showPlayerUI, showStatusMessage, updateProgressBarUI, updateTimeInputs } from './ui.js'
 
 export const getPlaybackTime = () => {
 	if (!state.playing) {

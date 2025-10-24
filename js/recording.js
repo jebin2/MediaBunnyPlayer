@@ -15,9 +15,7 @@ import {
     pauseRecBtn,
     stopRecBtn,
     recTimer,
-    recordScreenBtn,
-    settingsMenu
-} from './constants.js';
+    recordScreenBtn} from './constants.js';
 import { state } from './state.js';
 import { showInfo, showError } from './ui.js';
 import { updatePlaylistUIOptimized, openPlaylist } from './playlist.js';

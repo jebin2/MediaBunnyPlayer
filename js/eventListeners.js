@@ -2,30 +2,17 @@
 // EVENT LISTENERS & HANDLERS
 // ============================================================================
 
-import {
-	Input,
-	ALL_FORMATS,
-	BlobSource,
-	UrlSource,
-	AudioBufferSink,
-	CanvasSink,
-	Conversion,
-	Output,
-	Mp4OutputFormat,
-	BufferTarget,
-	QUALITY_HIGH
-} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
 
-import { $, MEDIABUNNY_URL, playerArea, videoContainer, canvas, dropZone, loading, playBtn, timeDisplay, progressContainer, progressBar, volumeSlider, muteBtn, fullscreenBtn, sidebar, videoControls, progressHandle, startTimeInput, endTimeInput, settingsCtrlBtn, settingsMenu, loopBtn, cutBtn, screenshotBtn, screenshotOverlay, screenshotPreviewImg, closeScreenshotBtn, copyScreenshotBtn, downloadScreenshotBtn, playbackSpeedInput, autoplayToggle, urlModal, urlInput, loadUrlBtn, cancelUrlBtn, showMessage, cropModeRadios, scaleOptionContainer, scaleWithRatioToggle, blurOptionContainer, smoothOptionContainer, smoothPathToggle, blurBackgroundToggle, blurAmountInput, HANDLE_SIZE, HANDLE_HALF, fixSizeBtn, prevBtn, nextBtn, cropBtn, cropCanvas, cropCtx, queuedAudioNodes, panScanBtn, ctx } from './constants.js';
+import { $, videoContainer, canvas, dropZone, playBtn, progressContainer, volumeSlider, muteBtn, fullscreenBtn, videoControls, loopBtn, cutBtn, screenshotBtn, screenshotOverlay, screenshotPreviewImg, closeScreenshotBtn, copyScreenshotBtn, downloadScreenshotBtn, playbackSpeedInput, autoplayToggle, urlModal, urlInput, loadUrlBtn, cancelUrlBtn, cropModeRadios, scaleWithRatioToggle, smoothPathToggle, blurBackgroundToggle, blurAmountInput, prevBtn, nextBtn, cropBtn, cropCanvas, cropCtx, panScanBtn } from './constants.js';
 import { state } from './state.js';
-import { resetAllConfigs, updateDynamicCropOptionsUI } from './config.js'
-import { applyResize, clampRectToVideoBounds, drawCropOverlay,drawCropWithHandles, getCursorForHandle, getInterpolatedCropRect, getResizeHandle, getScaledCoordinates, isInsideCropRect, positionCropCanvas, smoothPathWithMovingAverage, toggleCropFixed, togglePanning, toggleStaticCrop, updateFixSizeButton } from './crop.js'
+import { resetAllConfigs, updateDynamicCropOptionsUI } from './settings.js'
+import { applyResize, clampRectToVideoBounds, drawCropWithHandles, getCursorForHandle, getResizeHandle, getScaledCoordinates, isInsideCropRect, positionCropCanvas, toggleCropFixed, togglePanning, toggleStaticCrop, updateFixSizeButton } from './crop.js'
 import { handleCutAction } from './editing.js'
-import { dynamicVideoUrl, escapeHTML, formatTime, guidedPanleInfo, parseTime, registerServiceWorker, updateShortcutKeysVisibility, } from './utility.js'
-import { checkPlaybackState, ensureSubtitleRenderer, getPlaybackTime, handleConversion, hideTrackMenus, loadMedia, pause, play, playNext, playPrevious, removeSubtitleOverlay, renderLoop, runAudioIterator, scheduleProgressUpdate, seekToTime, setPlaybackSpeed, setVolume, startVideoIterator, stopAndClear, switchAudioTrack, switchSubtitleTrack, toggleLoop, togglePlay, updateNextFrame, updateSubtitlesOptimized, updateTrackMenus } from './player.js'
-import { clearPlaylist, findFileByPath, handleFiles, handleFolderSelection, removeItemFromPath, updatePlaylistUIOptimized, setupPlaylistEventListeners } from './playlist.js'
+import { formatTime, guidedPanleInfo, updateShortcutKeysVisibility, } from './utility.js'
+import { getPlaybackTime, hideTrackMenus, loadMedia, play, playNext, playPrevious, seekToTime, setPlaybackSpeed, setVolume, startVideoIterator, toggleLoop, togglePlay } from './player.js'
+import { clearPlaylist, handleFiles, handleFolderSelection, setupPlaylistEventListeners } from './playlist.js'
 import { takeScreenshot } from './screenshot.js'
-import { hideStatusMessage, showControlsTemporarily, showDropZoneUI, showError, showInfo, showLoading, showPlayerUI, showStatusMessage, updateProgressBarUI, updateTimeInputs } from './ui.js'
+import { showControlsTemporarily, showError, updateProgressBarUI, updateTimeInputs } from './ui.js'
 import { audioEventlistener } from './audio.js';
 import { setupSettingsListeners } from './settings.js';
 import { lenvetlistener } from './recording.js'

@@ -26,7 +26,6 @@ import {
     closeImageToVideoBtn,
     cancelImageToVideoBtn,
     createImageVideoBtn,
-    settingsMenu,
     imageWidthInput,
     imageHeightInput,
     keepRatioChk,

@@ -13,7 +13,7 @@ import {
 	BufferTarget
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
 
-import { startTimeInput, endTimeInput, settingsMenu, resizeBtn, resizeModal, resizeWidthInput, resizeHeightInput, keepRatioToggle, resizeStartTimeInput, resizeEndTimeInput, cancelResizeBtn, processResizeBtn } from './constants.js';
+import { startTimeInput, endTimeInput, resizeBtn, resizeModal, resizeWidthInput, resizeHeightInput, keepRatioToggle, resizeStartTimeInput, resizeEndTimeInput, cancelResizeBtn, processResizeBtn } from './constants.js';
 import { state } from './state.js';
 import { guidedPanleInfo, parseTime } from './utility.js'
 import { hideTrackMenus, pause } from './player.js'

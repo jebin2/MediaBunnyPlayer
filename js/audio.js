@@ -26,8 +26,6 @@ const handleAudioDownload = async (trackIndex) => {
 
     const trackToDownload = state.availableAudioTracks[trackIndex];
 
-    // ================== FIX STARTS HERE ==================
-    // Check if the browser can actually decode this audio track before trying to convert it.
     try {
         const canDecode = await trackToDownload.canDecode();
         if (!canDecode) {
@@ -41,7 +39,6 @@ const handleAudioDownload = async (trackIndex) => {
         hideTrackMenus();
         return;
     }
-    // ================== FIX ENDS HERE ==================
 
     hideTrackMenus();
     showStatusMessage(`Preparing to download audio track ${trackIndex + 1}...`);
@@ -59,7 +56,6 @@ const handleAudioDownload = async (trackIndex) => {
             target: new BufferTarget()
         });
 
-        // Conversion options specifying ONLY the audio track.
         const conversionOptions = {
             input,
             output,
@@ -67,7 +63,6 @@ const handleAudioDownload = async (trackIndex) => {
                 track: trackToDownload,
                 codec: 'mp3'
             },
-            // By not including a 'video' key, we tell mediabunny to ignore the video.
         };
 
         const conversion = await Conversion.init(conversionOptions);
@@ -89,7 +84,6 @@ const handleAudioDownload = async (trackIndex) => {
         const audioBlob = new Blob([output.target.buffer], { type: 'audio/mpeg' });
         const downloadUrl = URL.createObjectURL(audioBlob);
 
-        // Trigger download via a temporary link
         const a = document.createElement('a');
         a.href = downloadUrl;
         a.download = fileName;
