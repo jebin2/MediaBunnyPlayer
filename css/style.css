@@ -426,7 +426,7 @@ body::before {
     position: absolute;
     bottom: 100%;
     margin-bottom: 12px;
-    background: rgba(13, 13, 20, 0.95);
+    background: var(--popup-bg);
     backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
     border-radius: var(--border-radius-md);
@@ -645,7 +645,7 @@ body::before {
     position: absolute;
     bottom: 100%;
     margin-bottom: 12px;
-    background: rgba(13, 13, 20, 0.95);
+    background: var(--popup-bg);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
@@ -1293,7 +1293,7 @@ body::before {
 }
 
 .loading-content {
-    background: rgba(13, 13, 20, 0.95);
+    background: var(--popup-bg);
     border: 1px solid var(--glass-border);
     border-radius: var(--border-radius-lg);
     padding: 3rem;
@@ -1339,7 +1339,7 @@ body::before {
 }
 
 .screenshot-modal {
-    background: rgba(13, 13, 20, 0.95);
+    background: var(--popup-bg);
     backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
     border-radius: var(--border-radius-lg);
