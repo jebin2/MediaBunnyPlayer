@@ -321,12 +321,27 @@ export const setupCropListener = () => {
 			}
 		}
 	});
-	const aspectRatioRadios = document.querySelectorAll('input[name="aspectRatio"]');
-	aspectRatioRadios.forEach(radio => {
-		radio.addEventListener('change', (e) => {
-			state.aspectRatioMode = e.target.value;
+	// ADD THIS NEW CODE
+	const aspectRatioButtons = document.querySelectorAll('.aspect-ratio-btn');
+	aspectRatioButtons.forEach(button => {
+		button.addEventListener('click', (e) => {
+			e.preventDefault();
+			const clickedBtn = e.currentTarget;
+			const newValue = clickedBtn.dataset.value;
 
-			// If currently in panning mode, restart to apply new ratio
+			// Do nothing if the active button is clicked again
+			if (state.aspectRatioMode === newValue) {
+				return;
+			}
+
+			// Update state
+			state.aspectRatioMode = newValue;
+
+			// Update UI
+			aspectRatioButtons.forEach(btn => btn.classList.remove('active'));
+			clickedBtn.classList.add('active');
+
+			// If currently in panning mode, restart to apply the new ratio
 			if (state.isPanning) {
 				togglePanning(null, true); // Reset
 				setTimeout(() => togglePanning(), 50); // Restart with new ratio

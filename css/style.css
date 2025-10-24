@@ -1963,3 +1963,46 @@ select,
 .recording-controls-container.hidden {
     display: none;
 }
+
+/* =================================== */
+/*  Aspect Ratio Button Group Styles   */
+/* =================================== */
+
+.aspect-ratio-group {
+    display: grid !important;
+    grid-template-columns: auto auto auto;
+    gap: 1rem;
+}
+
+.aspect-ratio-btn {
+    border: 2px dashed #888;
+    padding: 0;
+    transition: all 0.2s ease-in-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.aspect-ratio-btn.active {
+    background: rgba(0, 122, 255, 0.25);
+    border-color: var(--accent-primary);
+    color: var(--accent-secondary);
+}
+
+/* 1️⃣ Custom ratio (Square 1:1) */
+.aspect-ratio-btn:first-child {
+    width: 40px;
+    height: 40px;
+}
+
+/* 2️⃣ 16:9 ratio (Wider landscape) */
+.aspect-ratio-btn:nth-child(2) {
+    width: calc(40px * 16 / 9);
+    height: 40px;
+}
+
+/* 3️⃣ 9:16 ratio (Taller portrait) */
+.aspect-ratio-btn:nth-child(3) {
+    width: 40px;
+    height: calc(40px * 16 / 9);
+}

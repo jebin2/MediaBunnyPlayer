@@ -180,6 +180,15 @@
 					<!-- Dynamic options are now correctly grouped under the main Cropping section -->
 					<div id="dynamicCropOptionsContainer">
 						<fieldset class="trim-mode-selector">
+							<legend>Aspect Ratio</legend>
+							<div class="aspect-ratio-group" id="aspectRatioBtnGroup">
+								<button class="btn aspect-ratio-btn active" data-value="custom"
+									title="Custom Ratio"></button>
+								<button class="btn aspect-ratio-btn" data-value="16:9" title="16:9 Ratio">16:9</button>
+								<button class="btn aspect-ratio-btn" data-value="9:16" title="9:16 Ratio">9:16</button>
+							</div>
+						</fieldset>
+						<fieldset class="trim-mode-selector">
 							<legend>Dynamic Crop Mode</legend>
 							<div>
 								<input type="radio" id="cropModeNone" name="cropMode" value="none" checked>
@@ -192,21 +201,6 @@
 							<div>
 								<input type="radio" id="cropModeMaxSize" name="cropMode" value="max-size">
 								<label for="cropModeMaxSize">Max Size</label>
-							</div>
-						</fieldset>
-						<fieldset class="trim-mode-selector">
-							<legend>Aspect Ratio</legend>
-							<div>
-								<input type="radio" id="ratioCustom" name="aspectRatio" value="custom" checked>
-								<label for="ratioCustom">Custom</label>
-							</div>
-							<div>
-								<input type="radio" id="ratio16_9" name="aspectRatio" value="16:9">
-								<label for="ratio16_9">16:9</label>
-							</div>
-							<div>
-								<input type="radio" id="ratio9_16" name="aspectRatio" value="9:16">
-								<label for="ratio9_16">9:16</label>
 							</div>
 						</fieldset>
 
