@@ -1911,22 +1911,23 @@ select,
     align-items: center;
 }
 
-.toggle-option > label {
+.toggle-option>label {
     display: flex;
     justify-content: space-between;
     align-items: center;
     cursor: pointer;
-    flex-grow: 1; /* Allows the label to take up available space */
+    flex-grow: 1;
+    /* Allows the label to take up available space */
 }
 
 /* Style the text specifically using the new span */
-.toggle-option > label > span {
+.toggle-option>label>span {
     color: #ccc;
     font-size: 0.95em;
 }
 
 /* For the blur option, we add a small gap between the label and the input */
-.toggle-option > label + #blurAmountInput {
+.toggle-option>label+#blurAmountInput {
     margin-left: 10px;
 }
 
