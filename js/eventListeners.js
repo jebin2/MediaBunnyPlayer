@@ -8,7 +8,7 @@ import { state } from './state.js';
 import { resetAllConfigs } from './settings.js'
 import { handleCutAction } from './editing.js'
 import { formatTime, guidedPanleInfo, updateShortcutKeysVisibility, } from './utility.js'
-import { getPlaybackTime, hideTrackMenus, loadMedia, playNext, playPrevious, seekToTime, setPlaybackSpeed, setVolume, startVideoIterator, toggleLoop, togglePlay } from './player.js'
+import { getPlaybackTime, hideTrackMenus, loadMedia, seekToTime, setPlaybackSpeed, setVolume, startVideoIterator, toggleLoop, togglePlay } from './player.js'
 import { clearPlaylist, handleFiles, handleFolderSelection, setupPlaylistEventListeners } from './playlist.js'
 import { takeScreenshot } from './screenshot.js'
 import { showControlsTemporarily, showError, updateProgressBarUI, updateTimeInputs } from './ui.js'
@@ -29,30 +29,6 @@ export const setupEventListeners = () => {
 
 	$('folderInput').onclick = (e) => e.target.value = null;
 	$('folderInput').onchange = handleFolderSelection;
-
-	playBtn.onclick = (e) => {
-		e.stopPropagation();
-		togglePlay();
-	};
-	prevBtn.onclick = (e) => {
-		e.stopPropagation();
-		playPrevious();
-	};
-
-	nextBtn.onclick = (e) => {
-		e.stopPropagation();
-		playNext();
-	};
-	muteBtn.onclick = (e) => {
-		e.stopPropagation();
-		if (parseFloat(volumeSlider.value) > 0) {
-			volumeSlider.dataset.lastVolume = volumeSlider.value;
-			volumeSlider.value = 0;
-		} else {
-			volumeSlider.value = volumeSlider.dataset.lastVolume || 1;
-		}
-		setVolume(volumeSlider.value);
-	};
 
 	const mainActionBtn = $('mainActionBtn');
 	const dropdownActionBtn = $('dropdownActionBtn');
@@ -112,21 +88,6 @@ export const setupEventListeners = () => {
 			executeOpenFileAction(action);
 		});
 	}
-	$('audioTrackCtrlBtn').onclick = (e) => {
-		e.stopPropagation();
-		const menu = $('audioTrackMenu');
-		const isHidden = menu.classList.contains('hidden');
-		hideTrackMenus();
-		if (isHidden) menu.classList.remove('hidden');
-	};
-
-	$('subtitleTrackCtrlBtn').onclick = (e) => {
-		e.stopPropagation();
-		const menu = $('subtitleTrackMenu');
-		const isHidden = menu.classList.contains('hidden');
-		hideTrackMenus();
-		if (isHidden) menu.classList.remove('hidden');
-	};
 
 	// === PERFORMANCE OPTIMIZATION: Event delegation for playlist ===
 	document.addEventListener('click', (e) => {
