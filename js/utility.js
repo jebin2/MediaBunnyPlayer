@@ -62,11 +62,10 @@ export const dynamicVideoUrl = () => {
 			const decodedUrl = decodeURIComponent(videoUrl);
 			const urlPlayOverlay = $('urlPlayOverlay');
 			if (!muted && urlPlayOverlay) {
-				document.querySelector(".entryloading").classList.add('hidden');
+				document.getElementById("entryloading").classList.add('hidden');
 				urlPlayOverlay.classList.remove('hidden');
 				const startBtn = urlPlayOverlay.querySelector('button') || urlPlayOverlay;
 				startBtn.addEventListener('click', () => {
-					urlPlayOverlay.classList.add('hidden');
 					loadMedia(decodedUrl, false);
 				}, {
 					once: true

@@ -178,7 +178,8 @@ export const startVideoIterator = async () => {
 
 		const firstFrame = firstResult.value ?? null;
 		if (firstFrame) {
-			document.querySelector(".entryloading").classList.add('hidden');
+			document.getElementById("urlPlayOverlay").classList.add('hidden');
+			document.getElementById("entryloading").classList.add('hidden');
 			ctx.drawImage(firstFrame.canvas, 0, 0, canvas.width, canvas.height);
 			updateNextFrame();
 		} else {
