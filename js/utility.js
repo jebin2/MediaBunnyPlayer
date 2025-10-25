@@ -62,6 +62,7 @@ export const dynamicVideoUrl = () => {
 			const decodedUrl = decodeURIComponent(videoUrl);
 			const urlPlayOverlay = $('urlPlayOverlay');
 			if (!muted && urlPlayOverlay) {
+				document.querySelector(".entryloading").classList.add('hidden');
 				urlPlayOverlay.classList.remove('hidden');
 				const startBtn = urlPlayOverlay.querySelector('button') || urlPlayOverlay;
 				startBtn.addEventListener('click', () => {
@@ -72,7 +73,6 @@ export const dynamicVideoUrl = () => {
 				});
 			} else {
 				loadMedia(decodedUrl, false, muted);
-				document.querySelector(".entryloading").classList.add('hidden');
 			}
 		} catch (e) {
 			console.error("Error parsing video_url:", e);
