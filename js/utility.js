@@ -72,6 +72,7 @@ export const dynamicVideoUrl = () => {
 				});
 			} else {
 				loadMedia(decodedUrl, false, muted);
+				document.querySelector(".entryloading").classList.add('hidden');
 			}
 		} catch (e) {
 			console.error("Error parsing video_url:", e);
