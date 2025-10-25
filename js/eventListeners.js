@@ -3,12 +3,12 @@
 // ============================================================================
 
 
-import { $, videoContainer, canvas, dropZone, playBtn, progressContainer, volumeSlider, muteBtn, fullscreenBtn, videoControls, loopBtn, cutBtn, screenshotBtn, screenshotOverlay, screenshotPreviewImg, closeScreenshotBtn, copyScreenshotBtn, downloadScreenshotBtn, playbackSpeedInput, autoplayToggle, urlModal, urlInput, loadUrlBtn, cancelUrlBtn, prevBtn, nextBtn, panScanBtn } from './constants.js';
+import { $, videoContainer, canvas, dropZone, progressContainer, volumeSlider, muteBtn, fullscreenBtn, videoControls, loopBtn, cutBtn, screenshotBtn, screenshotOverlay, screenshotPreviewImg, closeScreenshotBtn, copyScreenshotBtn, downloadScreenshotBtn, playbackSpeedInput, autoplayToggle, urlModal, urlInput, loadUrlBtn, cancelUrlBtn, panScanBtn } from './constants.js';
 import { state } from './state.js';
 import { resetAllConfigs } from './settings.js'
 import { handleCutAction } from './editing.js'
 import { formatTime, guidedPanleInfo, updateShortcutKeysVisibility, } from './utility.js'
-import { getPlaybackTime, hideTrackMenus, loadMedia, seekToTime, setPlaybackSpeed, setVolume, startVideoIterator, toggleLoop, togglePlay } from './player.js'
+import { getPlaybackTime, hideTrackMenus, loadMedia, seekToTime, setPlaybackSpeed, setVolume, startVideoIterator, toggleLoop, togglePlay, setupPlayerListener } from './player.js'
 import { clearPlaylist, handleFiles, handleFolderSelection, setupPlaylistEventListeners } from './playlist.js'
 import { takeScreenshot } from './screenshot.js'
 import { showControlsTemporarily, showError, updateProgressBarUI, updateTimeInputs } from './ui.js'
@@ -164,6 +164,7 @@ export const setupEventListeners = () => {
 	audioEventlistener();
 	setupSettingsListeners();
 	setupCropListener();
+	setupPlayerListener();
 
 	document.onkeydown = (e) => {
 		if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || !state.fileLoaded) return;
