@@ -61,12 +61,12 @@ export const dynamicVideoUrl = () => {
 			const muted = urlParams.get('auto_play') === "true";
 			const decodedUrl = decodeURIComponent(videoUrl);
 			const urlPlayOverlay = $('urlPlayOverlay');
-			if (!urlParams.get('only_video_player') && urlPlayOverlay) {
+			if (!muted && urlPlayOverlay) {
 				urlPlayOverlay.classList.remove('hidden');
 				const startBtn = urlPlayOverlay.querySelector('button') || urlPlayOverlay;
 				startBtn.addEventListener('click', () => {
 					urlPlayOverlay.classList.add('hidden');
-					loadMedia(decodedUrl, false, muted);
+					loadMedia(decodedUrl, false);
 				}, {
 					once: true
 				});
