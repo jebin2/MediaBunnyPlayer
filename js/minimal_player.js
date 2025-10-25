@@ -12,10 +12,16 @@ export const allow_minimal = () => {
     if (bgColor) {
         // Find the video container element
         const videoContainer = document.getElementById('videoContainer'); // Make sure your container has this ID
-
         if (videoContainer) {
             // Apply the background color, adding the '#' prefix
             videoContainer.style.setProperty('background-color', `#${bgColor}`, 'important');
+        }
+
+        const urlPlayOverlay = document.getElementById('urlPlayOverlay');
+        if (urlPlayOverlay) {
+            // Apply the background color, adding the '#' prefix
+            urlPlayOverlay.style.setProperty('background-color', `#${bgColor}`, 'important');
+
         }
     }
     const header = document.querySelector(".header");
