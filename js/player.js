@@ -15,10 +15,9 @@ import {
 	BufferTarget
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
 
-import { $, MEDIABUNNY_URL, videoContainer, canvas, playBtn, volumeSlider, muteBtn, videoControls, startTimeInput, endTimeInput, loopBtn, playbackSpeedInput, cropCanvas, queuedAudioNodes, ctx } from './constants.js';
+import { $, MEDIABUNNY_URL, videoContainer, canvas, playBtn, volumeSlider, muteBtn, videoControls, startTimeInput, endTimeInput, loopBtn, playbackSpeedInput, cropCanvas, queuedAudioNodes, ctx, fullscreenBtn } from './constants.js';
 import { state } from './state.js';
 import { formatTime, parseTime, } from './utility.js'
-import { updatePlaylistUIOptimized } from './playlist.js'
 import { hideStatusMessage, showControlsTemporarily, showDropZoneUI, showError, showLoading, showPlayerUI, showStatusMessage, updateProgressBarUI, updateTimeInputs } from './ui.js'
 
 export const setupPlayerListener = () => {
@@ -78,6 +77,73 @@ export const setupPlayerListener = () => {
 		const isHidden = menu.classList.contains('hidden');
 		hideTrackMenus();
 		if (isHidden) menu.classList.remove('hidden');
+	};
+	volumeSlider.onclick = (e) => e.stopPropagation();
+	volumeSlider.oninput = (e) => setVolume(e.target.value);
+
+	fullscreenBtn.onclick = (e) => {
+		e.stopPropagation();
+		if (document.fullscreenElement) document.exitFullscreen();
+		else if (videoContainer.requestFullscreen) videoContainer.requestFullscreen();
+	};
+	const handleSeekLine = (e) => {
+		const rect = progressContainer.getBoundingClientRect();
+		const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+		return percent * state.totalDuration;
+	};
+
+	progressContainer.onpointerdown = (e) => {
+		if (!state.fileLoaded) return;
+		e.preventDefault();
+		state.isSeeking = true;
+		progressContainer.setPointerCapture(e.pointerId);
+		const seekTime = handleSeekLine(e);
+		updateProgressBarUI(seekTime);
+		updateTimeInputs(seekTime);
+	};
+
+	progressContainer.onpointermove = (e) => {
+		if (!state.isSeeking) {
+			showControlsTemporarily();
+			return;
+		}
+		const seekTime = handleSeekLine(e);
+		updateProgressBarUI(seekTime);
+		updateTimeInputs(seekTime);
+	};
+
+	progressContainer.onpointerup = (e) => {
+		if (!state.isSeeking) return;
+		state.isSeeking = false;
+		progressContainer.releasePointerCapture(e.pointerId);
+
+		const finalSeekTime = handleSeekLine(e);
+		if (state.isLooping && (finalSeekTime < state.loopStartTime || finalSeekTime > state.loopEndTime)) {
+			state.isLooping = false;
+			loopBtn.textContent = 'Loop';
+		}
+		seekToTime(finalSeekTime);
+	};
+	document.onkeydown = (e) => {
+		const actions = {
+			'Space': () => togglePlay()
+		};
+		if (actions[e.code]) {
+			e.preventDefault();
+			actions[e.code]();
+			showControlsTemporarily();
+		}
+	};
+	canvas.onclick = () => {
+		if (state.audioContext && state.audioContext.state === 'suspended') state.audioContext.resume();
+		togglePlay();
+	};
+	videoContainer.onpointermove = showControlsTemporarily;
+	videoContainer.onmouseleave = () => {
+		if (state.playing && !state.isSeeking) {
+			videoControls.classList.remove('show');
+			hideTrackMenus();
+		}
 	};
 }
 
@@ -509,7 +575,6 @@ export const loadMedia = async (resource, isConversionAttempt = false, muted = f
 		}
 
 		updateTrackMenus();
-		updatePlaylistUIOptimized();
 		state.fileLoaded = true;
 		showPlayerUI();
 		updateProgressBarUI(0);

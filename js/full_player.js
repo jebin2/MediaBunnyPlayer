@@ -43,19 +43,9 @@ const loadAudioEncoderModules = async () => {
     }
 };
 
-let gemini_test;
-
-const geminiModulesFunc = async () => {
-    if (!gemini_test) {
-        const geminiModuleConst = await import('./gemini.js');
-        gemini_test = geminiModuleConst.gemini_test;
-    }
-};
-
 export const full_player = async () => {
     await loadLocalModules();
     await loadAudioEncoderModules();
-    await geminiModulesFunc()
 
     setupEventListeners();
     renderLoop();
@@ -65,5 +55,4 @@ export const full_player = async () => {
     resize_define();
     setupImageToVideo();
     setupRecordingListeners();
-    gemini_test();
 }

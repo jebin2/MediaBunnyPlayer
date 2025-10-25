@@ -6,7 +6,8 @@
 import { $, videoContainer, dropZone, loading, timeDisplay, progressBar, videoControls, progressHandle, startTimeInput, endTimeInput, showMessage } from './constants.js';
 import { state } from './state.js';
 import { hideTrackMenus } from './player.js'
-import { formatTime, } from './utility.js'
+import { formatTime } from './utility.js'
+// import { updatePlaylistUIOptimized } from './playlist.js'
 
 export const showPlayerUI = () => {
 	dropZone.style.display = 'none';
@@ -83,6 +84,7 @@ export const showControlsTemporarily = () => {
 };
 
 export const updateProgressBarUI = (time) => {
+	// updatePlaylistUIOptimized();
 	const displayTime = Math.max(0, Math.min(time, state.totalDuration));
 	timeDisplay.textContent = `${formatTime(displayTime)} / ${formatTime(state.totalDuration)}`;
 	const percent = state.totalDuration > 0 ? (displayTime / state.totalDuration) * 100 : 0;

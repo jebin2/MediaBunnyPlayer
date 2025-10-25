@@ -1,5 +1,5 @@
-import { setupEventListeners } from './eventListeners.js';
-import { renderLoop } from './player.js';
+// import { setupEventListeners } from './eventListeners.js';
+import { renderLoop, setupPlayerListener } from './player.js';
 import { dynamicVideoUrl } from './utility.js';
 
 export const allow_minimal = () => {
@@ -24,7 +24,8 @@ export const allow_minimal = () => {
     controlsLeft.style.display = "none";
     const trackControls = document.querySelector(".track-controls");
     trackControls.style.display = "none";
-    setupEventListeners();
+    // setupEventListeners();
+    setupPlayerListener();
     renderLoop();
     dynamicVideoUrl();
 }

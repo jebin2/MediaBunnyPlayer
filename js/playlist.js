@@ -10,6 +10,81 @@ import { loadMedia, stopAndClear } from './player.js'
 import { escapeHTML, } from './utility.js'
 import { showDropZoneUI, showError, showInfo, showLoading } from './ui.js'
 
+export const setupPlaylistEventListeners = () => {
+	$('clearPlaylistBtn').onclick = clearPlaylist;
+	// Handle playlist item clicks
+	playlistContent.addEventListener('click', (e) => {
+		// Handle remove buttons
+		if (e.target.classList.contains('remove-item')) {
+			e.stopPropagation();
+			const pathToRemove = e.target.dataset.path;
+			let isPlayingFile = false;
+
+			// --- START: MODIFIED LOGIC ---
+			// Check if the item being removed contains the currently playing file.
+			if (state.currentPlayingFile) {
+				// Find the full path of the file that is currently playing.
+				const currentPlayingFilePath = findPathByFile(state.playlist, state.currentPlayingFile);
+
+				// If the playing file's path starts with the path of the item being removed,
+				// it means we are deleting the playing file itself or its parent folder.
+				if (currentPlayingFilePath && currentPlayingFilePath.startsWith(pathToRemove)) {
+					isPlayingFile = true;
+				}
+			}
+
+			removeItemFromPath(state.playlist, pathToRemove);
+			updatePlaylistUIOptimized();
+			if (isPlayingFile) {
+				stopAndClear();
+				state.currentPlayingFile = null;
+				showDropZoneUI();
+			}
+			return;
+		}
+
+		// Handle clip action buttons
+		if (e.target.classList.contains('clip-action-btn')) {
+			e.stopPropagation();
+			const action = e.target.dataset.action;
+			const path = e.target.dataset.path;
+			handleClipAction(action, path);
+			return;
+		}
+
+		// Handle file clicks (play file)
+		const fileElement = e.target.closest('.playlist-file');
+		if (fileElement && !e.target.classList.contains('playlist-file-checkbox')) {
+			const path = fileElement.dataset.path;
+			const file = findFileByPath(state.playlist, path);
+			if (file) {
+				loadMedia(file);
+			}
+		}
+	});
+	$('togglePlaylistBtn').onclick = () => {
+		// If settings sidebar is open, close it first
+		if (playerArea.classList.contains('playlist-visible')) {
+			playerArea.classList.remove('playlist-visible');
+		}
+
+		playerArea.classList.toggle('playlist-visible');
+		// Toggle the settings sidebar
+		settingsMenu.classList.add('hidden');
+		sidebar.classList.toggle('hidden');
+		setTimeout(() => {
+			state.cropCanvasDimensions = positionCropCanvas();
+		}, 200);
+	}
+	document.addEventListener('click', (e) => {
+		// Find the existing listener and add a check for our new container
+		if (!e.target.closest('.track-menu') && !e.target.closest('.control-btn') && !e.target.closest('.split-action-btn')) {
+			hideTrackMenus();
+			if (actionDropdownMenu) actionDropdownMenu.classList.add('hidden'); // Also hide the action menu
+		}
+	});
+};
+
 export const handleFiles = (files) => {
 	if (files.length === 0) return;
 
@@ -404,73 +479,6 @@ const updateActiveStates = () => {
 		const isActive = (file === state.currentPlayingFile);
 		fileEl.classList.toggle('active', isActive);
 	});
-};
-
-export const setupPlaylistEventListeners = () => {
-	// Handle playlist item clicks
-	playlistContent.addEventListener('click', (e) => {
-		// Handle remove buttons
-		if (e.target.classList.contains('remove-item')) {
-			e.stopPropagation();
-			const pathToRemove = e.target.dataset.path;
-			let isPlayingFile = false;
-
-			// --- START: MODIFIED LOGIC ---
-			// Check if the item being removed contains the currently playing file.
-			if (state.currentPlayingFile) {
-				// Find the full path of the file that is currently playing.
-				const currentPlayingFilePath = findPathByFile(state.playlist, state.currentPlayingFile);
-
-				// If the playing file's path starts with the path of the item being removed,
-				// it means we are deleting the playing file itself or its parent folder.
-				if (currentPlayingFilePath && currentPlayingFilePath.startsWith(pathToRemove)) {
-					isPlayingFile = true;
-				}
-			}
-
-			removeItemFromPath(state.playlist, pathToRemove);
-			updatePlaylistUIOptimized();
-			if (isPlayingFile) {
-				stopAndClear();
-				state.currentPlayingFile = null;
-				showDropZoneUI();
-			}
-			return;
-		}
-
-		// Handle clip action buttons
-		if (e.target.classList.contains('clip-action-btn')) {
-			e.stopPropagation();
-			const action = e.target.dataset.action;
-			const path = e.target.dataset.path;
-			handleClipAction(action, path);
-			return;
-		}
-
-		// Handle file clicks (play file)
-		const fileElement = e.target.closest('.playlist-file');
-		if (fileElement && !e.target.classList.contains('playlist-file-checkbox')) {
-			const path = fileElement.dataset.path;
-			const file = findFileByPath(state.playlist, path);
-			if (file) {
-				loadMedia(file);
-			}
-		}
-	});
-	$('togglePlaylistBtn').onclick = () => {
-		// If settings sidebar is open, close it first
-		if (playerArea.classList.contains('playlist-visible')) {
-			playerArea.classList.remove('playlist-visible');
-		}
-
-		playerArea.classList.toggle('playlist-visible');
-		// Toggle the settings sidebar
-		settingsMenu.classList.add('hidden');
-		sidebar.classList.toggle('hidden');
-		setTimeout(() => {
-			state.cropCanvasDimensions = positionCropCanvas();
-		}, 200);
-	}
 };
 
 export const openPlaylist = () => {

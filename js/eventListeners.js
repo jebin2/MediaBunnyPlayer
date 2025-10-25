@@ -9,16 +9,15 @@ import { resetAllConfigs } from './settings.js'
 import { handleCutAction } from './editing.js'
 import { formatTime, guidedPanleInfo, updateShortcutKeysVisibility, } from './utility.js'
 import { getPlaybackTime, hideTrackMenus, loadMedia, seekToTime, setPlaybackSpeed, setVolume, startVideoIterator, toggleLoop, togglePlay, setupPlayerListener } from './player.js'
-import { clearPlaylist, handleFiles, handleFolderSelection, setupPlaylistEventListeners } from './playlist.js'
+import { handleFiles, handleFolderSelection, setupPlaylistEventListeners } from './playlist.js'
 import { takeScreenshot } from './screenshot.js'
-import { showControlsTemporarily, showError, updateProgressBarUI, updateTimeInputs } from './ui.js'
+import { showControlsTemporarily, showError } from './ui.js'
 import { audioEventlistener } from './audio.js';
 import { setupSettingsListeners } from './settings.js';
 import { lenvetlistener } from './recording.js'
 import { toggleCropFixed, setupCropListener } from './crop.js';
 
 export const setupEventListeners = () => {
-	$('clearPlaylistBtn').onclick = clearPlaylist;
 	$('chooseFileBtn').onclick = () => {
 		state.fileLoaded = false;
 		$('fileInput').click();
@@ -88,63 +87,6 @@ export const setupEventListeners = () => {
 			executeOpenFileAction(action);
 		});
 	}
-
-	// === PERFORMANCE OPTIMIZATION: Event delegation for playlist ===
-	document.addEventListener('click', (e) => {
-		// Find the existing listener and add a check for our new container
-		if (!e.target.closest('.track-menu') && !e.target.closest('.control-btn') && !e.target.closest('.split-action-btn')) {
-			hideTrackMenus();
-			if (actionDropdownMenu) actionDropdownMenu.classList.add('hidden'); // Also hide the action menu
-		}
-	});
-
-	volumeSlider.onclick = (e) => e.stopPropagation();
-	volumeSlider.oninput = (e) => setVolume(e.target.value);
-
-	fullscreenBtn.onclick = (e) => {
-		e.stopPropagation();
-		if (document.fullscreenElement) document.exitFullscreen();
-		else if (videoContainer.requestFullscreen) videoContainer.requestFullscreen();
-	};
-
-	const handleSeekLine = (e) => {
-		const rect = progressContainer.getBoundingClientRect();
-		const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-		return percent * state.totalDuration;
-	};
-
-	progressContainer.onpointerdown = (e) => {
-		if (!state.fileLoaded) return;
-		e.preventDefault();
-		state.isSeeking = true;
-		progressContainer.setPointerCapture(e.pointerId);
-		const seekTime = handleSeekLine(e);
-		updateProgressBarUI(seekTime);
-		updateTimeInputs(seekTime);
-	};
-
-	progressContainer.onpointermove = (e) => {
-		if (!state.isSeeking) {
-			showControlsTemporarily();
-			return;
-		}
-		const seekTime = handleSeekLine(e);
-		updateProgressBarUI(seekTime);
-		updateTimeInputs(seekTime);
-	};
-
-	progressContainer.onpointerup = (e) => {
-		if (!state.isSeeking) return;
-		state.isSeeking = false;
-		progressContainer.releasePointerCapture(e.pointerId);
-
-		const finalSeekTime = handleSeekLine(e);
-		if (state.isLooping && (finalSeekTime < state.loopStartTime || finalSeekTime > state.loopEndTime)) {
-			state.isLooping = false;
-			loopBtn.textContent = 'Loop';
-		}
-		seekToTime(finalSeekTime);
-	};
 
 	const ddEvents = ['dragenter', 'dragover', 'dragleave', 'drop'];
 	ddEvents.forEach(name => document.body.addEventListener(name, p => p.preventDefault()));
@@ -220,19 +162,6 @@ export const setupEventListeners = () => {
 			}
 		}
 	});
-
-	canvas.onclick = () => {
-		if (state.audioContext && state.audioContext.state === 'suspended') state.audioContext.resume();
-		togglePlay();
-	};
-
-	videoContainer.onpointermove = showControlsTemporarily;
-	videoContainer.onmouseleave = () => {
-		if (state.playing && !state.isSeeking) {
-			videoControls.classList.remove('show');
-			hideTrackMenus();
-		}
-	};
 
 	loopBtn.onclick = toggleLoop;
 	cutBtn.onclick = handleCutAction;
