@@ -12,7 +12,8 @@ import {
 	Conversion,
 	Output,
 	Mp4OutputFormat,
-	BufferTarget} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
+	BufferTarget
+} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
 
 import { $, MEDIABUNNY_URL, videoContainer, canvas, playBtn, volumeSlider, muteBtn, videoControls, startTimeInput, endTimeInput, loopBtn, playbackSpeedInput, cropCanvas, queuedAudioNodes, ctx } from './constants.js';
 import { state } from './state.js';
@@ -20,11 +21,81 @@ import { formatTime, parseTime, } from './utility.js'
 import { updatePlaylistUIOptimized } from './playlist.js'
 import { hideStatusMessage, showControlsTemporarily, showDropZoneUI, showError, showLoading, showPlayerUI, showStatusMessage, updateProgressBarUI, updateTimeInputs } from './ui.js'
 
+export const setupPlayerListener = () => {
+	playBtn.onclick = (e) => {
+		e.stopPropagation();
+		togglePlay();
+	};
+	prevBtn.onclick = (e) => {
+		e.stopPropagation();
+		playPrevious();
+	};
+
+	nextBtn.onclick = (e) => {
+		e.stopPropagation();
+		playNext();
+	};
+	muteBtn.onclick = async (e) => {
+		e.stopPropagation();
+
+		// Determine if we need to initialize the audio for the first time.
+		const isAudioUninitialized = !state.audioContext || state.audioContext.state === 'suspended';
+
+		// First, handle the user's immediate intent: toggling the volume.
+		const isCurrentlyMuted = parseFloat(volumeSlider.value) === 0;
+		if (isCurrentlyMuted) {
+			// Unmuting
+			volumeSlider.value = volumeSlider.dataset.lastVolume || 1;
+		} else {
+			// Muting
+			volumeSlider.dataset.lastVolume = volumeSlider.value;
+			volumeSlider.value = 0;
+		}
+		setVolume(volumeSlider.value); // Apply the volume change to the UI/gain node
+
+		// NOW, if we just unmuted and audio has never been started,
+		// perform the seamless re-sync.
+		if (isCurrentlyMuted && isAudioUninitialized) {
+			const wasPlaying = state.playing;
+			if (wasPlaying) pause(); // Capture the current time accurately
+
+			// The play() function will now create the AudioContext and start all
+			// iterators from the time we just captured.
+			await play();
+		}
+	};
+	$('audioTrackCtrlBtn').onclick = (e) => {
+		e.stopPropagation();
+		const menu = $('audioTrackMenu');
+		const isHidden = menu.classList.contains('hidden');
+		hideTrackMenus();
+		if (isHidden) menu.classList.remove('hidden');
+	};
+
+	$('subtitleTrackCtrlBtn').onclick = (e) => {
+		e.stopPropagation();
+		const menu = $('subtitleTrackMenu');
+		const isHidden = menu.classList.contains('hidden');
+		hideTrackMenus();
+		if (isHidden) menu.classList.remove('hidden');
+	};
+}
+
 export const getPlaybackTime = () => {
 	if (!state.playing) {
 		return state.playbackTimeAtStart;
 	}
-	const elapsedTime = state.audioContext.currentTime - state.audioContextStartTime;
+
+	let elapsedTime;
+	// If the AudioContext has been created, use its highly accurate timer.
+	if (state.audioContext) {
+		elapsedTime = state.audioContext.currentTime - state.audioContextStartTime;
+	} else {
+		// FALLBACK: Before user interaction, use performance.now() for silent playback timing.
+		// We need to initialize state.playbackWallClockStartTime for this to work.
+		const wallClockTime = state.playbackWallClockStartTime || 0;
+		elapsedTime = (performance.now() - wallClockTime) / 1000.0; // Convert milliseconds to seconds
+	}
 	return state.playbackTimeAtStart + (elapsedTime * state.currentPlaybackRate);
 };
 
@@ -41,6 +112,7 @@ export const startVideoIterator = async () => {
 
 		const firstFrame = firstResult.value ?? null;
 		if (firstFrame) {
+			document.querySelector(".entryloading").classList.add('hidden');
 			ctx.drawImage(firstFrame.canvas, 0, 0, canvas.width, canvas.height);
 			updateNextFrame();
 		} else {
@@ -117,21 +189,37 @@ export const scheduleProgressUpdate = (time) => {
 };
 
 export const play = async () => {
-	if (state.playing || !state.audioContext) return;
-	if (state.audioContext.state === 'suspended') await state.audioContext.resume();
+	if (state.playing) return;
+
+	// === LAZY-INITIALIZE AUDIOCONTEXT ON USER GESTURE ===
+	if (!state.audioContext) {
+		try {
+			state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+			state.gainNode = state.audioContext.createGain();
+			state.gainNode.connect(state.audioContext.destination);
+			setVolume(volumeSlider.value); // Apply volume when created
+		} catch (e) {
+			console.error("Failed to create AudioContext:", e);
+			showError("Could not initialize audio playback.");
+			return; // Exit if audio can't be started
+		}
+	} else if (state.audioContext.state === 'suspended') {
+		await state.audioContext.resume();
+	}
+	// === END OF AUDIO INITIALIZATION ===
 
 	if (state.totalDuration > 0 && Math.abs(getPlaybackTime() - state.totalDuration) < 0.1) {
 		const time = state.isLooping ? state.loopStartTime : 0;
 		state.playbackTimeAtStart = time;
-		await seekToTime(time);
+		await seekToTime(time); // seekToTime will handle pausing/playing
+		return; // Exit here as seekToTime will call play if it needs to
 	}
 
 	state.audioContextStartTime = state.audioContext.currentTime;
 	state.playing = true;
 
-	// Add these two lines to start the interval
 	if (state.playbackLogicInterval) clearInterval(state.playbackLogicInterval);
-	state.playbackLogicInterval = setInterval(checkPlaybackState, 100); // Check 10 times a second
+	state.playbackLogicInterval = setInterval(checkPlaybackState, 100);
 
 	if (state.audioSink) {
 		const currentAsyncId = state.asyncId;
@@ -140,7 +228,7 @@ export const play = async () => {
 
 		const iteratorStartTime = getPlaybackTime();
 		state.audioBufferIterator = state.audioSink.buffers(iteratorStartTime);
-		runAudioIterator();
+		runAudioIterator(); // Now we can safely start the audio
 	}
 
 	playBtn.textContent = '⏸';
@@ -328,7 +416,7 @@ export const handleConversion = async (source, fileName) => {
 	}
 };
 
-export const loadMedia = async (resource, isConversionAttempt = false) => {
+export const loadMedia = async (resource, isConversionAttempt = false, muted = false) => {
 	showLoading(true);
 	let input;
 	try {
@@ -396,14 +484,11 @@ export const loadMedia = async (resource, isConversionAttempt = false) => {
 			throw new Error('No valid audio or video tracks found.');
 		}
 
-		if (!state.audioContext) {
-			state.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+		// Mute if requested
+		if (muted) {
+			volumeSlider.value = 0; // Just update the UI
+			muteBtn.textContent = '🔇';
 		}
-		if (state.audioContext.state === 'suspended') await state.audioContext.resume();
-
-		state.gainNode = state.audioContext.createGain();
-		state.gainNode.connect(state.audioContext.destination);
-		setVolume(volumeSlider.value);
 
 		if (state.videoTrack) {
 			const packetStats = await state.videoTrack.computePacketStats();
@@ -429,8 +514,21 @@ export const loadMedia = async (resource, isConversionAttempt = false) => {
 		showPlayerUI();
 		updateProgressBarUI(0);
 
+		// === START SILENT AUTOPLAY ===
 		await startVideoIterator();
-		await play();
+		if (muted) {
+			state.playing = true;
+			state.playbackTimeAtStart = 0; // Explicitly set start time
+			state.playbackWallClockStartTime = performance.now(); // ✅ START the fallback timer
+			playBtn.textContent = '⏸';
+			showControlsTemporarily();
+		} else {
+			await play(muted);
+		}
+
+		// Start the logic interval for looping/ending checks
+		if (state.playbackLogicInterval) clearInterval(state.playbackLogicInterval);
+		state.playbackLogicInterval = setInterval(checkPlaybackState, 100);
 
 	} catch (error) {
 		showError(`Failed to load media: ${error.message}`);
