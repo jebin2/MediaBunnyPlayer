@@ -58,19 +58,20 @@ export const dynamicVideoUrl = () => {
 	const videoUrl = urlParams.get('video_url');
 	if (videoUrl) {
 		try {
+			const muted = urlParams.get('auto_play') === "true";
 			const decodedUrl = decodeURIComponent(videoUrl);
 			const urlPlayOverlay = $('urlPlayOverlay');
-			if (urlPlayOverlay) {
+			if (!urlParams.get('only_video_player') && urlPlayOverlay) {
 				urlPlayOverlay.classList.remove('hidden');
 				const startBtn = urlPlayOverlay.querySelector('button') || urlPlayOverlay;
 				startBtn.addEventListener('click', () => {
 					urlPlayOverlay.classList.add('hidden');
-					loadMedia(decodedUrl);
+					loadMedia(decodedUrl, false, muted);
 				}, {
 					once: true
 				});
 			} else {
-				loadMedia(decodedUrl);
+				loadMedia(decodedUrl, false, muted);
 			}
 		} catch (e) {
 			console.error("Error parsing video_url:", e);
