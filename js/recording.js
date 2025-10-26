@@ -7,7 +7,7 @@ import {
     Output,
     QUALITY_HIGH,
     StreamTarget,
-} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
+} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.2/+esm';
 
 import {
     recordingControls,

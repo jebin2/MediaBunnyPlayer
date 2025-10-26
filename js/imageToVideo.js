@@ -13,7 +13,7 @@ import {
     EncodedPacketSink, // Use this to READ encoded packets
     EncodedAudioPacketSource, // Use this to WRITE encoded audio packets
     QUALITY_HIGH,
-} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
+} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.2/+esm';
 
 import {
     $,

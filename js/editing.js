@@ -12,10 +12,10 @@ import {
 	Mp4OutputFormat,
 	BufferTarget,
 	QUALITY_HIGH
-} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
+} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.2/+esm';
 
 // Import the new mergeVideos function
-import { mergeVideoClips, mergePlaylistItems } from './merge.js';
+import { mergeVideoClips } from './merge.js';
 import {
 	startTimeInput,
 	endTimeInput

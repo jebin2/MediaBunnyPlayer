@@ -11,7 +11,7 @@ import {
     Output,
     Mp3OutputFormat,
     BufferTarget
-} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
+} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.2/+esm';
 
 import { state } from './state.js';
 import { showError, showStatusMessage, hideStatusMessage } from './ui.js';

@@ -2,7 +2,7 @@
 // constants.js
 // ============================================================================
 
-export const MEDIABUNNY_URL = 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
+export const MEDIABUNNY_URL = 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.2/+esm';
 export const HANDLE_SIZE = 12;
 export const HANDLE_HALF = HANDLE_SIZE / 2;
 

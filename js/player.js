@@ -13,7 +13,7 @@ import {
 	Output,
 	Mp4OutputFormat,
 	BufferTarget
-} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
+} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.2/+esm';
 
 import { $, MEDIABUNNY_URL, videoContainer, canvas, playBtn, volumeSlider, muteBtn, videoControls, startTimeInput, endTimeInput, loopBtn, playbackSpeedInput, cropCanvas, queuedAudioNodes, ctx, fullscreenBtn } from './constants.js';
 import { state } from './state.js';
