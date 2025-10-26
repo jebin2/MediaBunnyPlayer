@@ -125,10 +125,10 @@ body {
 
 .btn:hover,
 .hover_highlight {
-    background: var(--accent-secondary);
-    color: var(--text-primary);
-    transform: translate(-2px, -2px);
-    box-shadow: var(--shadow-style-hover);
+    background: var(--accent-secondary) !important;
+    color: var(--text-primary) !important;
+    transform: translate(-2px, -2px) !important;
+    box-shadow: var(--shadow-style-hover) !important;
 }
 
 /* ENHANCEMENT: More tactile "pushed in" active state for buttons */

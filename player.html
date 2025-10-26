@@ -204,9 +204,8 @@
 					<div id="dynamicCropOptionsContainer">
 						<fieldset class="trim-mode-selector">
 							<legend>Aspect Ratio</legend>
-							<div class="aspect-ratio-group" id="aspectRatioBtnGroup">
-								<button class="btn aspect-ratio-btn active" data-value="custom"
-									title="Custom Ratio"></button>
+							<div class="trim-menu-actions aspect-ratio-group" id="aspectRatioBtnGroup">
+								<button class="btn aspect-ratio-btn hover_highlight" data-value="custom" title="Custom Ratio">X:Y</button>
 								<button class="btn aspect-ratio-btn" data-value="16:9" title="16:9 Ratio">16:9</button>
 								<button class="btn aspect-ratio-btn" data-value="9:16" title="9:16 Ratio">9:16</button>
 							</div>
@@ -218,14 +217,11 @@
 								<legend>Dynamic Crop Mode</legend>
 
 								<!-- 1. Segmented Control for Main Crop Mode -->
-								<div class="segmented-control" id="cropModeBtnGroup">
-									<button class="btn active" data-value="none">Default</button>
+								<div class="trim-menu-actions segmented-control" id="cropModeBtnGroup">
+									<button class="btn hover_highlight" data-value="none">Default</button>
 									<button class="btn" data-value="spotlight">Spotlight</button>
 									<button class="btn" data-value="max-size">Max Size</button>
 								</div>
-
-								<!-- Divider for visual separation -->
-								<hr class="menu-divider" style="margin: 5px 0;">
 
 								<!-- 2. Toggle Switches for Sub-Options (Now inside the fieldset) -->
 								<!-- START: Updated Toggle List HTML -->
@@ -236,7 +232,7 @@
 											<span>Scale to Fit</span>
 											<div class="toggle-switch">
 												<input type="checkbox" id="scaleWithRatioToggle">
-												<span class="switch-slider"></span>
+												<span class="switch-slider" id="scaleWithRatioToggleSlider"></span>
 											</div>
 										</label>
 									</div>
@@ -246,7 +242,7 @@
 											<span>Smooth Crop Movement</span>
 											<div class="toggle-switch">
 												<input type="checkbox" id="smoothPathToggle" checked>
-												<span class="switch-slider"></span>
+												<span class="switch-slider" id="smoothPathToggleSlider"></span>
 											</div>
 										</label>
 									</div>
@@ -256,7 +252,7 @@
 											<span>Blurred Background</span>
 											<div class="toggle-switch">
 												<input type="checkbox" id="blurBackgroundToggle">
-												<span class="switch-slider"></span>
+												<span class="switch-slider" id="blurBackgroundToggleSlider"></span>
 											</div>
 										</label>
 										<!-- The input remains outside the label to avoid layout issues -->

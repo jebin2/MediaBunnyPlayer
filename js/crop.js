@@ -3,6 +3,7 @@
 // ============================================================================
 
 import {
+	$,
 	videoContainer,
 	canvas,
 	HANDLE_SIZE,
@@ -1088,27 +1089,26 @@ const setupOtherListeners = () => {
 			// Update state and UI
 			state.dynamicCropMode = newValue;
 
-			cropModeButtons.forEach(btn => btn.classList.remove('active'));
-			clickedBtn.classList.add('active');
-
-			// Update the hidden radio button for compatibility if needed elsewhere
-			const radioToSelect = Array.from(hiddenCropModeRadios).find(r => r.value === newValue);
-			if (radioToSelect) radioToSelect.checked = true;
+			cropModeButtons.forEach(btn => btn.classList.remove('hover_highlight'));
+			clickedBtn.classList.add('hover_highlight');
 
 			// Reset sub-options when the mode changes
 			if (scaleWithRatioToggle) {
 				scaleWithRatioToggle.checked = false;
 				state.scaleWithRatio = false;
+				$('scaleWithRatioToggleSlider').classList.remove('hover_highlight');
 			}
 			if (smoothPathToggle) {
 				smoothPathToggle.checked = true;
 				state.smoothPath = true;
+				$('smoothPathToggleSlider').classList.add('hover_highlight');
 			}
 			if (blurBackgroundToggle) {
 				blurBackgroundToggle.checked = false;
 				state.useBlurBackground = false;
 				blurAmountInput.value = 15;
 				state.blurAmount = 15;
+				$('blurBackgroundToggleSlider').classList.remove('hover_highlight');
 			}
 
 			// Update the UI to show/hide the correct sub-options
@@ -1118,16 +1118,31 @@ const setupOtherListeners = () => {
 	if (scaleWithRatioToggle) {
 		scaleWithRatioToggle.onchange = (e) => {
 			state.scaleWithRatio = e.target.checked;
+			if (state.scaleWithRatio) {
+				$('scaleWithRatioToggleSlider').classList.add('hover_highlight');
+			} else {
+				$('scaleWithRatioToggleSlider').classList.remove('hover_highlight');
+			}
 		};
 	}
 	if (smoothPathToggle) {
 		smoothPathToggle.onchange = (e) => {
 			state.smoothPath = e.target.checked;
+			if (state.smoothPath) {
+				$('smoothPathToggleSlider').classList.add('hover_highlight');
+			} else {
+				$('smoothPathToggleSlider').classList.remove('hover_highlight');
+			}
 		};
 	}
 	if (blurBackgroundToggle && blurAmountInput) {
 		blurBackgroundToggle.onchange = (e) => {
 			state.useBlurBackground = e.target.checked;
+			if (state.useBlurBackground) {
+				$('blurBackgroundToggleSlider').classList.add('hover_highlight');
+			} else {
+				$('blurBackgroundToggleSlider').classList.remove('hover_highlight');
+			}
 		};
 
 		blurAmountInput.oninput = (e) => {
@@ -1182,8 +1197,8 @@ const setupOtherListeners = () => {
 			state.aspectRatioMode = newValue;
 
 			// Update UI
-			aspectRatioButtons.forEach(btn => btn.classList.remove('active'));
-			clickedBtn.classList.add('active');
+			aspectRatioButtons.forEach(btn => btn.classList.remove('hover_highlight'));
+			clickedBtn.classList.add('hover_highlight');
 
 			// If currently in panning mode, restart to apply the new ratio
 			if (state.isPanning) {

@@ -951,12 +951,6 @@ body::before {
     justify-content: center;
 }
 
-.aspect-ratio-btn.active {
-    background: var(--glass-bg-active);
-    border-color: var(--accent-primary);
-    color: var(--accent-secondary);
-}
-
 .aspect-ratio-btn:first-child {
     width: 40px;
     height: 40px;
@@ -980,13 +974,14 @@ body::before {
     border-radius: 8px;
     overflow: hidden;
     border: 1px solid var(--glass-border);
+    gap: 0 !important;
 }
 
 .segmented-control .btn {
     flex: 1;
     border-radius: var(--border-radius-md) 0 0 var(--border-radius-md);
     border: none;
-    background-color: transparent;
+    /* background-color: transparent; */
     transition: background-color 0.2s ease-in-out;
     padding: 8px 5px;
 }
