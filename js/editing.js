@@ -260,12 +260,6 @@ export const handleCutAction = async () => {
 			const cutClipFile = new File([output.target.buffer], clipName, {
 				type: 'video/mp4'
 			});
-			state.playlist.push({
-				type: 'file',
-				name: clipName,
-				file: cutClipFile,
-				isCutClip: true
-			});
 
 			generatedClips.push(cutClipFile);
 			if (input) input.dispose(); // Dispose of the input for this clip
@@ -304,6 +298,12 @@ export const handleCutAction = async () => {
 				isCutClip: true
 			});
 		} else {
+			state.playlist.push({
+				type: 'file',
+				name: generatedClips[0].name,
+				file: generatedClips[0],
+				isCutClip: true
+			});
 			// If there was only one clip, just use it directly
 			showStatusMessage('Clip successfully created!');
 			guidedPanleInfo('Clip successfully created!');
