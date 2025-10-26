@@ -36,6 +36,7 @@ import {
 import {
     updatePlaylistUIOptimized
 } from './playlist.js';
+import { guidedPanleInfo } from './utility.js';
 
 // Let's keep track of the caption data in the main state
 state.allWords = [];
@@ -418,5 +419,6 @@ const toggleCaptionPositioning = () => {
         positionBtn.classList.remove('active-positioning');
         state.cropRect = null;
         drawCropWithHandles(null); // Clear the canvas
+        guidedPanleInfo("");
     }
 };
