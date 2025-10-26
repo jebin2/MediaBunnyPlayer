@@ -1853,7 +1853,7 @@ input[type="checkbox"] {
     margin-bottom: 1rem;
 }
 
-.caption-word-row .close-btn {
+.caption-word-row .close-btn, .trim-range .close-btn{
     position: inherit;
 }
 
@@ -1865,4 +1865,7 @@ input[type="checkbox"] {
 
 input:disabled {
     background: var(--bg-overlay);
+}
+.trim-range {
+    margin-bottom: 0.2rem;
 }

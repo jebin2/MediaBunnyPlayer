@@ -313,7 +313,7 @@ export const setupCaptionListeners = () => {
                     highlightColor: $('highlightColor').value,
                 }
             } else {
-                state.captionStyles.fontSize = {
+                state.captionStyles = {
                     fontSize: parseFloat($('captionFontSize').value).toFixed(2),
                     color: $('captionColor').value,
                     positionX: parseInt($('captionPosX').value, 10),

@@ -159,10 +159,14 @@
 
 					<!-- Section 2: Clipping & Trim Selection -->
 					<h4>Trim Range</h4>
-					<div class="trim-menu-controls">
-						<input type="text" id="startTime" class="time-input" placeholder="00:00" title="Start Time">
-						<span>-</span>
-						<input type="text" id="endTime" class="time-input" placeholder="00:00" title="End Time">
+					<div id="trimRangeList">
+						<div class="trim-menu-controls trim-range">
+							<input type="text" id="startTime" class="startTime time-input" placeholder="00:00" title="Start Time">
+							<span>-</span>
+							<input type="text" id="endTime" class="endTime time-input" placeholder="00:00" title="End Time">
+							<button class="trimRangeRemove close-btn" data-index="0" id="trimRangeRemove">-</button>
+							<button class="trimRangeAdd close-btn tick-btn" data-index="0" id="trimRangeAdd">+</button>
+						</div>
 					</div>
 					<hr class="menu-divider">
 
@@ -175,6 +179,7 @@
 						<button id="imageToVideoBtn" class="control-btn track-btn btn">Image to Video</button>
 						<button id="recordScreenBtn" class="control-btn track-btn btn">Record Screen</button>
 						<button id="addCaptionBtn" class="control-btn track-btn btn">Add Caption</button>
+						<button id="mergeBtn" class="control-btn track-btn btn">Merge</button>
 					</div>
 
 					<hr class="menu-divider">
