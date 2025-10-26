@@ -80,6 +80,8 @@ export const setupCropListener = () => {
 			// In panning mode with fixed size, any click starts recording movement
 			state.isDraggingCrop = true;
 			state.dragStartPos = coords;
+			// The originalCropRect needs to be set to calculate the drag delta
+			state.originalCropRect = { ...activeRect };
 		} else if (!state.aspectRatioLocked) {
 			// Only allow drawing if NOT in fixed ratio mode
 			state.isDrawingCrop = true;
@@ -93,6 +95,14 @@ export const setupCropListener = () => {
 		if (state.isPositioningCaptions) {
 			handleCaptionPointerMove(e);
 		} else if (state.isCropping || state.isPanning) {
+			// This check needs to be inside the main video crop logic block
+			if (state.isDrawingCrop) {
+				const coords = getScaledCoordinates(e);
+				state.cropEnd = coords; // This was the missing line
+				const rect = { x: Math.min(state.cropStart.x, coords.x), y: Math.min(state.cropStart.y, coords.y), width: Math.abs(state.cropStart.x - coords.x), height: Math.abs(state.cropStart.y - coords.y) };
+				drawCropWithHandles(rect);
+				return; // Exit after drawing
+			}
 			handleVideoCropPointerMove(e);
 		} else {
 		const coords = getScaledCoordinates(e);
