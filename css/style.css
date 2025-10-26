@@ -1103,7 +1103,7 @@ body::before {
 #playlistContent {
     font-size: 0.875rem;
     line-height: 1.6;
-    padding: 1.5rem;
+    padding: 0 1rem 0 1rem;
     flex: 1;
     overflow-y: auto;
 }
@@ -1125,6 +1125,10 @@ body::before {
 
 #playlistContent::-webkit-scrollbar-thumb:hover {
     background: var(--scrollbar-thumb-hover);
+}
+
+.playlist-divider {
+    margin: 0 0 1rem 0;
 }
 
 /* --- Playlist Tree --- */
@@ -1224,7 +1228,6 @@ body::before {
 }
 
 .playlist-file-checkbox {
-    display: none;
     width: 18px;
     height: 18px;
     min-width: 18px;

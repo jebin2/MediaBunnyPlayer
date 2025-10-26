@@ -4,8 +4,7 @@ import { formatTime, guidedPanleInfo, } from './utility.js'
 import { positionCropCanvas, togglePanning, toggleStaticCrop } from './crop.js'
 import { pause } from './player.js'
 import { showInfo } from './ui.js'
-
-
+import { changePlaylistCheckBoxVisible } from './playlist.js'
 
 export const setupSettingsListeners = () => {
     settingsCtrlBtn.onclick = (e) => {
@@ -20,6 +19,7 @@ export const setupSettingsListeners = () => {
         sidebar.classList.add('hidden');
 		captionMenu.classList.add('hidden');
         settingsMenu.classList.toggle('hidden');
+		changePlaylistCheckBoxVisible(false);
 
         // After the transition, reposition the crop canvas if it's active
 		setTimeout(() => {

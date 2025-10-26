@@ -8,7 +8,9 @@ import { state } from './state.js';
 import { positionCropCanvas } from './crop.js'
 import { loadMedia, stopAndClear, hideTrackMenus } from './player.js'
 import { escapeHTML, } from './utility.js'
-import { showDropZoneUI, showError, showInfo, showLoading } from './ui.js'
+import { showDropZoneUI, showError, showInfo, showLoading, showStatusMessage, hideStatusMessage } from './ui.js'
+import { mergeVideoClips } from './merge.js';
+import { guidedPanleInfo } from './utility.js';
 
 export const setupPlaylistEventListeners = () => {
 	$('clearPlaylistBtn').onclick = clearPlaylist;
@@ -73,6 +75,7 @@ export const setupPlaylistEventListeners = () => {
 		settingsMenu.classList.add('hidden');
 		captionMenu.classList.add('hidden');
 		sidebar.classList.toggle('hidden');
+		changePlaylistCheckBoxVisible(false);
 		setTimeout(() => {
 			state.cropCanvasDimensions = positionCropCanvas();
 		}, 200);
@@ -322,7 +325,7 @@ const createPlaylistElement = (node, currentPath = '') => {
 		// Checkbox
 		const checkbox = document.createElement('input');
 		checkbox.type = 'checkbox';
-		checkbox.className = 'playlist-file-checkbox';
+		checkbox.className = 'playlist-file-checkbox hidden';
 		checkbox.checked = isSelected;
 		checkbox.dataset.path = safePath;
 		checkbox.addEventListener('click', (e) => {
@@ -528,5 +531,50 @@ const handleClipAction = async (action, path) => {
 	} catch (error) {
 		console.error('Clip action error:', error);
 		showError(`Failed to ${action} clip`);
+	}
+};
+
+export const changePlaylistCheckBoxVisible = (show = false) => {
+    document.querySelectorAll('.playlist-file-checkbox').forEach(row => {
+		if (show) {
+			$('playlistMergeActionSection').classList.remove('hidden');
+			row.classList.remove('hidden');
+		} else {
+			$('playlistMergeActionSection').classList.add('hidden');
+			row.classList.add('hidden');
+		}
+	});
+}
+
+$('mergeCancelBtn').onclick = () => {
+	changePlaylistCheckBoxVisible(false);
+};
+$('mergeActionBtn').onclick = async () => {
+	if (document.querySelectorAll('.playlist-file-checkbox.hidden').length === 0) {
+		showStatusMessage('Merging clips...');
+		const mergedBlob = await mergeVideoClips({
+			files: getSelectedFiles().map(x => x.file),
+			onProgress: (progress) => {
+				console.log(`${Math.round(progress * 100)}%`);
+			}
+		});
+		const originalName = (state.currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
+		const finalFileName = `${originalName}_merged_${new Date().getTime()}.mp4`;
+		const finalFile = new File([mergedBlob], finalFileName, {
+			type: 'video/mp4'
+		});
+		showStatusMessage('Clips successfully merged!');
+		guidedPanleInfo('Clips successfully merged!');
+		// Add the final (potentially merged) clip to the playlist
+		state.playlist.push({
+			type: 'file',
+			name: finalFile.name,
+			file: finalFile,
+			isCutClip: true
+		});
+		changePlaylistCheckBoxVisible(false);
+		updatePlaylistUIOptimized();
+		setTimeout(hideStatusMessage, 2000);
+		guidedPanleInfo("");
 	}
 };

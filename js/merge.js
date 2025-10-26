@@ -12,6 +12,9 @@ import {
     Conversion,
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.2/+esm';
 
+import { $ } from './constants.js';
+import { changePlaylistCheckBoxVisible } from './playlist.js';
+
 /**
  * Standardizes a single video clip to a consistent format in memory.
  */
@@ -166,3 +169,10 @@ export const mergeVideoClips = async (options) => {
     console.log("Merge complete!");
     return new Blob([output.target.buffer], { type: 'video/mp4' });
 };
+
+const mergeBtn = $('mergeBtn');
+
+mergeBtn.onclick = () => {
+    $('togglePlaylistBtn').click();
+    changePlaylistCheckBoxVisible(true);
+}
