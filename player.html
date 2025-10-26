@@ -276,13 +276,15 @@
 			<div class="sidebar hidden" id="captionMenu">
 				<div class="track-menu-content">
 					<h4>Add Captions</h4>
-					<div class="trim-menu-actions" style="justify-content: space-around; margin-bottom: 1rem;">
+					<div class="trim-menu-actions">
 						<input type="file" id="captionFileInput" accept=".json" style="display: none;">
 						<button id="loadCaptionsBtn" class="btn">Load JSON</button>
 						<button id="processCaptionsBtn" class="btn">Process Clip</button>
 					</div>
-					<button id="wordStylesBtn" class="btn hidden">Word Styles</button>
-					<button id="positionCaptionsBtn" class="btn hidden">Word Position</button>
+					<div class="trim-menu-actions">
+						<button id="wordStylesBtn" class="btn hidden">Word Styles</button>
+						<button id="positionCaptionsBtn" class="btn hidden">Word Position</button>
+					</div>
 					<hr class="menu-divider">
 					<div id="captionContent" class="caption-content-area">
 						<p style="padding: 1rem; text-align: center; opacity: 0.7;">
