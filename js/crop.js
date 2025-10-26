@@ -2,7 +2,7 @@
 // STATIC CROP FUNCTIONALITY
 // ============================================================================
 
-import { videoContainer, canvas, HANDLE_SIZE, HANDLE_HALF, fixSizeBtn, cropBtn, cropCanvas, cropCtx, panScanBtn, cropModeRadios, scaleWithRatioToggle, smoothPathToggle, blurBackgroundToggle, blurAmountInput } from './constants.js';
+import { videoContainer, canvas, HANDLE_SIZE, HANDLE_HALF, fixSizeBtn, cropBtn, cropCanvas, cropCtx, panScanBtn, scaleWithRatioToggle, smoothPathToggle, blurBackgroundToggle, blurAmountInput } from './constants.js';
 import { state } from './state.js';
 import { updateDynamicCropOptionsUI } from './settings.js'
 import { guidedPanleInfo, } from './utility.js'
@@ -13,7 +13,6 @@ export const setupCropListener = () => {
 	panScanBtn.onclick = togglePanning;
 
 	cropCanvas.onpointerdown = (e) => {
-		// --- START: ADDITION #1 ---
 		if (state.isPositioningCaptions) {
 			e.preventDefault();
 			cropCanvas.setPointerCapture(e.pointerId);
@@ -38,7 +37,6 @@ export const setupCropListener = () => {
 			state.dragStartPos = coords;
 			return; // Exit here, preventing crop/pan logic from running
 		}
-		// --- END: ADDITION #1 ---
 		if (!state.isCropping && !state.isPanning) return;
 		e.preventDefault();
 		cropCanvas.setPointerCapture(e.pointerId);
@@ -46,10 +44,9 @@ export const setupCropListener = () => {
 		const coords = getScaledCoordinates(e);
 
 		// Get current rect
-		const currentRect = state.isCropping ? state.cropRect :
-			(state.panKeyframes.length > 0 ? state.panKeyframes[state.panKeyframes.length - 1].rect : null);
+		const currentRect = state.isCropping ? state.cropRect : (state.panKeyframes.length > 0 ? state.panKeyframes[state.panKeyframes.length - 1].rect : null);
 
-		// NEW: For fixed aspect ratios, use maxRatioRect as the current rect if no rect exists yet
+		// For fixed aspect ratios, use maxRatioRect as the current rect if no rect exists yet
 		const activeRect = currentRect || (state.aspectRatioLocked ? state.maxRatioRect : null);
 
 		if (activeRect && !state.isCropFixed) {
@@ -66,18 +63,18 @@ export const setupCropListener = () => {
 				state.originalCropRect = { ...activeRect };
 				state.dragStartPos = coords;
 			} else if (!state.aspectRatioLocked) {
-				// NEW: Only allow drawing new rect if NOT in fixed ratio mode
+				// Only allow drawing new rect if NOT in fixed ratio mode
 				state.isDrawingCrop = true;
 				state.cropStart = coords;
 				state.cropEnd = coords;
 			}
-			// NEW: If aspectRatioLocked and clicking outside, do nothing (ignore the click)
+			// If aspectRatioLocked and clicking outside, do nothing (ignore the click)
 		} else if (activeRect && state.isCropFixed && state.isPanning) {
 			// In panning mode with fixed size, any click starts recording movement
 			state.isDraggingCrop = true;
 			state.dragStartPos = coords;
 		} else if (!state.aspectRatioLocked) {
-			// NEW: Only allow drawing if NOT in fixed ratio mode
+			// Only allow drawing if NOT in fixed ratio mode
 			state.isDrawingCrop = true;
 			state.cropStart = coords;
 			state.cropEnd = coords;
@@ -85,7 +82,6 @@ export const setupCropListener = () => {
 	};
 
 	cropCanvas.onpointermove = (e) => {
-		// --- START: ADDITION #2 ---
 		if (state.isPositioningCaptions) {
 			if (!state.isDraggingCrop && !state.isResizingCrop) return;
 			const coords = getScaledCoordinates(e);
@@ -129,7 +125,6 @@ export const setupCropListener = () => {
 			drawCropWithHandles(state.cropRect);
 			return; // Exit here, preventing crop/pan logic from running
 		}
-		// --- END: ADDITION #2 ---
 		const coords = getScaledCoordinates(e);
 
 		// Update cursor based on position
