@@ -113,6 +113,7 @@ const handleProcessCaptions = async () => {
     if (state.allWords.length === 0) return showError("No caption data available.");
 
     if (state.playing) pause();
+    if (state.isPositioningCaptions) toggleCaptionPositioning();
     updateCaptionDataFromUI();
     showStatusMessage('Starting caption processing...');
 
@@ -310,7 +311,7 @@ export const setupCaptionListeners = () => {
 
     if (applyWordStylesBtn) {
         applyWordStylesBtn.onclick = () => {
-            state.captionStyles.fontSize = parseFloat($('captionFontSize').value);
+            state.captionStyles.fontSize = parseFloat($('captionFontSize').value).toFixed(2);
             state.captionStyles.color = $('captionColor').value;
             state.captionStyles.positionX = parseInt($('captionPosX').value, 10);
             state.captionStyles.positionY = parseInt($('captionPosY').value, 10);

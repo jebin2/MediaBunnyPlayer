@@ -278,10 +278,10 @@ const handleCaptionPointerMove = (e) => {
 const syncCaptionStylesFromRect = () => {
 	const centerX = state.cropRect.x + state.cropRect.width / 2;
 	const centerY = state.cropRect.y + state.cropRect.height / 2;
-	state.captionStyles.positionX = (centerX / canvas.width) * 100;
-	state.captionStyles.positionY = (centerY / canvas.height) * 100;
+	state.captionStyles.positionX = parseInt((centerX / canvas.width) * 100);
+	state.captionStyles.positionY = parseInt((centerY / canvas.height) * 100);
 
-	const newFontSizePercent = (state.cropRect.height / 1.2 / canvas.height) * 100;
+	const newFontSizePercent = parseFloat((state.cropRect.height / 1.2 / canvas.height) * 100).toFixed(2);
 	state.captionStyles.fontSize = newFontSizePercent;
 
 	// Recalculate width based on new font size to maintain text aspect ratio
@@ -1092,67 +1092,6 @@ const constrainToRatio = (rect, maxRect, aspectRatio) => {
 
 	// Finally, ensure the resulting rectangle is within the video's boundaries
 	return clampRectToVideoBounds(rect);
-};
-
-/**
- * NEW: Dedicated update handler for when the caption box is moved or resized.
- * This keeps the logic separate and clean.
- */
-const handleCaptionBoxUpdate = (e) => {
-	const coords = getScaledCoordinates(e); // Use your existing scale function
-	const {
-		startRect,
-		dragStartPos
-	} = state; // Get original state at pointer down
-
-	if (state.isDraggingCrop) {
-		const deltaX = coords.x - dragStartPos.x;
-		const deltaY = coords.y - dragStartPos.y;
-		state.cropRect.x = startRect.x + deltaX;
-		state.cropRect.y = startRect.y + deltaY;
-
-	} else if (state.isResizingCrop) {
-		// This is a simplified resize logic, perfect for captions.
-		const deltaX = coords.x - dragStartPos.x;
-		const deltaY = coords.y - dragStartPos.y;
-
-		// Apply resize based on handle (This is from your applyResize logic)
-		let newRect = {
-			...startRect
-		};
-		const handle = state.resizeHandle;
-
-		if (handle.includes('e')) newRect.width = startRect.width + deltaX;
-		if (handle.includes('w')) {
-			newRect.width = startRect.width - deltaX;
-			newRect.x = startRect.x + deltaX;
-		}
-		if (handle.includes('s')) newRect.height = startRect.height + deltaY;
-		if (handle.includes('n')) {
-			newRect.height = startRect.height - deltaY;
-			newRect.y = startRect.y + deltaY;
-		}
-
-		// Ensure minimum size
-		newRect.width = Math.max(20, newRect.width);
-		newRect.height = Math.max(20, newRect.height);
-
-		state.cropRect = newRect;
-	}
-
-	// --- SYNC WITH CAPTION STYLES ---
-	// Update position from the box's new center
-	const centerX = state.cropRect.x + state.cropRect.width / 2;
-	const centerY = state.cropRect.y + state.cropRect.height / 2;
-	state.captionStyles.positionX = (centerX / canvas.width) * 100;
-	state.captionStyles.positionY = (centerY / canvas.height) * 100;
-
-	// Update font size from the box's new height
-	const newFontSizePercent = (state.cropRect.height / 1.2 / canvas.height) * 100;
-	state.captionStyles.fontSize = newFontSizePercent;
-
-	// Redraw the box in its new state
-	drawCropWithHandles(state.cropRect);
 };
 
 const setupOtherListeners = () => {
