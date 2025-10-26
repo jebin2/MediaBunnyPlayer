@@ -104,7 +104,7 @@ export const state = {
     resizeTimeout: null,
 
     //resize video
-    videoAspectRatio: 16/9,
+    videoAspectRatio: 16 / 9,
 
     // Image to Video State
     selectedImageFile: null,
@@ -112,4 +112,7 @@ export const state = {
 
     // recording
     screenrecording: false,
+
+    //caption
+    isPositioningCaptions: false,
 };

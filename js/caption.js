@@ -5,7 +5,9 @@ import {
     settingsMenu,
     playerArea,
     sidebar,
-    addCaptionBtn
+    addCaptionBtn,
+    canvas,
+    cropCtx
 } from './constants.js';
 import {
     state
@@ -19,7 +21,7 @@ import {
 import {
     pause,
 } from './player.js';
-import { positionCropCanvas } from './crop.js'
+import { drawCropWithHandles, positionCropCanvas } from './crop.js';
 import {
     ALL_FORMATS,
     Input,
@@ -77,6 +79,7 @@ const renderCaptionUI = () => {
     if (state.allWords.length === 0) {
         captionContent.innerHTML = '<p style="padding: 1rem; text-align: center; opacity: 0.7;">No valid word data found.</p>';
         $('wordStylesBtn').classList.add('hidden'); // Hide styles button
+        $('positionCaptionsBtn').classList.add('hidden');
         return;
     }
 
@@ -101,6 +104,7 @@ const renderCaptionUI = () => {
 
     captionContent.appendChild(wordsList);
     $('wordStylesBtn').classList.remove('hidden'); // Show styles button
+    $('positionCaptionsBtn').classList.remove('hidden');
 };
 
 /**
@@ -250,6 +254,7 @@ const handleProcessCaptions = async () => {
  */
 export const setupCaptionListeners = () => {
     const captionMenu = $('captionMenu');
+    const positionCaptionsBtn = $('positionCaptionsBtn');
     const processCaptionsBtn = $('processCaptionsBtn');
     const loadCaptionsBtn = $('loadCaptionsBtn');
     const captionFileInput = $('captionFileInput');
@@ -278,6 +283,7 @@ export const setupCaptionListeners = () => {
     }
 
     if (processCaptionsBtn) processCaptionsBtn.onclick = handleProcessCaptions;
+    positionCaptionsBtn.onclick = toggleCaptionPositioning;
 
     // --- File Loading ---
     if (loadCaptionsBtn) loadCaptionsBtn.onclick = () => captionFileInput.click();
@@ -357,5 +363,60 @@ export const setupCaptionListeners = () => {
                 updateCaptionDataFromUI();
             }
         });
+    }
+};
+
+/**
+ * Toggles the interactive caption positioning mode.
+ * This function now ONLY sets up the state for crop.js to handle.
+ */
+const toggleCaptionPositioning = () => {
+    const isActivating = !state.isPositioningCaptions;
+    const positionBtn = $('positionCaptionsBtn');
+    const cropCanvas = $('cropCanvas');
+
+    // Turn off other modes to prevent conflicts
+    state.isCropping = false;
+    state.isPanning = false;
+
+    // Set the caption positioning state
+    state.isPositioningCaptions = isActivating;
+
+    if (isActivating) {
+        // --- SETUP ---
+        cropCanvas.classList.remove('hidden');
+        positionCropCanvas();
+
+        positionBtn.textContent = 'Confirm Position';
+        positionBtn.classList.add('active-positioning');
+
+        // Calculate the initial box from styles (this logic is correct)
+        const styles = state.captionStyles;
+        const groupSize = Math.max(1, styles.wordGroupSize);
+        let sampleText = "Sample Word ".repeat(groupSize).trim();
+        const fontSizePx = canvas.height * (styles.fontSize / 100);
+        cropCtx.font = `bold ${fontSizePx}px Arial`;
+        const textMetrics = cropCtx.measureText(sampleText);
+        const boxWidth = textMetrics.width;
+        const boxHeight = fontSizePx * 1.2;
+        const centerX = canvas.width * (styles.positionX / 100);
+        const centerY = canvas.height * (styles.positionY / 100);
+        state.cropRect = {
+            x: centerX - boxWidth / 2,
+            y: centerY - boxHeight / 2,
+            width: boxWidth,
+            height: boxHeight,
+        };
+
+        // Tell crop.js to draw the initial box
+        drawCropWithHandles(state.cropRect);
+
+    } else {
+        // --- TEARDOWN ---
+        cropCanvas.classList.add('hidden');
+        positionBtn.textContent = 'Position Words';
+        positionBtn.classList.remove('active-positioning');
+        state.cropRect = null;
+        drawCropWithHandles(null); // Clear the canvas
     }
 };

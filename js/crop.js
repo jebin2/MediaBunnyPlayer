@@ -13,6 +13,32 @@ export const setupCropListener = () => {
 	panScanBtn.onclick = togglePanning;
 
 	cropCanvas.onpointerdown = (e) => {
+		// --- START: ADDITION #1 ---
+		if (state.isPositioningCaptions) {
+			e.preventDefault();
+			cropCanvas.setPointerCapture(e.pointerId);
+			const coords = getScaledCoordinates(e);
+
+			// Use the existing state.cropRect for the caption box
+			const currentRect = state.cropRect;
+			if (!currentRect) return;
+
+			// Reuse your existing functions to detect interaction type
+			state.resizeHandle = getResizeHandle(coords.x, coords.y, currentRect);
+			if (state.resizeHandle) {
+				state.isResizingCrop = true;
+			} else if (isInsideCropRect(coords.x, coords.y, currentRect)) {
+				state.isDraggingCrop = true;
+			} else {
+				return; // Clicked outside the box
+			}
+
+			// Set the state variables that onpointermove will use
+			state.originalCropRect = { ...currentRect };
+			state.dragStartPos = coords;
+			return; // Exit here, preventing crop/pan logic from running
+		}
+		// --- END: ADDITION #1 ---
 		if (!state.isCropping && !state.isPanning) return;
 		e.preventDefault();
 		cropCanvas.setPointerCapture(e.pointerId);
@@ -59,6 +85,51 @@ export const setupCropListener = () => {
 	};
 
 	cropCanvas.onpointermove = (e) => {
+		// --- START: ADDITION #2 ---
+		if (state.isPositioningCaptions) {
+			if (!state.isDraggingCrop && !state.isResizingCrop) return;
+			const coords = getScaledCoordinates(e);
+
+			// 1. Perform a simplified move/resize on state.cropRect
+			if (state.isDraggingCrop) {
+				const deltaX = coords.x - state.dragStartPos.x;
+				const deltaY = coords.y - state.dragStartPos.y;
+				state.cropRect.x = state.originalCropRect.x + deltaX;
+				state.cropRect.y = state.originalCropRect.y + deltaY;
+			} else if (state.isResizingCrop) {
+				const newRect = applyResize(state.resizeHandle, coords.x - state.dragStartPos.x, coords.y - state.dragStartPos.y, state.originalCropRect);
+				// For captions, the width is determined by font size, so we only care about height from the resize
+				state.cropRect.height = newRect.height;
+				// Adjust y position if resizing from the top
+				if (state.resizeHandle.includes('n')) {
+					state.cropRect.y = newRect.y;
+				}
+			}
+
+			// 2. Sync state.captionStyles from the updated state.cropRect
+			const centerX = state.cropRect.x + state.cropRect.width / 2;
+			const centerY = state.cropRect.y + state.cropRect.height / 2;
+			state.captionStyles.positionX = (centerX / canvas.width) * 100;
+			state.captionStyles.positionY = (centerY / canvas.height) * 100;
+
+			const newFontSizePercent = (state.cropRect.height / 1.2 / canvas.height) * 100;
+			state.captionStyles.fontSize = newFontSizePercent;
+
+			// 3. Recalculate width based on new font size to maintain text aspect ratio
+			const groupSize = Math.max(1, state.captionStyles.wordGroupSize);
+			let sampleText = "Sample Word ".repeat(groupSize).trim();
+			const fontSizePx = canvas.height * (newFontSizePercent / 100);
+			cropCtx.font = `bold ${fontSizePx}px Arial`;
+			const textMetrics = cropCtx.measureText(sampleText);
+			state.cropRect.width = textMetrics.width;
+
+			// 4. Re-center the box horizontally after width changes
+			state.cropRect.x = (state.captionStyles.positionX / 100 * canvas.width) - state.cropRect.width / 2;
+
+			drawCropWithHandles(state.cropRect);
+			return; // Exit here, preventing crop/pan logic from running
+		}
+		// --- END: ADDITION #2 ---
 		const coords = getScaledCoordinates(e);
 
 		// Update cursor based on position
@@ -341,6 +412,10 @@ export const setupCropListener = () => {
 				}
 			}
 		}, 100);
+
+		setTimeout(() => {
+			state.cropCanvasDimensions = positionCropCanvas();
+		}, 200);
 	});
 	document.addEventListener('keydown', (e) => {
 		if (state.isPanning && state.panRectSize && e.key.toLowerCase() === 'r' && !state.isCropFixed) {
@@ -688,7 +763,11 @@ export const drawCropWithHandles = (rect) => {
 
 	// Draw resize handles if crop is not fixed
 	if (!state.isCropFixed) {
-		guidedPanleInfo("Adjust the rectangle to your desired size. When ready, press 'L' to lock the size and begin recording.")
+		if (state.isPositioningCaptions) {
+			guidedPanleInfo("Adjust the rectangle to your desired size. Font size and position will be automatically updated.")
+		} else {
+			guidedPanleInfo("Adjust the rectangle to your desired size. When ready, press 'L' to lock the size and begin recording.")
+		}
 		cropCtx.fillStyle = '#00ffff';
 		cropCtx.strokeStyle = '#ffffff';
 		cropCtx.lineWidth = 1;
@@ -1008,4 +1087,54 @@ const constrainToRatio = (rect, maxRect, aspectRatio) => {
 
 	// Finally, ensure the resulting rectangle is within the video's boundaries
 	return clampRectToVideoBounds(rect);
+};
+
+/**
+ * NEW: Dedicated update handler for when the caption box is moved or resized.
+ * This keeps the logic separate and clean.
+ */
+const handleCaptionBoxUpdate = (e) => {
+	const coords = getScaledCoordinates(e); // Use your existing scale function
+	const { startRect, dragStartPos } = state; // Get original state at pointer down
+
+	if (state.isDraggingCrop) {
+		const deltaX = coords.x - dragStartPos.x;
+		const deltaY = coords.y - dragStartPos.y;
+		state.cropRect.x = startRect.x + deltaX;
+		state.cropRect.y = startRect.y + deltaY;
+
+	} else if (state.isResizingCrop) {
+		// This is a simplified resize logic, perfect for captions.
+		const deltaX = coords.x - dragStartPos.x;
+		const deltaY = coords.y - dragStartPos.y;
+
+		// Apply resize based on handle (This is from your applyResize logic)
+		let newRect = { ...startRect };
+		const handle = state.resizeHandle;
+
+		if (handle.includes('e')) newRect.width = startRect.width + deltaX;
+		if (handle.includes('w')) { newRect.width = startRect.width - deltaX; newRect.x = startRect.x + deltaX; }
+		if (handle.includes('s')) newRect.height = startRect.height + deltaY;
+		if (handle.includes('n')) { newRect.height = startRect.height - deltaY; newRect.y = startRect.y + deltaY; }
+
+		// Ensure minimum size
+		newRect.width = Math.max(20, newRect.width);
+		newRect.height = Math.max(20, newRect.height);
+
+		state.cropRect = newRect;
+	}
+
+	// --- SYNC WITH CAPTION STYLES ---
+	// Update position from the box's new center
+	const centerX = state.cropRect.x + state.cropRect.width / 2;
+	const centerY = state.cropRect.y + state.cropRect.height / 2;
+	state.captionStyles.positionX = (centerX / canvas.width) * 100;
+	state.captionStyles.positionY = (centerY / canvas.height) * 100;
+
+	// Update font size from the box's new height
+	const newFontSizePercent = (state.cropRect.height / 1.2 / canvas.height) * 100;
+	state.captionStyles.fontSize = newFontSizePercent;
+
+	// Redraw the box in its new state
+	drawCropWithHandles(state.cropRect);
 };

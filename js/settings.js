@@ -22,11 +22,9 @@ export const setupSettingsListeners = () => {
         settingsMenu.classList.toggle('hidden');
 
         // After the transition, reposition the crop canvas if it's active
-        setTimeout(() => {
-            if (state.isCropping || state.isPanning) {
-                state.cropCanvasDimensions = positionCropCanvas();
-            }
-        }, 200); // 200ms delay to match CSS transition time
+		setTimeout(() => {
+			state.cropCanvasDimensions = positionCropCanvas();
+		}, 200);
     };
 };
 

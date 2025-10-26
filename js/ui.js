@@ -69,6 +69,10 @@ export const hideStatusMessage = () => {
 
 export const showControlsTemporarily = () => {
 	clearTimeout(state.hideControlsTimeout);
+	if (state.isPositioningCaptions) {
+		videoControls.classList.add('hidden');
+		return;
+	}
 	videoControls.classList.add('show');
 	videoContainer.classList.remove('hide-cursor');
 
