@@ -36,13 +36,15 @@ export const setupEventListeners = () => {
 
 	// Helper function to execute the chosen action
 	const executeOpenFileAction = (action) => {
+		if (!state.playing) {
+			state.fileLoaded = false;
+		}
 		switch (action) {
 			case 'open-url':
 				urlModal.classList.remove('hidden');
 				urlInput.focus();
 				break;
 			case 'open-file':
-				state.fileLoaded = false;
 				$('fileInput').click();
 				break;
 			case 'add-file':

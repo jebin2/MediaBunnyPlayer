@@ -278,7 +278,7 @@ export const play = async () => {
 	if (state.totalDuration > 0 && Math.abs(getPlaybackTime() - state.totalDuration) < 0.1) {
 		const time = state.isLooping ? state.loopStartTime : 0;
 		state.playbackTimeAtStart = time;
-		await seekToTime(time); // seekToTime will handle pausing/playing
+		await seekToTime(time, true); // seekToTime will handle pausing/playing
 		return; // Exit here as seekToTime will call play if it needs to
 	}
 
@@ -330,7 +330,7 @@ export const pause = () => {
 
 export const togglePlay = () => state.playing ? pause() : play();
 
-export const seekToTime = async (seconds) => {
+export const seekToTime = async (seconds, forcePlay = false) => {
 	const wasPlaying = state.playing;
 	if (wasPlaying) pause();
 
@@ -341,7 +341,7 @@ export const seekToTime = async (seconds) => {
 
 	await startVideoIterator();
 
-	if (wasPlaying && state.playbackTimeAtStart < state.totalDuration) {
+	if ((forcePlay || wasPlaying) && state.playbackTimeAtStart < state.totalDuration) {
 		await play();
 	}
 };
