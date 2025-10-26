@@ -139,43 +139,8 @@ export const setupCropListener = () => {
 		cropCanvas.releasePointerCapture(e.pointerId);
 
 		if (state.isDrawingCrop) {
-			let finalRect = {
-				x: Math.min(state.cropStart.x, state.cropEnd.x),
-				y: Math.min(state.cropStart.y, state.cropEnd.y),
-				width: Math.abs(state.cropStart.x - state.cropEnd.x),
-				height: Math.abs(state.cropStart.y - state.cropEnd.y)
-			};
-
-			// NEW: Apply ratio constraints if locked
-			if (state.aspectRatioLocked && state.maxRatioRect) {
-				const [ratioW, ratioH] = state.aspectRatioMode === '16:9' ? [16, 9] : [9, 16];
-				finalRect = constrainToRatio(finalRect, state.maxRatioRect, ratioW / ratioH);
-			}
-
-			if (finalRect.width < 10 || finalRect.height < 10) {
-				state.cropRect = null;
-				state.panRectSize = null;
-				cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
-
-				// Redraw max rect if ratio locked
-				if (state.aspectRatioLocked && state.maxRatioRect) {
-					drawCropWithHandles(state.maxRatioRect);
-				}
-			} else {
-				if (state.isPanning) {
-					state.panRectSize = {
-						width: finalRect.width,
-						height: finalRect.height
-					};
-					state.panKeyframes.push({
-						timestamp: getPlaybackTime(),
-						rect: finalRect
-					});
-				} else if (state.isCropping) {
-					state.cropRect = finalRect;
-				}
-				drawCropWithHandles(finalRect);
-			}
+			// Finalize the drawn rectangle only if in video crop mode
+			finalizeDrawnRect();
 		}
 
 		state.isDrawingCrop = false;
@@ -360,6 +325,32 @@ const handleVideoCropPointerMove = (e) => {
 			}
 		}
 		drawCropWithHandles(newRect);
+	}
+};
+/** Finalizes a rectangle after the user finishes drawing it. */
+const finalizeDrawnRect = () => {
+    // This is your original logic from onpointerup
+	const finalRect = { x: Math.min(state.cropStart.x, state.cropEnd.x), y: Math.min(state.cropStart.y, state.cropEnd.y), width: Math.abs(state.cropStart.x - state.cropEnd.x), height: Math.abs(state.cropStart.y - state.cropEnd.y) };
+	if (state.aspectRatioLocked && state.maxRatioRect) {
+		const [ratioW, ratioH] = state.aspectRatioMode === '16:9' ? [16, 9] : [9, 16];
+		finalRect = constrainToRatio(finalRect, state.maxRatioRect, ratioW / ratioH);
+	}
+
+	if (finalRect.width < 10 || finalRect.height < 10) {
+		state.cropRect = null;
+		state.panRectSize = null;
+		drawCropWithHandles(null);
+		if (state.aspectRatioLocked && state.maxRatioRect) {
+			drawCropWithHandles(state.maxRatioRect);
+		}
+	} else {
+		if (state.isPanning) {
+			state.panRectSize = { width: finalRect.width, height: finalRect.height };
+			state.panKeyframes.push({ timestamp: getPlaybackTime(), rect: finalRect });
+		} else if (state.isCropping) {
+			state.cropRect = finalRect;
+		}
+		drawCropWithHandles(finalRect);
 	}
 };
 
