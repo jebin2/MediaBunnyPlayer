@@ -120,17 +120,17 @@ export const mergeVideoClips = async (options) => {
     // Step 7: Start output
     await output.start();
 
-    // Step 8: Process each clip sequentially
+    // Step 8: Process each clip sequentially - VIDEO AND AUDIO TOGETHER
     let currentTimestamp = 0;
-    let lastAudioTimestamp = 0; // Track global audio timestamp
 
     for (let clipIndex = 0; clipIndex < clipMetadata.length; clipIndex++) {
         const clip = clipMetadata[clipIndex];
         const clipStartTime = currentTimestamp;
+        
+        console.log(`Processing clip ${clipIndex + 1}/${clipMetadata.length}, start time: ${clipStartTime.toFixed(3)}s, duration: ${clip.duration.toFixed(3)}s`);
 
-        // Create video decoder for this clip
+        // Decode all video frames first
         const frames = [];
-        let decoderReady = false;
         
         const decoder = new VideoDecoder({
             output: (frame) => {
@@ -141,11 +141,8 @@ export const mergeVideoClips = async (options) => {
             }
         });
 
-        // Configure decoder
         decoder.configure(clip.videoConfig);
-        decoderReady = true;
 
-        // Decode all video packets
         const videoPacketSink = new EncodedPacketSink(clip.videoTrack);
         
         for await (const packet of videoPacketSink.packets()) {
@@ -158,85 +155,68 @@ export const mergeVideoClips = async (options) => {
             decoder.decode(chunk);
         }
 
-        // Wait for all frames to be decoded
         await decoder.flush();
         decoder.close();
 
-        // Calculate expected number of frames for this clip's duration
-        const expectedFrames = Math.ceil(clip.duration * outputFps);
-        
-        // If we have fewer frames than expected, we need to extend the last frame
-        // If we have more, we'll use what we have (original fps might be higher)
-        const framesToUse = frames.length > 0 ? frames.length : expectedFrames;
+        console.log(`Decoded ${frames.length} frames for clip with duration ${clip.duration.toFixed(3)}s (expected ~${Math.ceil(clip.duration * outputFps)} frames at ${outputFps}fps)`);
 
-        // Now render all frames to canvas and add to output
-        const frameDuration = 1 / outputFps;
-        let frameTimestamp = 0;
-        
-        // Render decoded frames
-        for (let i = 0; i < frames.length; i++) {
-            const frame = frames[i];
-            
-            // Clear canvas
-            ctx.clearRect(0, 0, outputWidth, outputHeight);
-            
-            // Calculate scaling to fit
-            const scaleX = outputWidth / frame.displayWidth;
-            const scaleY = outputHeight / frame.displayHeight;
-            const scale = Math.min(scaleX, scaleY);
-            
-            const scaledWidth = frame.displayWidth * scale;
-            const scaledHeight = frame.displayHeight * scale;
-            const x = (outputWidth - scaledWidth) / 2;
-            const y = (outputHeight - scaledHeight) / 2;
-
-            // Draw frame to canvas
-            ctx.drawImage(frame, x, y, scaledWidth, scaledHeight);
-
-            // Add canvas frame to output with adjusted timestamp
-            const newTimestamp = clipStartTime + frameTimestamp;
-            await canvasSource.add(newTimestamp, frameDuration);
-
-            // Close frame to free memory
-            frame.close();
-
-            // Update progress
-            updateProgress(frameDuration);
-            
-            frameTimestamp += frameDuration;
-        }
-        
-        // Fill remaining duration if we're short on frames (hold last frame)
-        const expectedDuration = clip.duration;
-        const actualDuration = frameTimestamp;
-        
-        if (actualDuration < expectedDuration && frames.length > 0) {
-            // Hold the last frame for the remaining duration
-            const remainingDuration = expectedDuration - actualDuration;
-            const remainingFrames = Math.ceil(remainingDuration * outputFps);
-            
-            for (let i = 0; i < remainingFrames; i++) {
-                const newTimestamp = clipStartTime + frameTimestamp;
-                await canvasSource.add(newTimestamp, frameDuration);
-                frameTimestamp += frameDuration;
-                updateProgress(frameDuration);
+        // Collect all audio packets for this clip
+        const audioPackets = [];
+        if (clip.audioTrack && audioSource) {
+            const audioSink = new EncodedPacketSink(clip.audioTrack);
+            for await (const packet of audioSink.packets()) {
+                audioPackets.push(packet);
             }
         }
 
-        // Process audio (if exists)
-        if (clip.audioTrack && audioSource) {
-            const audioSink = new EncodedPacketSink(clip.audioTrack);
-            let firstAudioPacket = clipIndex === 0;
+        // Now interleave video frames and audio packets by timestamp
+        // IMPORTANT: Only add frames that fall within this clip's duration
+        const frameDuration = 1 / outputFps;
+        const clipEndTime = clipStartTime + clip.duration;
+        let frameIndex = 0;
+        let audioIndex = 0;
+        let videoTime = clipStartTime;  // Track actual video time written
+        let firstAudioPacket = clipIndex === 0;
 
-            for await (const packet of audioSink.packets()) {
-                // Adjust timestamp to continue from previous clip
-                let newTimestamp = clipStartTime + packet.timestamp;
+        while (frameIndex < frames.length || audioIndex < audioPackets.length) {
+            const nextFrameTime = clipStartTime + (frameIndex * frameDuration);
+            const nextAudioTime = audioIndex < audioPackets.length 
+                ? clipStartTime + audioPackets[audioIndex].timestamp 
+                : Infinity;
+
+            // Decide whether to add video or audio next
+            if (frameIndex < frames.length && nextFrameTime < clipEndTime && nextFrameTime <= nextAudioTime) {
+                // Add video frame (only if within clip duration)
+                const frame = frames[frameIndex];
                 
-                // Ensure timestamps are strictly increasing (must be greater than last)
-                if (newTimestamp <= lastAudioTimestamp) {
-                    newTimestamp = lastAudioTimestamp + 0.001; // Add 1ms to avoid collision
+                ctx.clearRect(0, 0, outputWidth, outputHeight);
+                
+                const scaleX = outputWidth / frame.displayWidth;
+                const scaleY = outputHeight / frame.displayHeight;
+                const scale = Math.min(scaleX, scaleY);
+                
+                const scaledWidth = frame.displayWidth * scale;
+                const scaledHeight = frame.displayHeight * scale;
+                const x = (outputWidth - scaledWidth) / 2;
+                const y = (outputHeight - scaledHeight) / 2;
+
+                ctx.drawImage(frame, x, y, scaledWidth, scaledHeight);
+
+                await canvasSource.add(nextFrameTime, frameDuration);
+
+                frame.close();
+                frameIndex++;
+                videoTime = nextFrameTime + frameDuration;
+                updateProgress(frameDuration);
+                
+                // Debug log every 30 frames
+                if (frameIndex % 30 === 0) {
+                    console.log(`Clip ${clipIndex}: Added frame ${frameIndex}, timestamp: ${nextFrameTime.toFixed(3)}s`);
                 }
-                
+            } else if (audioIndex < audioPackets.length) {
+                // Add audio packet
+                const packet = audioPackets[audioIndex];
+                const newTimestamp = clipStartTime + packet.timestamp;
                 const newPacket = packet.clone({ timestamp: newTimestamp });
 
                 const metadata = firstAudioPacket 
@@ -245,12 +225,36 @@ export const mergeVideoClips = async (options) => {
 
                 await audioSource.add(newPacket, metadata);
                 firstAudioPacket = false;
-                lastAudioTimestamp = newTimestamp; // Update global tracker
+                audioIndex++;
+            } else {
+                // Both exhausted or video exceeded clip duration
+                break;
             }
+        }
+        
+        // Close any remaining frames that weren't used
+        for (let i = frameIndex; i < frames.length; i++) {
+            frames[i].close();
+        }
+
+        // Fill remaining duration if needed (hold last frame)
+        const expectedEndTime = clipStartTime + clip.duration;
+        
+        console.log(`Video time after frames: ${videoTime.toFixed(3)}s, Expected end: ${expectedEndTime.toFixed(3)}s`);
+        
+        if (videoTime < expectedEndTime && frames.length > 0) {
+            let fillTimestamp = videoTime;
+            while (fillTimestamp < expectedEndTime) {
+                await canvasSource.add(fillTimestamp, frameDuration);
+                fillTimestamp += frameDuration;
+                updateProgress(frameDuration);
+            }
+            console.log(`Filled to ${fillTimestamp.toFixed(3)}s`);
         }
 
         // Update current timestamp for next clip
         currentTimestamp += clip.duration;
+        console.log(`Clip ${clipIndex + 1} complete. Next clip will start at: ${currentTimestamp.toFixed(3)}s`);
     }
 
     // Step 9: Close sources
