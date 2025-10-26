@@ -1,5 +1,5 @@
 // ============================================================================
-// STATIC CROP FUNCTIONALITY
+// CROP FUNCTIONALITY
 // ============================================================================
 
 import {
@@ -32,37 +32,15 @@ import {
 } from './player.js'
 
 export const setupCropListener = () => {
+	// --- Main Buttons ---
 	cropBtn.onclick = toggleStaticCrop;
 	panScanBtn.onclick = togglePanning;
+	fixSizeBtn.onclick = (e) => { e.stopPropagation(); toggleCropFixed(); };
 
 	cropCanvas.onpointerdown = (e) => {
 		if (state.isPositioningCaptions) {
-			e.preventDefault();
-			cropCanvas.setPointerCapture(e.pointerId);
-			const coords = getScaledCoordinates(e);
-
-			// Use the existing state.cropRect for the caption box
-			const currentRect = state.cropRect;
-			if (!currentRect) return;
-
-			// Reuse your existing functions to detect interaction type
-			state.resizeHandle = getResizeHandle(coords.x, coords.y, currentRect);
-			if (state.resizeHandle) {
-				state.isResizingCrop = true;
-			} else if (isInsideCropRect(coords.x, coords.y, currentRect)) {
-				state.isDraggingCrop = true;
-			} else {
-				return; // Clicked outside the box
-			}
-
-			// Set the state variables that onpointermove will use
-			state.originalCropRect = {
-				...currentRect
-			};
-			state.dragStartPos = coords;
-			return; // Exit here, preventing crop/pan logic from running
-		}
-		if (!state.isCropping && !state.isPanning) return;
+			handleCaptionPointerDown(e);
+		} else if (state.isCropping || state.isPanning) {
 		e.preventDefault();
 		cropCanvas.setPointerCapture(e.pointerId);
 
@@ -108,6 +86,7 @@ export const setupCropListener = () => {
 			state.cropStart = coords;
 			state.cropEnd = coords;
 		}
+	}
 	};
 
 	cropCanvas.onpointermove = (e) => {
@@ -382,127 +361,33 @@ export const setupCropListener = () => {
 		passive: false
 	});
 
-	// ADD THIS NEW CODE for the segmented control
-	const cropModeButtons = document.querySelectorAll('#cropModeBtnGroup .btn');
-	const hiddenCropModeRadios = document.querySelectorAll('input[name="cropMode"]');
-
-	cropModeButtons.forEach(button => {
-		button.addEventListener('click', (e) => {
-			e.preventDefault();
-			const clickedBtn = e.currentTarget;
-			const newValue = clickedBtn.dataset.value;
-
-			// Update state and UI
-			state.dynamicCropMode = newValue;
-
-			cropModeButtons.forEach(btn => btn.classList.remove('active'));
-			clickedBtn.classList.add('active');
-
-			// Update the hidden radio button for compatibility if needed elsewhere
-			const radioToSelect = Array.from(hiddenCropModeRadios).find(r => r.value === newValue);
-			if (radioToSelect) radioToSelect.checked = true;
-
-			// Reset sub-options when the mode changes
-			if (scaleWithRatioToggle) {
-				scaleWithRatioToggle.checked = false;
-				state.scaleWithRatio = false;
-			}
-			if (smoothPathToggle) {
-				smoothPathToggle.checked = true;
-				state.smoothPath = true;
-			}
-			if (blurBackgroundToggle) {
-				blurBackgroundToggle.checked = false;
-				state.useBlurBackground = false;
-				blurAmountInput.value = 15;
-				state.blurAmount = 15;
-			}
-
-			// Update the UI to show/hide the correct sub-options
-			updateDynamicCropOptionsUI();
-		});
-	});
-
-	if (scaleWithRatioToggle) {
-		scaleWithRatioToggle.onchange = (e) => {
-			state.scaleWithRatio = e.target.checked;
-		};
-	}
-	if (smoothPathToggle) {
-		smoothPathToggle.onchange = (e) => {
-			state.smoothPath = e.target.checked;
-		};
-	}
-	if (blurBackgroundToggle && blurAmountInput) {
-		blurBackgroundToggle.onchange = (e) => {
-			state.useBlurBackground = e.target.checked;
-		};
-
-		blurAmountInput.oninput = (e) => {
-			// Update the state with the user's chosen blur amount
-			const amount = parseInt(e.target.value, 10);
-			if (!isNaN(amount)) {
-				state.blurAmount = Math.max(1, Math.min(100, amount)); // Clamp value between 1 and 100
-			}
-		};
-	}
 	updateDynamicCropOptionsUI();
 
-	window.addEventListener('resize', () => {
-		clearTimeout(state.resizeTimeout);
-		state.resizeTimeout = setTimeout(() => {
-			if ((state.isCropping || state.isPanning) && !cropCanvas.classList.contains('hidden')) {
-				state.cropCanvasDimensions = positionCropCanvas();
-				// Redraw current crop
-				const currentRect = state.isCropping ? state.cropRect :
-					(state.panKeyframes.length > 0 ? state.panKeyframes[state.panKeyframes.length - 1].rect : null);
-				if (currentRect) {
-					drawCropWithHandles(currentRect);
-				}
-			}
-		}, 100);
-
-		setTimeout(() => {
-			state.cropCanvasDimensions = positionCropCanvas();
-		}, 200);
-	});
-	document.addEventListener('keydown', (e) => {
-		if (state.isPanning && state.panRectSize && e.key.toLowerCase() === 'r' && !state.isCropFixed) {
-			e.preventDefault();
-			toggleCropFixed();
-			if (state.isCropFixed && !state.playing) {
-				play(); // Auto-start playback when fixing size in pan mode
-			}
-		}
-	});
-	// ADD THIS NEW CODE
-	const aspectRatioButtons = document.querySelectorAll('.aspect-ratio-btn');
-	aspectRatioButtons.forEach(button => {
-		button.addEventListener('click', (e) => {
-			e.preventDefault();
-			const clickedBtn = e.currentTarget;
-			const newValue = clickedBtn.dataset.value;
-
-			// Do nothing if the active button is clicked again
-			if (state.aspectRatioMode === newValue) {
-				return;
-			}
-
-			// Update state
-			state.aspectRatioMode = newValue;
-
-			// Update UI
-			aspectRatioButtons.forEach(btn => btn.classList.remove('active'));
-			clickedBtn.classList.add('active');
-
-			// If currently in panning mode, restart to apply the new ratio
-			if (state.isPanning) {
-				togglePanning(null, true); // Reset
-				setTimeout(() => togglePanning(), 50); // Restart with new ratio
-			}
-		});
-	});
+	// --- Other Event Listeners ---
+	setupOtherListeners();
 }
+
+/** Handles pointer down events when in caption positioning mode. */
+const handleCaptionPointerDown = (e) => {
+	e.preventDefault();
+	cropCanvas.setPointerCapture(e.pointerId);
+	const coords = getScaledCoordinates(e);
+
+	const currentRect = state.cropRect;
+	if (!currentRect) return;
+
+	state.resizeHandle = getResizeHandle(coords.x, coords.y, currentRect);
+	if (state.resizeHandle) {
+		state.isResizingCrop = true;
+	} else if (isInsideCropRect(coords.x, coords.y, currentRect)) {
+		state.isDraggingCrop = true;
+	} else {
+		return;
+	}
+
+	state.originalCropRect = { ...currentRect };
+	state.dragStartPos = coords;
+};
 
 export const toggleStaticCrop = (e, reset = false) => {
 	state.isCropping = !reset && !state.isCropping;
@@ -847,25 +732,25 @@ export const drawCropWithHandles = (rect) => {
 
 		// Corner handles
 		const corners = [{
-				x: rect.x,
-				y: rect.y,
-				cursor: 'nw'
-			},
-			{
-				x: rect.x + rect.width,
-				y: rect.y,
-				cursor: 'ne'
-			},
-			{
-				x: rect.x,
-				y: rect.y + rect.height,
-				cursor: 'sw'
-			},
-			{
-				x: rect.x + rect.width,
-				y: rect.y + rect.height,
-				cursor: 'se'
-			}
+			x: rect.x,
+			y: rect.y,
+			cursor: 'nw'
+		},
+		{
+			x: rect.x + rect.width,
+			y: rect.y,
+			cursor: 'ne'
+		},
+		{
+			x: rect.x,
+			y: rect.y + rect.height,
+			cursor: 'sw'
+		},
+		{
+			x: rect.x + rect.width,
+			y: rect.y + rect.height,
+			cursor: 'se'
+		}
 		];
 
 		corners.forEach(corner => {
@@ -885,25 +770,25 @@ export const drawCropWithHandles = (rect) => {
 
 		// Edge handles
 		const edges = [{
-				x: rect.x + rect.width / 2,
-				y: rect.y,
-				cursor: 'n'
-			}, // top
-			{
-				x: rect.x + rect.width / 2,
-				y: rect.y + rect.height,
-				cursor: 's'
-			}, // bottom
-			{
-				x: rect.x,
-				y: rect.y + rect.height / 2,
-				cursor: 'w'
-			}, // left
-			{
-				x: rect.x + rect.width,
-				y: rect.y + rect.height / 2,
-				cursor: 'e'
-			} // right
+			x: rect.x + rect.width / 2,
+			y: rect.y,
+			cursor: 'n'
+		}, // top
+		{
+			x: rect.x + rect.width / 2,
+			y: rect.y + rect.height,
+			cursor: 's'
+		}, // bottom
+		{
+			x: rect.x,
+			y: rect.y + rect.height / 2,
+			cursor: 'w'
+		}, // left
+		{
+			x: rect.x + rect.width,
+			y: rect.y + rect.height / 2,
+			cursor: 'e'
+		} // right
 		];
 
 		edges.forEach(edge => {
@@ -927,45 +812,45 @@ export const getResizeHandle = (x, y, rect) => {
 	if (!rect || state.isCropFixed) return null;
 
 	const handles = [{
-			name: 'nw',
-			x: rect.x,
-			y: rect.y
-		},
-		{
-			name: 'ne',
-			x: rect.x + rect.width,
-			y: rect.y
-		},
-		{
-			name: 'sw',
-			x: rect.x,
-			y: rect.y + rect.height
-		},
-		{
-			name: 'se',
-			x: rect.x + rect.width,
-			y: rect.y + rect.height
-		},
-		{
-			name: 'n',
-			x: rect.x + rect.width / 2,
-			y: rect.y
-		},
-		{
-			name: 's',
-			x: rect.x + rect.width / 2,
-			y: rect.y + rect.height
-		},
-		{
-			name: 'w',
-			x: rect.x,
-			y: rect.y + rect.height / 2
-		},
-		{
-			name: 'e',
-			x: rect.x + rect.width,
-			y: rect.y + rect.height / 2
-		}
+		name: 'nw',
+		x: rect.x,
+		y: rect.y
+	},
+	{
+		name: 'ne',
+		x: rect.x + rect.width,
+		y: rect.y
+	},
+	{
+		name: 'sw',
+		x: rect.x,
+		y: rect.y + rect.height
+	},
+	{
+		name: 'se',
+		x: rect.x + rect.width,
+		y: rect.y + rect.height
+	},
+	{
+		name: 'n',
+		x: rect.x + rect.width / 2,
+		y: rect.y
+	},
+	{
+		name: 's',
+		x: rect.x + rect.width / 2,
+		y: rect.y + rect.height
+	},
+	{
+		name: 'w',
+		x: rect.x,
+		y: rect.y + rect.height / 2
+	},
+	{
+		name: 'e',
+		x: rect.x + rect.width,
+		y: rect.y + rect.height / 2
+	}
 	];
 
 	for (const handle of handles) {
@@ -1294,4 +1179,122 @@ const handleCaptionBoxUpdate = (e) => {
 
 	// Redraw the box in its new state
 	drawCropWithHandles(state.cropRect);
+};
+
+const setupOtherListeners = () => {
+	// This contains the listeners from your original setupCropListener that aren't pointer events
+	const cropModeButtons = document.querySelectorAll('#cropModeBtnGroup .btn');
+	cropModeButtons.forEach(button => {
+		button.addEventListener('click', (e) => {
+			e.preventDefault();
+			const clickedBtn = e.currentTarget;
+			const newValue = clickedBtn.dataset.value;
+
+			// Update state and UI
+			state.dynamicCropMode = newValue;
+
+			cropModeButtons.forEach(btn => btn.classList.remove('active'));
+			clickedBtn.classList.add('active');
+
+			// Update the hidden radio button for compatibility if needed elsewhere
+			const radioToSelect = Array.from(hiddenCropModeRadios).find(r => r.value === newValue);
+			if (radioToSelect) radioToSelect.checked = true;
+
+			// Reset sub-options when the mode changes
+			if (scaleWithRatioToggle) {
+				scaleWithRatioToggle.checked = false;
+				state.scaleWithRatio = false;
+			}
+			if (smoothPathToggle) {
+				smoothPathToggle.checked = true;
+				state.smoothPath = true;
+			}
+			if (blurBackgroundToggle) {
+				blurBackgroundToggle.checked = false;
+				state.useBlurBackground = false;
+				blurAmountInput.value = 15;
+				state.blurAmount = 15;
+			}
+
+			// Update the UI to show/hide the correct sub-options
+			updateDynamicCropOptionsUI();
+		});
+	});
+	if (scaleWithRatioToggle) {
+		scaleWithRatioToggle.onchange = (e) => {
+			state.scaleWithRatio = e.target.checked;
+		};
+	}
+	if (smoothPathToggle) {
+		smoothPathToggle.onchange = (e) => {
+			state.smoothPath = e.target.checked;
+		};
+	}
+	if (blurBackgroundToggle && blurAmountInput) {
+		blurBackgroundToggle.onchange = (e) => {
+			state.useBlurBackground = e.target.checked;
+		};
+
+		blurAmountInput.oninput = (e) => {
+			// Update the state with the user's chosen blur amount
+			const amount = parseInt(e.target.value, 10);
+			if (!isNaN(amount)) {
+				state.blurAmount = Math.max(1, Math.min(100, amount)); // Clamp value between 1 and 100
+			}
+		};
+	}
+	window.addEventListener('resize', () => {
+		clearTimeout(state.resizeTimeout);
+		state.resizeTimeout = setTimeout(() => {
+			if ((state.isCropping || state.isPanning) && !cropCanvas.classList.contains('hidden')) {
+				state.cropCanvasDimensions = positionCropCanvas();
+				// Redraw current crop
+				const currentRect = state.isCropping ? state.cropRect :
+					(state.panKeyframes.length > 0 ? state.panKeyframes[state.panKeyframes.length - 1].rect : null);
+				if (currentRect) {
+					drawCropWithHandles(currentRect);
+				}
+			}
+		}, 100);
+
+		setTimeout(() => {
+			state.cropCanvasDimensions = positionCropCanvas();
+		}, 200);
+	});
+	document.addEventListener('keydown', (e) => {
+		if (state.isPanning && state.panRectSize && e.key.toLowerCase() === 'r' && !state.isCropFixed) {
+			e.preventDefault();
+			toggleCropFixed();
+			if (state.isCropFixed && !state.playing) {
+				play(); // Auto-start playback when fixing size in pan mode
+			}
+		}
+	});
+	// ADD THIS NEW CODE
+	const aspectRatioButtons = document.querySelectorAll('.aspect-ratio-btn');
+	aspectRatioButtons.forEach(button => {
+		button.addEventListener('click', (e) => {
+			e.preventDefault();
+			const clickedBtn = e.currentTarget;
+			const newValue = clickedBtn.dataset.value;
+
+			// Do nothing if the active button is clicked again
+			if (state.aspectRatioMode === newValue) {
+				return;
+			}
+
+			// Update state
+			state.aspectRatioMode = newValue;
+
+			// Update UI
+			aspectRatioButtons.forEach(btn => btn.classList.remove('active'));
+			clickedBtn.classList.add('active');
+
+			// If currently in panning mode, restart to apply the new ratio
+			if (state.isPanning) {
+				togglePanning(null, true); // Reset
+				setTimeout(() => togglePanning(), 50); // Restart with new ratio
+			}
+		});
+	});
 };
