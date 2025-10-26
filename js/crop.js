@@ -31,6 +31,10 @@ import {
 	play
 } from './player.js'
 
+import {
+	syncCaptionStylesFromRect
+} from './caption.js'
+
 export const setupCropListener = () => {
 	// --- Main Buttons ---
 	cropBtn.onclick = toggleStaticCrop;
@@ -272,28 +276,6 @@ const handleCaptionPointerMove = (e) => {
 	// Sync state.captionStyles from the updated state.cropRect
 	syncCaptionStylesFromRect();
 	drawCropWithHandles(state.cropRect);
-};
-
-/** Updates caption styles based on the state.cropRect dimensions and position. */
-const syncCaptionStylesFromRect = () => {
-	const centerX = state.cropRect.x + state.cropRect.width / 2;
-	const centerY = state.cropRect.y + state.cropRect.height / 2;
-	state.captionStyles.positionX = parseInt((centerX / canvas.width) * 100);
-	state.captionStyles.positionY = parseInt((centerY / canvas.height) * 100);
-
-	const newFontSizePercent = parseFloat((state.cropRect.height / 1.2 / canvas.height) * 100).toFixed(2);
-	state.captionStyles.fontSize = newFontSizePercent;
-
-	// Recalculate width based on new font size to maintain text aspect ratio
-	const groupSize = Math.max(1, state.captionStyles.wordGroupSize);
-	let sampleText = "Sample Word ".repeat(groupSize).trim();
-	const fontSizePx = canvas.height * (newFontSizePercent / 100);
-	cropCtx.font = `bold ${fontSizePx}px Arial`;
-	const textMetrics = cropCtx.measureText(sampleText);
-	state.cropRect.width = textMetrics.width;
-
-	// Re-center the box horizontally after width changes
-	state.cropRect.x = (state.captionStyles.positionX / 100 * canvas.width) - state.cropRect.width / 2;
 };
 
 /** Handles pointer move events for video cropping/panning. */

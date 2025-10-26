@@ -283,7 +283,7 @@ body::before {
 }
 
 /* #settingsHeaderBtn:hover { */
-    /* background: var(--glass-bg-hover);
+/* background: var(--glass-bg-hover);
     border-color: var(--accent-primary); */
 /* } */
 
@@ -336,7 +336,8 @@ body::before {
     background: var(--bg-primary);
     display: none;
     container-type: inline-size;
-    container-name: video-player; /* Optional, but good practice */
+    container-name: video-player;
+    /* Optional, but good practice */
 }
 
 .video-container.active {
@@ -402,20 +403,25 @@ body::before {
 
 .video-controls {
     position: absolute;
-    bottom: 2rem; /* Reduced for a tighter look */
-    left: 50%;   /* Position the element's left edge at the center */
+    bottom: 2rem;
+    /* Reduced for a tighter look */
+    left: 50%;
+    /* Position the element's left edge at the center */
     /* The 'right' property is removed */
     background: var(--bg-modal);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
     border: 1px solid var(--glass-border);
     border-radius: var(--border-radius-lg);
-    padding: 0.5rem 0.75rem; /* Using the more compact padding */
+    padding: 0.5rem 0.75rem;
+    /* Using the more compact padding */
     display: flex;
     flex-direction: column;
-    gap: 0.5rem; /* Using the more compact gap */
+    gap: 0.5rem;
+    /* Using the more compact gap */
     opacity: 0;
-    transform: translate(-50%, 20px); /* Move left by 50% of its own width to center it */
+    transform: translate(-50%, 20px);
+    /* Move left by 50% of its own width to center it */
     transition: var(--transition-smooth);
     z-index: 100;
     box-shadow: var(--glass-shadow-lg);
@@ -1786,8 +1792,10 @@ input[type="checkbox"] {
 @container video-player (max-width: 645px) {
     .controls-bottom {
         display: grid;
-        grid-template-columns: auto; /* Stack the left and right controls */
-        justify-content: center; /* Center the stacked content */
+        grid-template-columns: auto;
+        /* Stack the left and right controls */
+        justify-content: center;
+        /* Center the stacked content */
         gap: 0.5rem;
     }
 }
@@ -1836,4 +1844,25 @@ input[type="checkbox"] {
     .drop-zone-content img {
         width: 10%;
     }
+}
+
+.caption-word-row {
+    display: block;
+    padding: 1rem;
+    margin: auto;
+    margin-bottom: 1rem;
+}
+
+.caption-word-row .close-btn {
+    position: inherit;
+}
+
+.tick-btn:hover {
+    border: 1px solid var(--glass-border);
+    background: var(--accent-secondary);
+    border-color: var(--glass-border);
+}
+
+input:disabled {
+    background: var(--bg-overlay);
 }
