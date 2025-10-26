@@ -174,6 +174,7 @@
 						<button id="resizeBtn" class="control-btn track-btn btn">Resize</button>
 						<button id="imageToVideoBtn" class="control-btn track-btn btn">Image to Video</button>
 						<button id="recordScreenBtn" class="control-btn track-btn btn">Record Screen</button>
+						<button id="addCaptionBtn hidden" class="control-btn track-btn btn">Add Caption</button>
 					</div>
 
 					<hr class="menu-divider">
@@ -270,6 +271,22 @@
 							Clip</button>
 					</div>
 
+				</div>
+			</div>
+			<div class="sidebar hidden" id="captionMenu">
+				<div class="track-menu-content">
+					<h4>Add Captions</h4>
+					<div class="trim-menu-actions" style="justify-content: space-around; margin-bottom: 1rem;">
+						<input type="file" id="captionFileInput" accept=".json" style="display: none;">
+						<button id="loadCaptionsBtn" class="btn">Load JSON</button>
+						<button id="processCaptionsBtn" class="btn">Process Clip</button>
+					</div>
+					<hr class="menu-divider">
+					<div id="captionContent" class="caption-content-area">
+						<p style="padding: 1rem; text-align: center; opacity: 0.7;">
+							Click "Load JSON" to import a caption file.
+						</p>
+					</div>
 				</div>
 			</div>
 		</div>

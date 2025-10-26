@@ -3,10 +3,10 @@
 // ============================================================================
 
 
-import { $, playerArea, sidebar, playlistContent, settingsMenu } from './constants.js';
+import { $, playerArea, sidebar, playlistContent, settingsMenu, captionMenu } from './constants.js';
 import { state } from './state.js';
 import { positionCropCanvas } from './crop.js'
-import { loadMedia, stopAndClear } from './player.js'
+import { loadMedia, stopAndClear, hideTrackMenus } from './player.js'
 import { escapeHTML, } from './utility.js'
 import { showDropZoneUI, showError, showInfo, showLoading } from './ui.js'
 
@@ -71,6 +71,7 @@ export const setupPlaylistEventListeners = () => {
 		playerArea.classList.toggle('playlist-visible');
 		// Toggle the settings sidebar
 		settingsMenu.classList.add('hidden');
+		captionMenu.classList.add('hidden');
 		sidebar.classList.toggle('hidden');
 		setTimeout(() => {
 			state.cropCanvasDimensions = positionCropCanvas();

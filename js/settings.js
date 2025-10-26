@@ -1,4 +1,4 @@
-import { settingsMenu, settingsCtrlBtn, playerArea, sidebar, loopBtn, startTimeInput, endTimeInput, scaleOptionContainer, scaleWithRatioToggle, blurOptionContainer, smoothOptionContainer, smoothPathToggle, cropModeNoneRadio, blurBackgroundToggle, blurAmountInput } from './constants.js';
+import { settingsMenu, settingsCtrlBtn, playerArea, sidebar, loopBtn, startTimeInput, endTimeInput, scaleOptionContainer, scaleWithRatioToggle, blurOptionContainer, smoothOptionContainer, smoothPathToggle, cropModeNoneRadio, blurBackgroundToggle, blurAmountInput, captionMenu } from './constants.js';
 import { state } from './state.js';
 import { formatTime, guidedPanleInfo, } from './utility.js'
 import { positionCropCanvas, togglePanning, toggleStaticCrop } from './crop.js'
@@ -18,6 +18,7 @@ export const setupSettingsListeners = () => {
         playerArea.classList.toggle('playlist-visible');
         // Toggle the settings sidebar
         sidebar.classList.add('hidden');
+		captionMenu.classList.add('hidden');
         settingsMenu.classList.toggle('hidden');
 
         // After the transition, reposition the crop canvas if it's active

@@ -130,3 +130,7 @@ export const startRecFloatingBtn = $('startRecFloatingBtn');
 export const pauseRecBtn = $('pauseRecBtn');
 export const stopRecBtn = $('stopRecBtn');
 export const recTimer = $('recTimer');
+
+// DOM Elements - Caption
+export const addCaptionBtn = $('addCaptionBtn');
+export const captionMenu = $('captionMenu');

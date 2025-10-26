@@ -16,6 +16,7 @@ import { audioEventlistener } from './audio.js';
 import { setupSettingsListeners } from './settings.js';
 import { lenvetlistener } from './recording.js'
 import { toggleCropFixed, setupCropListener } from './crop.js';
+import { setupCaptionListeners } from './caption.js';
 
 export const setupEventListeners = () => {
 	$('chooseFileBtn').onclick = () => {
@@ -101,12 +102,12 @@ export const setupEventListeners = () => {
 		handleFiles(e.dataTransfer.files);
 	};
 
-	// === PERFORMANCE OPTIMIZATION: Event delegation for playlist clicks ===
 	setupPlaylistEventListeners();
 	audioEventlistener();
 	setupSettingsListeners();
 	setupCropListener();
 	setupPlayerListener();
+	setupCaptionListeners();
 
 	document.onkeydown = (e) => {
 		if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || !state.fileLoaded) return;
