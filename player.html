@@ -174,7 +174,7 @@
 						<button id="resizeBtn" class="control-btn track-btn btn">Resize</button>
 						<button id="imageToVideoBtn" class="control-btn track-btn btn">Image to Video</button>
 						<button id="recordScreenBtn" class="control-btn track-btn btn">Record Screen</button>
-						<button id="addCaptionBtn hidden" class="control-btn track-btn btn">Add Caption</button>
+						<button id="addCaptionBtn" class="control-btn track-btn btn">Add Caption</button>
 					</div>
 
 					<hr class="menu-divider">
@@ -281,6 +281,7 @@
 						<button id="loadCaptionsBtn" class="btn">Load JSON</button>
 						<button id="processCaptionsBtn" class="btn">Process Clip</button>
 					</div>
+					<button id="wordStylesBtn" class="btn hidden">Word Styles</button>
 					<hr class="menu-divider">
 					<div id="captionContent" class="caption-content-area">
 						<p style="padding: 1rem; text-align: center; opacity: 0.7;">
@@ -449,6 +450,51 @@
 			<li><kbd>c</kbd><span>To Process the clip</span></li>
 			<li><kbd>Esc</kbd><span>To Reset All</span></li>
 		</ul>
+	</div>
+	<div class="screenshot-overlay hidden" id="wordStylesModal">
+		<div class="screenshot-modal">
+			<button class="close-btn" id="closeWordStylesBtn">&times;</button>
+			<h3>Caption Word Styles</h3>
+			<p>Define how the caption text will appear on the video.</p>
+
+			<div class="resize-controls">
+				<div class="resize-section">
+					<h4>Font Size (% of video height)</h4>
+					<input id="captionFontSize" class="speed-input" type="number" min="1" max="20" value="5">
+				</div>
+
+				<div class="resize-section">
+					<h4>Word Color</h4>
+					<input id="captionColor" type="color" value="#FFFFFF">
+				</div>
+
+				<div class="resize-section">
+					<h4>Position(%)</h4>
+					<div class="trim-menu-controls">
+						<input id="captionPosX" class="time-input" type="number" min="0" max="100" value="50"
+							title="Horizontal Position (%)">
+						<span>X</span>
+						<input id="captionPosY" class="time-input" type="number" min="0" max="100" value="90"
+							title="Vertical Position (%)">
+					</div>
+				</div>
+
+				<div class="resize-section">
+					<h4 for="captionGroupSize">Word Group Size</h4>
+					<input id="captionGroupSize" class="speed-input" type="number" min="1" value="1"
+						title="Number of words to show at once">
+				</div>
+
+				<div class="resize-section hidden" id="highlightColorContainer">
+					<label for="highlightColor">Highlight Current Word</label>
+					<input id="highlightColor" type="color" value="#FFFF00">
+				</div>
+			</div>
+
+			<div class="screenshot-actions">
+				<button class="btn" id="applyWordStylesBtn">Apply</button>
+			</div>
+		</div>
 	</div>
 	<div class="shortcut-keys-panel guide_panel hidden" id="guide_panel">
 		<ul class="shortcut-list">
