@@ -38,49 +38,27 @@ import {
 } from './playlist.js';
 import { guidedPanleInfo } from './utility.js';
 
-// Let's keep track of the caption data in the main state
-state.allWords = [];
-state.captionData = null;
-state.captionStyles = {
-    fontSize: 5,       // As a percentage of video height
-    color: '#FFFFFF',
-    positionX: 50,
-    positionY: 90,
-    wordGroupSize: 1, // Changed from wordGroup
-    highlightColor: '#006affff',
-};
+const wordStylesBtn = $('wordStylesBtn');
+const positionCaptionsBtn = $('positionCaptionsBtn');
 
-/**
- * Normalizes incoming JSON data (from either format) into a flat array of word objects.
- * @param {object} jsonData - The parsed JSON data.
- * @returns {Array} A flat array of word objects.
- */
 const normalizeCaptionData = (jsonData) => {
     if (jsonData && Array.isArray(jsonData.words)) {
-        // Handles {"words": [...]} format
         return jsonData.words;
     }
     if (jsonData && Array.isArray(jsonData.segments)) {
-        // Handles {"segments": [{"words": [...]}]} format
-        // We use flatMap to iterate through segments and extract/flatten the words arrays
         return jsonData.segments.flatMap(segment => segment.words || []);
     }
-    // Return empty array if the format is unrecognized
     return [];
 };
 
-
-/**
- * Renders the UI for editing caption words from the flat allWords array.
- */
 const renderCaptionUI = () => {
     const captionContent = $('captionContent');
     captionContent.innerHTML = '';
 
     if (state.allWords.length === 0) {
         captionContent.innerHTML = '<p style="padding: 1rem; text-align: center; opacity: 0.7;">No valid word data found.</p>';
-        $('wordStylesBtn').classList.add('hidden'); // Hide styles button
-        $('positionCaptionsBtn').classList.add('hidden');
+        wordStylesBtn.classList.add('hidden');
+        positionCaptionsBtn.classList.add('hidden');
         return;
     }
 
@@ -104,8 +82,8 @@ const renderCaptionUI = () => {
     });
 
     captionContent.appendChild(wordsList);
-    $('wordStylesBtn').classList.remove('hidden'); // Show styles button
-    $('positionCaptionsBtn').classList.remove('hidden');
+    wordStylesBtn.classList.remove('hidden');
+    positionCaptionsBtn.classList.remove('hidden');
 };
 
 /**
@@ -259,7 +237,6 @@ export const setupCaptionListeners = () => {
     const processCaptionsBtn = $('processCaptionsBtn');
     const loadCaptionsBtn = $('loadCaptionsBtn');
     const captionFileInput = $('captionFileInput');
-    const wordStylesBtn = $('wordStylesBtn');
     const wordStylesModal = $('wordStylesModal');
     const closeWordStylesBtn = $('closeWordStylesBtn');
     const applyWordStylesBtn = $('applyWordStylesBtn');
@@ -367,10 +344,6 @@ export const setupCaptionListeners = () => {
     }
 };
 
-/**
- * Toggles the interactive caption positioning mode.
- * This function now ONLY sets up the state for crop.js to handle.
- */
 const toggleCaptionPositioning = () => {
     const isActivating = !state.isPositioningCaptions;
     const positionBtn = $('positionCaptionsBtn');

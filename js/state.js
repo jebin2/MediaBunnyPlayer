@@ -115,4 +115,14 @@ export const state = {
 
     //caption
     isPositioningCaptions: false,
+    allWords : [],
+    captionData : null,
+    captionStyles : {
+        fontSize: 5,       // As a percentage of video height
+        color: '#FFFFFF',
+        positionX: 50,
+        positionY: 90,
+        wordGroupSize: 1, // Changed from wordGroup
+        highlightColor: '#006affff',
+    },
 };
