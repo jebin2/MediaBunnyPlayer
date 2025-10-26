@@ -267,13 +267,19 @@ export const setupEventListeners = () => {
 		if (e.key === 'Shift') {
 			state.isShiftPressed = true;
 		}
+		if (e.key === 'Alt') {
+			e.preventDefault(); 
+			state.isAltPressed = true;
+		}
 	});
 
 	document.addEventListener('keyup', (e) => {
 		if (e.key === 'Shift') {
 			state.isShiftPressed = false;
-			// When Shift is released, the next mouse move will automatically
-			// record a normal, un-zoomed keyframe, effectively "snapping back".
+		}
+		if (e.key === 'Alt') {
+			e.preventDefault(); 
+			state.isAltPressed = false;
 		}
 	});
 	document.addEventListener('keydown', (e) => {

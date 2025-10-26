@@ -80,8 +80,6 @@ export const setupCropListener = () => {
 			// In panning mode with fixed size, any click starts recording movement
 			state.isDraggingCrop = true;
 			state.dragStartPos = coords;
-			// The originalCropRect needs to be set to calculate the drag delta
-			state.originalCropRect = { ...activeRect };
 		} else if (!state.aspectRatioLocked) {
 			// Only allow drawing if NOT in fixed ratio mode
 			state.isDrawingCrop = true;
@@ -94,15 +92,14 @@ export const setupCropListener = () => {
 	cropCanvas.onpointermove = (e) => {
 		if (state.isPositioningCaptions) {
 			handleCaptionPointerMove(e);
-		} else if (state.isCropping || state.isPanning) {
-			// This check needs to be inside the main video crop logic block
-			if (state.isDrawingCrop) {
-				const coords = getScaledCoordinates(e);
-				state.cropEnd = coords; // This was the missing line
-				const rect = { x: Math.min(state.cropStart.x, coords.x), y: Math.min(state.cropStart.y, coords.y), width: Math.abs(state.cropStart.x - coords.x), height: Math.abs(state.cropStart.y - coords.y) };
-				drawCropWithHandles(rect);
-				return; // Exit after drawing
-			}
+		} else if (state.isDrawingCrop) {
+            // This logic was moved in the last fix and is correct
+			const coords = getScaledCoordinates(e);
+			state.cropEnd = coords;
+			const rect = { x: Math.min(state.cropStart.x, coords.x), y: Math.min(state.cropStart.y, coords.y), width: Math.abs(state.cropStart.x - coords.x), height: Math.abs(state.cropStart.y - coords.y) };
+			drawCropWithHandles(rect);
+			return;
+		} else if (state.isCropping || (!state.isAltPressed && state.isPanning)) {
 			handleVideoCropPointerMove(e);
 		} else {
 		const coords = getScaledCoordinates(e);
@@ -118,7 +115,7 @@ export const setupCropListener = () => {
 				} else {
 					cropCanvas.style.cursor = 'crosshair';
 				}
-			} else if (state.isPanning && state.panRectSize && state.isCropFixed) {
+			} else if (state.isPanning && state.panRectSize && state.isCropFixed && state.isAltPressed) {
 				// Live panning with fixed size
 				const lastRectSize = state.panKeyframes.length > 0 ?
 					{
@@ -314,9 +311,11 @@ const handleVideoCropPointerMove = (e) => {
 		const newRect = applyResize(state.resizeHandle, coords.x - state.dragStartPos.x, coords.y - state.dragStartPos.y, state.originalCropRect);
 		if (state.isCropping) {
 			state.cropRect = newRect;
-		} else if (state.isPanning && state.panKeyframes.length > 0) {
-			state.panKeyframes[state.panKeyframes.length - 1].rect = newRect;
-			state.panRectSize = { width: newRect.width, height: newRect.height };
+		} else if (state.isPanning) {
+            // IMPORTANT: Only allow dragging when size is NOT fixed
+			if (state.panKeyframes.length > 0 && !state.isCropFixed) {
+				state.panKeyframes[state.panKeyframes.length - 1].rect = newRect;
+			}
 		}
 		drawCropWithHandles(newRect);
 		return;
@@ -995,7 +994,7 @@ export const toggleCropFixed = () => {
 				lastFrame.rect = clampRectToVideoBounds(lastFrame.rect);
 			}
 		}
-		guidedPanleInfo("Size Locked! Now, play the video and move the box to record the camera path. Use SHIFT + scroll up/down to perform zooming effect. Press 'L' again to resize. Press 'R' when you're done.");
+		guidedPanleInfo("Size Locked! Hold ALT and move your mouse over the video to record the camera path. Use SHIFT + scroll for zooming. Press 'L' again to resize. Press 'R' when you're done.");
 	} else {
 		// Redraw with handles
 		if (state.isCropping && state.cropRect) {
