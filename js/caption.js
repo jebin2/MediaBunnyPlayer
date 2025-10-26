@@ -234,7 +234,6 @@ const handleProcessCaptions = async () => {
  */
 export const setupCaptionListeners = () => {
     const captionMenu = $('captionMenu');
-    const positionCaptionsBtn = $('positionCaptionsBtn');
     const processCaptionsBtn = $('processCaptionsBtn');
     const loadCaptionsBtn = $('loadCaptionsBtn');
     const captionFileInput = $('captionFileInput');
@@ -347,7 +346,6 @@ export const setupCaptionListeners = () => {
 
 const toggleCaptionPositioning = () => {
     const isActivating = !state.isPositioningCaptions;
-    const positionBtn = $('positionCaptionsBtn');
     const cropCanvas = $('cropCanvas');
 
     // Turn off other modes to prevent conflicts
@@ -362,8 +360,8 @@ const toggleCaptionPositioning = () => {
         cropCanvas.classList.remove('hidden');
         positionCropCanvas();
 
-        positionBtn.textContent = 'Confirm Position';
-        positionBtn.classList.add('active-positioning');
+        positionCaptionsBtn.textContent = 'Confirm Position';
+        positionCaptionsBtn.classList.add('active-positioning');
 
         // Calculate the initial box from styles (this logic is correct)
         const styles = state.captionStyles;
@@ -389,8 +387,8 @@ const toggleCaptionPositioning = () => {
     } else {
         // --- TEARDOWN ---
         cropCanvas.classList.add('hidden');
-        positionBtn.textContent = 'Position Words';
-        positionBtn.classList.remove('active-positioning');
+        positionCaptionsBtn.textContent = 'Position Words';
+        positionCaptionsBtn.classList.remove('active-positioning');
         state.cropRect = null;
         drawCropWithHandles(null); // Clear the canvas
         guidedPanleInfo("");
