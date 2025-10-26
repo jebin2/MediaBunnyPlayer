@@ -2,11 +2,34 @@
 // STATIC CROP FUNCTIONALITY
 // ============================================================================
 
-import { videoContainer, canvas, HANDLE_SIZE, HANDLE_HALF, fixSizeBtn, cropBtn, cropCanvas, cropCtx, panScanBtn, scaleWithRatioToggle, smoothPathToggle, blurBackgroundToggle, blurAmountInput } from './constants.js';
-import { state } from './state.js';
-import { updateDynamicCropOptionsUI } from './settings.js'
-import { guidedPanleInfo, } from './utility.js'
-import { getPlaybackTime, play } from './player.js'
+import {
+	videoContainer,
+	canvas,
+	HANDLE_SIZE,
+	HANDLE_HALF,
+	fixSizeBtn,
+	cropBtn,
+	cropCanvas,
+	cropCtx,
+	panScanBtn,
+	scaleWithRatioToggle,
+	smoothPathToggle,
+	blurBackgroundToggle,
+	blurAmountInput
+} from './constants.js';
+import {
+	state
+} from './state.js';
+import {
+	updateDynamicCropOptionsUI
+} from './settings.js'
+import {
+	guidedPanleInfo,
+} from './utility.js'
+import {
+	getPlaybackTime,
+	play
+} from './player.js'
 
 export const setupCropListener = () => {
 	cropBtn.onclick = toggleStaticCrop;
@@ -33,7 +56,9 @@ export const setupCropListener = () => {
 			}
 
 			// Set the state variables that onpointermove will use
-			state.originalCropRect = { ...currentRect };
+			state.originalCropRect = {
+				...currentRect
+			};
 			state.dragStartPos = coords;
 			return; // Exit here, preventing crop/pan logic from running
 		}
@@ -55,12 +80,16 @@ export const setupCropListener = () => {
 
 			if (state.resizeHandle) {
 				state.isResizingCrop = true;
-				state.originalCropRect = { ...activeRect };
+				state.originalCropRect = {
+					...activeRect
+				};
 				state.dragStartPos = coords;
 			} else if (isInsideCropRect(coords.x, coords.y, activeRect)) {
 				// Clicking inside crop area - start dragging
 				state.isDraggingCrop = true;
-				state.originalCropRect = { ...activeRect };
+				state.originalCropRect = {
+					...activeRect
+				};
 				state.dragStartPos = coords;
 			} else if (!state.aspectRatioLocked) {
 				// Only allow drawing new rect if NOT in fixed ratio mode
@@ -143,9 +172,12 @@ export const setupCropListener = () => {
 				}
 			} else if (state.isPanning && state.panRectSize && state.isCropFixed) {
 				// Live panning with fixed size
-				const lastRectSize = state.panKeyframes.length > 0
-					? { width: state.panKeyframes[state.panKeyframes.length - 1].rect.width, height: state.panKeyframes[state.panKeyframes.length - 1].rect.height }
-					: state.panRectSize;
+				const lastRectSize = state.panKeyframes.length > 0 ?
+					{
+						width: state.panKeyframes[state.panKeyframes.length - 1].rect.width,
+						height: state.panKeyframes[state.panKeyframes.length - 1].rect.height
+					} :
+					state.panRectSize;
 				let currentRect = {
 					x: coords.x - lastRectSize.width / 2,
 					y: coords.y - lastRectSize.height / 2,
@@ -153,7 +185,10 @@ export const setupCropListener = () => {
 					height: lastRectSize.height
 				};
 				currentRect = clampRectToVideoBounds(currentRect);
-				state.panKeyframes.push({ timestamp: getPlaybackTime(), rect: currentRect });
+				state.panKeyframes.push({
+					timestamp: getPlaybackTime(),
+					rect: currentRect
+				});
 				drawCropWithHandles(currentRect);
 				return;
 			}
@@ -186,7 +221,10 @@ export const setupCropListener = () => {
 				state.cropRect = newRect;
 			} else if (state.isPanning && state.panKeyframes.length > 0) {
 				state.panKeyframes[state.panKeyframes.length - 1].rect = newRect;
-				state.panRectSize = { width: newRect.width, height: newRect.height };
+				state.panRectSize = {
+					width: newRect.width,
+					height: newRect.height
+				};
 			}
 
 			drawCropWithHandles(newRect);
@@ -213,7 +251,10 @@ export const setupCropListener = () => {
 			} else if (state.isPanning) {
 				if (state.isCropFixed) {
 					// Record keyframe while dragging in fixed mode
-					state.panKeyframes.push({ timestamp: getPlaybackTime(), rect: newRect });
+					state.panKeyframes.push({
+						timestamp: getPlaybackTime(),
+						rect: newRect
+					});
 				} else if (state.panKeyframes.length > 0) {
 					state.panKeyframes[state.panKeyframes.length - 1].rect = newRect;
 				}
@@ -254,8 +295,14 @@ export const setupCropListener = () => {
 				}
 			} else {
 				if (state.isPanning) {
-					state.panRectSize = { width: finalRect.width, height: finalRect.height };
-					state.panKeyframes.push({ timestamp: getPlaybackTime(), rect: finalRect });
+					state.panRectSize = {
+						width: finalRect.width,
+						height: finalRect.height
+					};
+					state.panKeyframes.push({
+						timestamp: getPlaybackTime(),
+						rect: finalRect
+					});
 				} else if (state.isCropping) {
 					state.cropRect = finalRect;
 				}
@@ -288,9 +335,9 @@ export const setupCropListener = () => {
 		const currentRect = lastKeyframe.rect;
 		const zoomFactor = e.deltaY < 0 ? (1 - ZOOM_SPEED) : (1 + ZOOM_SPEED); // Corrected zoom direction
 
-		const aspectRatio = state.aspectRatioLocked && state.aspectRatioMode !== 'custom'
-			? (state.aspectRatioMode === '16:9' ? 16 / 9 : 9 / 16)
-			: (state.panRectSize.width / state.panRectSize.height);
+		const aspectRatio = state.aspectRatioLocked && state.aspectRatioMode !== 'custom' ?
+			(state.aspectRatioMode === '16:9' ? 16 / 9 : 9 / 16) :
+			(state.panRectSize.width / state.panRectSize.height);
 
 		// === 1. PRE-CALCULATE AND CONSTRAIN THE NEW SIZE ===
 		let newWidth = currentRect.width * zoomFactor;
@@ -314,7 +361,12 @@ export const setupCropListener = () => {
 		let newY = coords.y - (newHeight * ratioY);
 
 		// === 3. CREATE AND CLAMP THE FINAL RECTANGLE ===
-		let newZoomedRect = { x: newX, y: newY, width: newWidth, height: newHeight };
+		let newZoomedRect = {
+			x: newX,
+			y: newY,
+			width: newWidth,
+			height: newHeight
+		};
 
 		// Use the robust clampRectToVideoBounds instead of constrainToRatio for positioning
 		newZoomedRect = clampRectToVideoBounds(newZoomedRect);
@@ -326,7 +378,9 @@ export const setupCropListener = () => {
 
 		drawCropWithHandles(newZoomedRect);
 
-	}, { passive: false });
+	}, {
+		passive: false
+	});
 
 	// ADD THIS NEW CODE for the segmented control
 	const cropModeButtons = document.querySelectorAll('#cropModeBtnGroup .btn');
@@ -550,7 +604,10 @@ export const getScaledCoordinates = (e) => {
 	const x = (e.clientX - rect.left) * scaleX;
 	const y = (e.clientY - rect.top) * scaleY;
 
-	return { x, y };
+	return {
+		x,
+		y
+	};
 };
 
 export const drawCropOverlay = () => {
@@ -609,8 +666,16 @@ export const togglePanning = (e, reset = false) => {
 			state.aspectRatioLocked = true;
 
 			// NEW: Initialize with max ratio rect and add first keyframe
-			state.panRectSize = { width: state.maxRatioRect.width, height: state.maxRatioRect.height };
-			state.panKeyframes.push({ timestamp: getPlaybackTime(), rect: { ...state.maxRatioRect } });
+			state.panRectSize = {
+				width: state.maxRatioRect.width,
+				height: state.maxRatioRect.height
+			};
+			state.panKeyframes.push({
+				timestamp: getPlaybackTime(),
+				rect: {
+					...state.maxRatioRect
+				}
+			});
 
 			// Draw the max ratio rectangle immediately
 			drawCropWithHandles(state.maxRatioRect);
@@ -676,7 +741,12 @@ export const clampRectToVideoBounds = (rect) => {
 	const videoWidth = canvas.width;
 	const videoHeight = canvas.height;
 
-	let { x, y, width, height } = rect;
+	let {
+		x,
+		y,
+		width,
+		height
+	} = rect;
 
 	// Clamp x to be within [0, videoWidth - width]
 	x = Math.max(0, Math.min(x, videoWidth - width));
@@ -688,7 +758,12 @@ export const clampRectToVideoBounds = (rect) => {
 	width = Math.min(width, videoWidth - x);
 	height = Math.min(height, videoHeight - y);
 
-	return { x, y, width, height };
+	return {
+		x,
+		y,
+		width,
+		height
+	};
 };
 
 export const smoothPathWithMovingAverage = (keyframes, windowSize = 15) => {
@@ -704,7 +779,10 @@ export const smoothPathWithMovingAverage = (keyframes, windowSize = 15) => {
 		const start = Math.max(0, i - halfWindow);
 		const end = Math.min(keyframes.length - 1, i + halfWindow);
 
-		let sumX = 0, sumY = 0, sumWidth = 0, sumHeight = 0;
+		let sumX = 0,
+			sumY = 0,
+			sumWidth = 0,
+			sumHeight = 0;
 
 		// Sum the properties of the keyframes within the window
 		for (let j = start; j <= end; j++) {
@@ -768,11 +846,26 @@ export const drawCropWithHandles = (rect) => {
 		cropCtx.lineWidth = 1;
 
 		// Corner handles
-		const corners = [
-			{ x: rect.x, y: rect.y, cursor: 'nw' },
-			{ x: rect.x + rect.width, y: rect.y, cursor: 'ne' },
-			{ x: rect.x, y: rect.y + rect.height, cursor: 'sw' },
-			{ x: rect.x + rect.width, y: rect.y + rect.height, cursor: 'se' }
+		const corners = [{
+				x: rect.x,
+				y: rect.y,
+				cursor: 'nw'
+			},
+			{
+				x: rect.x + rect.width,
+				y: rect.y,
+				cursor: 'ne'
+			},
+			{
+				x: rect.x,
+				y: rect.y + rect.height,
+				cursor: 'sw'
+			},
+			{
+				x: rect.x + rect.width,
+				y: rect.y + rect.height,
+				cursor: 'se'
+			}
 		];
 
 		corners.forEach(corner => {
@@ -791,11 +884,26 @@ export const drawCropWithHandles = (rect) => {
 		});
 
 		// Edge handles
-		const edges = [
-			{ x: rect.x + rect.width / 2, y: rect.y, cursor: 'n' }, // top
-			{ x: rect.x + rect.width / 2, y: rect.y + rect.height, cursor: 's' }, // bottom
-			{ x: rect.x, y: rect.y + rect.height / 2, cursor: 'w' }, // left
-			{ x: rect.x + rect.width, y: rect.y + rect.height / 2, cursor: 'e' } // right
+		const edges = [{
+				x: rect.x + rect.width / 2,
+				y: rect.y,
+				cursor: 'n'
+			}, // top
+			{
+				x: rect.x + rect.width / 2,
+				y: rect.y + rect.height,
+				cursor: 's'
+			}, // bottom
+			{
+				x: rect.x,
+				y: rect.y + rect.height / 2,
+				cursor: 'w'
+			}, // left
+			{
+				x: rect.x + rect.width,
+				y: rect.y + rect.height / 2,
+				cursor: 'e'
+			} // right
 		];
 
 		edges.forEach(edge => {
@@ -818,15 +926,46 @@ export const drawCropWithHandles = (rect) => {
 export const getResizeHandle = (x, y, rect) => {
 	if (!rect || state.isCropFixed) return null;
 
-	const handles = [
-		{ name: 'nw', x: rect.x, y: rect.y },
-		{ name: 'ne', x: rect.x + rect.width, y: rect.y },
-		{ name: 'sw', x: rect.x, y: rect.y + rect.height },
-		{ name: 'se', x: rect.x + rect.width, y: rect.y + rect.height },
-		{ name: 'n', x: rect.x + rect.width / 2, y: rect.y },
-		{ name: 's', x: rect.x + rect.width / 2, y: rect.y + rect.height },
-		{ name: 'w', x: rect.x, y: rect.y + rect.height / 2 },
-		{ name: 'e', x: rect.x + rect.width, y: rect.y + rect.height / 2 }
+	const handles = [{
+			name: 'nw',
+			x: rect.x,
+			y: rect.y
+		},
+		{
+			name: 'ne',
+			x: rect.x + rect.width,
+			y: rect.y
+		},
+		{
+			name: 'sw',
+			x: rect.x,
+			y: rect.y + rect.height
+		},
+		{
+			name: 'se',
+			x: rect.x + rect.width,
+			y: rect.y + rect.height
+		},
+		{
+			name: 'n',
+			x: rect.x + rect.width / 2,
+			y: rect.y
+		},
+		{
+			name: 's',
+			x: rect.x + rect.width / 2,
+			y: rect.y + rect.height
+		},
+		{
+			name: 'w',
+			x: rect.x,
+			y: rect.y + rect.height / 2
+		},
+		{
+			name: 'e',
+			x: rect.x + rect.width,
+			y: rect.y + rect.height / 2
+		}
 	];
 
 	for (const handle of handles) {
@@ -863,7 +1002,9 @@ export const getCursorForHandle = (handle) => {
 };
 
 export const applyResize = (handle, deltaX, deltaY, originalRect) => {
-	let newRect = { ...originalRect };
+	let newRect = {
+		...originalRect
+	};
 
 	// NEW: If aspect ratio is locked, we need to maintain it during resize
 	if (state.aspectRatioLocked && state.maxRatioRect) {
@@ -1054,12 +1195,22 @@ const calculateMaxRatioRect = (videoWidth, videoHeight, ratioW, ratioH) => {
 		y = (videoHeight - height) / 2;
 	}
 
-	return { x, y, width, height };
+	return {
+		x,
+		y,
+		width,
+		height
+	};
 };
 
 // Constrain rectangle to maintain aspect ratio and max size
 const constrainToRatio = (rect, maxRect, aspectRatio) => {
-	let { x, y, width, height } = rect;
+	let {
+		x,
+		y,
+		width,
+		height
+	} = rect;
 	const rectCenterX = x + width / 2;
 	const rectCenterY = y + height / 2;
 
@@ -1090,7 +1241,10 @@ const constrainToRatio = (rect, maxRect, aspectRatio) => {
  */
 const handleCaptionBoxUpdate = (e) => {
 	const coords = getScaledCoordinates(e); // Use your existing scale function
-	const { startRect, dragStartPos } = state; // Get original state at pointer down
+	const {
+		startRect,
+		dragStartPos
+	} = state; // Get original state at pointer down
 
 	if (state.isDraggingCrop) {
 		const deltaX = coords.x - dragStartPos.x;
@@ -1104,13 +1258,21 @@ const handleCaptionBoxUpdate = (e) => {
 		const deltaY = coords.y - dragStartPos.y;
 
 		// Apply resize based on handle (This is from your applyResize logic)
-		let newRect = { ...startRect };
+		let newRect = {
+			...startRect
+		};
 		const handle = state.resizeHandle;
 
 		if (handle.includes('e')) newRect.width = startRect.width + deltaX;
-		if (handle.includes('w')) { newRect.width = startRect.width - deltaX; newRect.x = startRect.x + deltaX; }
+		if (handle.includes('w')) {
+			newRect.width = startRect.width - deltaX;
+			newRect.x = startRect.x + deltaX;
+		}
 		if (handle.includes('s')) newRect.height = startRect.height + deltaY;
-		if (handle.includes('n')) { newRect.height = startRect.height - deltaY; newRect.y = startRect.y + deltaY; }
+		if (handle.includes('n')) {
+			newRect.height = startRect.height - deltaY;
+			newRect.y = startRect.y + deltaY;
+		}
 
 		// Ensure minimum size
 		newRect.width = Math.max(20, newRect.width);
