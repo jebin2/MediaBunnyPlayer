@@ -14,14 +14,40 @@ import {
 	QUALITY_HIGH
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.0/+esm';
 
-import { startTimeInput, endTimeInput } from './constants.js';
-import { state } from './state.js';
-import { resetAllConfigs } from './settings.js'
-import { clampRectToVideoBounds, getInterpolatedCropRect, smoothPathWithMovingAverage, togglePanning, toggleStaticCrop } from './crop.js'
-import { formatTime, guidedPanleInfo, parseTime, } from './utility.js'
-import { hideTrackMenus, pause } from './player.js'
-import { updatePlaylistUIOptimized } from './playlist.js'
-import { hideStatusMessage, showError, showStatusMessage } from './ui.js'
+import {
+	startTimeInput,
+	endTimeInput
+} from './constants.js';
+import {
+	state
+} from './state.js';
+import {
+	resetAllConfigs
+} from './settings.js'
+import {
+	clampRectToVideoBounds,
+	getInterpolatedCropRect,
+	smoothPathWithMovingAverage,
+	togglePanning,
+	toggleStaticCrop
+} from './crop.js'
+import {
+	formatTime,
+	guidedPanleInfo,
+	parseTime,
+} from './utility.js'
+import {
+	hideTrackMenus,
+	pause
+} from './player.js'
+import {
+	updatePlaylistUIOptimized
+} from './playlist.js'
+import {
+	hideStatusMessage,
+	showError,
+	showStatusMessage
+} from './ui.js'
 
 export const handleCutAction = async () => {
 	if (!state.fileLoaded) return;
@@ -42,9 +68,24 @@ export const handleCutAction = async () => {
 
 	try {
 		const source = (state.currentPlayingFile instanceof File) ? new BlobSource(state.currentPlayingFile) : new UrlSource(state.currentPlayingFile);
-		input = new Input({ source, formats: ALL_FORMATS });
-		const output = new Output({ format: new Mp4OutputFormat({ fastStart: 'in-memory' }), target: new BufferTarget() });
-		const conversionOptions = { input, output, trim: { start, end } };
+		input = new Input({
+			source,
+			formats: ALL_FORMATS
+		});
+		const output = new Output({
+			format: new Mp4OutputFormat({
+				fastStart: 'in-memory'
+			}),
+			target: new BufferTarget()
+		});
+		const conversionOptions = {
+			input,
+			output,
+			trim: {
+				start,
+				end
+			}
+		};
 		let cropFuncToReset = null;
 
 		if (state.panKeyframes.length > 1 && state.panRectSize) {
@@ -68,18 +109,33 @@ export const handleCutAction = async () => {
 				const outputWidth = videoTrack.codedWidth;
 				const outputHeight = videoTrack.codedHeight;
 				conversionOptions.video = {
-					track: videoTrack, codec: 'avc', bitrate: QUALITY_HIGH, processedWidth: outputWidth, processedHeight: outputHeight, forceTranscode: true,
+					track: videoTrack,
+					codec: 'avc',
+					bitrate: QUALITY_HIGH,
+					processedWidth: outputWidth,
+					processedHeight: outputHeight,
+					forceTranscode: true,
 					process: (sample) => {
-						const cropRect = getInterpolatedCropRect(sample.timestamp); if (!cropRect) return sample;
-						const safeCropRect = clampRectToVideoBounds(cropRect); if (safeCropRect.width <= 0 || safeCropRect.height <= 0) return sample;
-						if (!processCanvas) { processCanvas = new OffscreenCanvas(outputWidth, outputHeight); processCtx = processCanvas.getContext('2d', { alpha: false }); }
+						const cropRect = getInterpolatedCropRect(sample.timestamp);
+						if (!cropRect) return sample;
+						const safeCropRect = clampRectToVideoBounds(cropRect);
+						if (safeCropRect.width <= 0 || safeCropRect.height <= 0) return sample;
+						if (!processCanvas) {
+							processCanvas = new OffscreenCanvas(outputWidth, outputHeight);
+							processCtx = processCanvas.getContext('2d', {
+								alpha: false
+							});
+						}
 						const videoFrame = sample._data || sample;
 
 						if (state.useBlurBackground) {
 							processCtx.drawImage(videoFrame, 0, 0, outputWidth, outputHeight);
-							processCtx.filter = `blur(${state.blurAmount}px)`; processCtx.drawImage(processCanvas, 0, 0); processCtx.filter = 'none';
+							processCtx.filter = `blur(${state.blurAmount}px)`;
+							processCtx.drawImage(processCanvas, 0, 0);
+							processCtx.filter = 'none';
 						} else {
-							processCtx.fillStyle = 'black'; processCtx.fillRect(0, 0, outputWidth, outputHeight);
+							processCtx.fillStyle = 'black';
+							processCtx.fillRect(0, 0, outputWidth, outputHeight);
 						}
 						processCtx.drawImage(videoFrame, Math.round(safeCropRect.x), Math.round(safeCropRect.y), Math.round(safeCropRect.width), Math.round(safeCropRect.height), Math.round(safeCropRect.x), Math.round(safeCropRect.y), Math.round(safeCropRect.width), Math.round(safeCropRect.height));
 						return processCanvas;
@@ -90,35 +146,63 @@ export const handleCutAction = async () => {
 				let outputWidth, outputHeight;
 
 				if (state.dynamicCropMode === 'max-size') {
-					const maxWidth = Math.max(...state.panKeyframes.map(kf => kf.rect.width)); const maxHeight = Math.max(...state.panKeyframes.map(kf => kf.rect.height));
-					outputWidth = Math.round(maxWidth / 2) * 2; outputHeight = Math.round(maxHeight / 2) * 2;
+					const maxWidth = Math.max(...state.panKeyframes.map(kf => kf.rect.width));
+					const maxHeight = Math.max(...state.panKeyframes.map(kf => kf.rect.height));
+					outputWidth = Math.round(maxWidth / 2) * 2;
+					outputHeight = Math.round(maxHeight / 2) * 2;
 				} else { // This is the 'none' or Default case
-					outputWidth = Math.round(state.panRectSize.width / 2) * 2; outputHeight = Math.round(state.panRectSize.height / 2) * 2;
+					outputWidth = Math.round(state.panRectSize.width / 2) * 2;
+					outputHeight = Math.round(state.panRectSize.height / 2) * 2;
 				}
 
 				conversionOptions.video = {
-					track: videoTrack, codec: 'avc', bitrate: QUALITY_HIGH, processedWidth: outputWidth, processedHeight: outputHeight, forceTranscode: true,
+					track: videoTrack,
+					codec: 'avc',
+					bitrate: QUALITY_HIGH,
+					processedWidth: outputWidth,
+					processedHeight: outputHeight,
+					forceTranscode: true,
 					process: (sample) => {
-						const cropRect = getInterpolatedCropRect(sample.timestamp); if (!cropRect) return sample;
-						const safeCropRect = clampRectToVideoBounds(cropRect); if (safeCropRect.width <= 0 || safeCropRect.height <= 0) return sample;
-						if (!processCanvas) { processCanvas = new OffscreenCanvas(outputWidth, outputHeight); processCtx = processCanvas.getContext('2d', { alpha: false }); }
+						const cropRect = getInterpolatedCropRect(sample.timestamp);
+						if (!cropRect) return sample;
+						const safeCropRect = clampRectToVideoBounds(cropRect);
+						if (safeCropRect.width <= 0 || safeCropRect.height <= 0) return sample;
+						if (!processCanvas) {
+							processCanvas = new OffscreenCanvas(outputWidth, outputHeight);
+							processCtx = processCanvas.getContext('2d', {
+								alpha: false
+							});
+						}
 						const videoFrame = sample._data || sample;
 
 						if (state.dynamicCropMode === 'max-size' && state.useBlurBackground) {
 							processCtx.drawImage(videoFrame, 0, 0, outputWidth, outputHeight);
-							processCtx.filter = 'blur(15px)'; processCtx.drawImage(processCanvas, 0, 0); processCtx.filter = 'none';
+							processCtx.filter = 'blur(15px)';
+							processCtx.drawImage(processCanvas, 0, 0);
+							processCtx.filter = 'none';
 						} else {
-							processCtx.fillStyle = 'black'; processCtx.fillRect(0, 0, outputWidth, outputHeight);
+							processCtx.fillStyle = 'black';
+							processCtx.fillRect(0, 0, outputWidth, outputHeight);
 						}
 
 						let destX, destY, destWidth, destHeight;
 						if (state.dynamicCropMode == 'none' || (state.dynamicCropMode === 'max-size' && state.scaleWithRatio)) {
-							const sourceAspectRatio = safeCropRect.width / safeCropRect.height; const outputAspectRatio = outputWidth / outputHeight;
-							if (sourceAspectRatio > outputAspectRatio) { destWidth = outputWidth; destHeight = destWidth / sourceAspectRatio; } else { destHeight = outputHeight; destWidth = destHeight * sourceAspectRatio; }
-							destX = (outputWidth - destWidth) / 2; destY = (outputHeight - destHeight) / 2;
+							const sourceAspectRatio = safeCropRect.width / safeCropRect.height;
+							const outputAspectRatio = outputWidth / outputHeight;
+							if (sourceAspectRatio > outputAspectRatio) {
+								destWidth = outputWidth;
+								destHeight = destWidth / sourceAspectRatio;
+							} else {
+								destHeight = outputHeight;
+								destWidth = destHeight * sourceAspectRatio;
+							}
+							destX = (outputWidth - destWidth) / 2;
+							destY = (outputHeight - destHeight) / 2;
 						} else {
-							destWidth = safeCropRect.width; destHeight = safeCropRect.height;
-							destX = (outputWidth - destWidth) / 2; destY = (outputHeight - destHeight) / 2;
+							destWidth = safeCropRect.width;
+							destHeight = safeCropRect.height;
+							destX = (outputWidth - destWidth) / 2;
+							destY = (outputHeight - destHeight) / 2;
 						}
 						processCtx.drawImage(videoFrame, Math.round(safeCropRect.x), Math.round(safeCropRect.y), Math.round(safeCropRect.width), Math.round(safeCropRect.height), destX, destY, destWidth, destHeight);
 						return processCanvas;
@@ -127,8 +211,16 @@ export const handleCutAction = async () => {
 			}
 		} else if (state.cropRect && state.cropRect.width > 0) { // Static crop remains unchanged
 			cropFuncToReset = toggleStaticCrop;
-			const evenWidth = Math.round(state.cropRect.width / 2) * 2; const evenHeight = Math.round(state.cropRect.height / 2) * 2;
-			conversionOptions.video = { crop: { left: Math.round(state.cropRect.x), top: Math.round(state.cropRect.y), width: evenWidth, height: evenHeight } };
+			const evenWidth = Math.round(state.cropRect.width / 2) * 2;
+			const evenHeight = Math.round(state.cropRect.height / 2) * 2;
+			conversionOptions.video = {
+				crop: {
+					left: Math.round(state.cropRect.x),
+					top: Math.round(state.cropRect.y),
+					width: evenWidth,
+					height: evenHeight
+				}
+			};
 		}
 
 		const conversion = await Conversion.init(conversionOptions);
@@ -137,8 +229,15 @@ export const handleCutAction = async () => {
 		await conversion.execute();
 		const originalName = (state.currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
 		const clipName = `${originalName}_${new Date().getTime()}_${formatTime(start)}-${formatTime(end)}_edited.mp4`.replace(/:/g, '_');
-		const cutClipFile = new File([output.target.buffer], clipName, { type: 'video/mp4' });
-		state.playlist.push({ type: 'file', name: clipName, file: cutClipFile, isCutClip: true });
+		const cutClipFile = new File([output.target.buffer], clipName, {
+			type: 'video/mp4'
+		});
+		state.playlist.push({
+			type: 'file',
+			name: clipName,
+			file: cutClipFile,
+			isCutClip: true
+		});
 		updatePlaylistUIOptimized();
 		// if (cropFuncToReset) cropFuncToReset(null, true);
 		showStatusMessage('Clip adding to playlist!');
