@@ -232,75 +232,37 @@ const handleProcessCaptions = async () => {
 /**
  * Initializes all event listeners related to the captioning functionality.
  */
+const captionMenu = $('captionMenu');
+const processCaptionsBtn = $('processCaptionsBtn');
+const loadCaptionsBtn = $('loadCaptionsBtn');
+const captionFileInput = $('captionFileInput');
+const wordStylesModal = $('wordStylesModal');
+const closeWordStylesBtn = $('closeWordStylesBtn');
+const applyWordStylesBtn = $('applyWordStylesBtn');
+const captionGroupSizeInput = $('captionGroupSize');
+const highlightColorContainer = $('highlightColorContainer');
 export const setupCaptionListeners = () => {
-    const captionMenu = $('captionMenu');
-    const processCaptionsBtn = $('processCaptionsBtn');
-    const loadCaptionsBtn = $('loadCaptionsBtn');
-    const captionFileInput = $('captionFileInput');
-    const wordStylesModal = $('wordStylesModal');
-    const closeWordStylesBtn = $('closeWordStylesBtn');
-    const applyWordStylesBtn = $('applyWordStylesBtn');
-    const captionGroupSizeInput = $('captionGroupSize');
-    const highlightColorContainer = $('highlightColorContainer');
 
-    addCaptionBtn.onclick = (e) => {
-        e.stopPropagation();
-        // If settings sidebar is open, close it first
-        if (playerArea.classList.contains('playlist-visible')) {
-            playerArea.classList.remove('playlist-visible');
-        }
-
-        playerArea.classList.toggle('playlist-visible');
-        // Toggle the settings sidebar
-        sidebar.classList.add('hidden');
-        settingsMenu.classList.add('hidden');
-        captionMenu.classList.toggle('hidden');
-        setTimeout(() => {
-            state.cropCanvasDimensions = positionCropCanvas();
-        }, 200);
-    }
-
-    if (processCaptionsBtn) processCaptionsBtn.onclick = handleProcessCaptions;
+    addCaptionBtn.onclick = handleCaptionBtnClick;
+    processCaptionsBtn.onclick = handleProcessCaptions;
     positionCaptionsBtn.onclick = toggleCaptionPositioning;
 
     // --- File Loading ---
-    if (loadCaptionsBtn) loadCaptionsBtn.onclick = () => captionFileInput.click();
-    if (captionFileInput) {
-        captionFileInput.onchange = (e) => {
-            const file = e.target.files[0];
-            if (file && file.type === 'application/json') {
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    try {
-                        const jsonData = JSON.parse(event.target.result);
-                        state.allWords = normalizeCaptionData(jsonData); // Normalize and store
-                        renderCaptionUI(); // Render from the new flat array
-                        showInfo("Caption file loaded successfully.");
-                    } catch (err) {
-                        showError("Invalid JSON file format.");
-                    }
-                };
-                reader.readAsText(file);
-            } else {
-                showError("Please select a valid .json file.");
-            }
-            e.target.value = null;
-        };
-    }
+    loadCaptionsBtn.onclick = () => captionFileInput.click();
+    captionFileInput.onchange = handleCaptionFileChange;
 
     // --- Word Styles Modal Logic ---
-    if (wordStylesBtn) {
-        wordStylesBtn.onclick = () => {
-            $('captionFontSize').value = state.captionStyles.fontSize;
-            $('captionColor').value = state.captionStyles.color;
-            $('captionPosX').value = state.captionStyles.positionX;
-            $('captionPosY').value = state.captionStyles.positionY;
-            $('highlightColor').value = state.captionStyles.highlightColor;
-            captionGroupSizeInput.value = state.captionStyles.wordGroupSize;
-            captionGroupSizeInput.dispatchEvent(new Event('input'));
-            wordStylesModal.classList.remove('hidden');
-        };
-    }
+    wordStylesBtn.onclick = () => {
+        $('captionFontSize').value = state.captionStyles.fontSize;
+        $('captionColor').value = state.captionStyles.color;
+        $('captionPosX').value = state.captionStyles.positionX;
+        $('captionPosY').value = state.captionStyles.positionY;
+        $('highlightColor').value = state.captionStyles.highlightColor;
+        captionGroupSizeInput.value = state.captionStyles.wordGroupSize;
+        captionGroupSizeInput.dispatchEvent(new Event('input'));
+        wordStylesModal.classList.remove('hidden');
+        if (state.isPositioningCaptions) toggleCaptionPositioning();
+    };
 
     const hideStylesModal = () => wordStylesModal.classList.add('hidden');
     if (closeWordStylesBtn) closeWordStylesBtn.onclick = hideStylesModal;
@@ -343,6 +305,44 @@ export const setupCaptionListeners = () => {
         });
     }
 };
+
+const handleCaptionFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file && file.type === 'application/json') {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const jsonData = JSON.parse(event.target.result);
+                state.allWords = normalizeCaptionData(jsonData); // Normalize and store
+                renderCaptionUI(); // Render from the new flat array
+                showInfo("Caption file loaded successfully.");
+            } catch (err) {
+                showError("Invalid JSON file format.");
+            }
+        };
+        reader.readAsText(file);
+    } else {
+        showError("Please select a valid .json file.");
+    }
+    e.target.value = null;
+};
+
+const handleCaptionBtnClick = (e) => {
+    e.stopPropagation();
+    // If settings sidebar is open, close it first
+    if (playerArea.classList.contains('playlist-visible')) {
+        playerArea.classList.remove('playlist-visible');
+    }
+
+    playerArea.classList.toggle('playlist-visible');
+    // Toggle the settings sidebar
+    sidebar.classList.add('hidden');
+    settingsMenu.classList.add('hidden');
+    captionMenu.classList.toggle('hidden');
+    setTimeout(() => {
+        state.cropCanvasDimensions = positionCropCanvas();
+    }, 200);
+}
 
 const toggleCaptionPositioning = () => {
     const isActivating = !state.isPositioningCaptions;
