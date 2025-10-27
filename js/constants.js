@@ -134,3 +134,6 @@ export const recTimer = $('recTimer');
 // DOM Elements - Caption
 export const addCaptionBtn = $('addCaptionBtn');
 export const captionMenu = $('captionMenu');
+
+// Blur
+export const blurMenu = $('blurMenu');

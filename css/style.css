@@ -1918,3 +1918,7 @@ input:disabled {
 .removeAnimation::after {
     animation: none !important;
 }
+
+.delete-segment-btn {
+    position: inherit;
+}

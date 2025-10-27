@@ -36,6 +36,11 @@ import {
 	syncCaptionStylesFromRect
 } from './caption.js'
 
+import {
+	handleBlurPointerDown,
+	handleBlurPointerMove,
+} from './blur.js'; // new import
+
 export const setupCropListener = () => {
 	// --- Main Buttons ---
 	cropBtn.onclick = toggleStaticCrop;
@@ -43,7 +48,9 @@ export const setupCropListener = () => {
 	fixSizeBtn.onclick = (e) => { e.stopPropagation(); toggleCropFixed(); };
 
 	cropCanvas.onpointerdown = (e) => {
-		if (state.isPositioningCaptions) {
+		if (state.isBlurring) { // ADD THIS BLOCK
+			handleBlurPointerDown(e);
+		} else if (state.isPositioningCaptions) {
 			handleCaptionPointerDown(e);
 		} else if (state.isCropping || state.isPanning) {
 			e.preventDefault();
@@ -95,7 +102,9 @@ export const setupCropListener = () => {
 	};
 
 	cropCanvas.onpointermove = (e) => {
-		if (state.isPositioningCaptions) {
+		if (state.isBlurring) { // ADD THIS BLOCK
+			handleBlurPointerMove(e);
+		} else if (state.isPositioningCaptions) {
 			handleCaptionPointerMove(e);
 		} else if (state.isDrawingCrop) {
 			// This logic was moved in the last fix and is correct

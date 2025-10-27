@@ -190,6 +190,7 @@
 						<button id="recordScreenBtn" class="control-btn track-btn btn">⚠️ Record Screen</button>
 						<button id="addCaptionBtn" class="control-btn track-btn btn">Add Caption</button>
 						<button id="mergeBtn" class="control-btn track-btn btn">Merge</button>
+						<button id="blurBtn" class="control-btn track-btn btn">Blur</button>
 					</div>
 
 					<hr class="menu-divider">
@@ -303,6 +304,12 @@
 							Click "Load JSON" to import a caption file.
 						</p>
 					</div>
+				</div>
+			</div>
+			<div class="sidebar hidden" id="blurMenu">
+				<div class="track-menu-content" id="blurSegmentsList">
+					<h4>Blur Segments</h4>
+					<p>No blur segments added.</p>
 				</div>
 			</div>
 		</div>
@@ -538,6 +545,7 @@
 	<input type="file" id="fileInput" multiple accept="video/*,audio/*,.mkv,.webm">
 	<input type="file" id="folderInput" webkitdirectory multiple>
 	<script type="module">
+
 		document.addEventListener('DOMContentLoaded', () => {
 			const urlParams = new URLSearchParams(window.location.search);
 			const modular = urlParams.get('modular') !== 'true';

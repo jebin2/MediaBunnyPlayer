@@ -1,31 +1,15 @@
 import { $, settingsMenu, settingsCtrlBtn, playerArea, sidebar, loopBtn, startTimeInput, endTimeInput, scaleOptionContainer, scaleWithRatioToggle, blurOptionContainer, smoothOptionContainer, smoothPathToggle, cropModeNoneRadio, blurBackgroundToggle, blurAmountInput, captionMenu } from './constants.js';
 import { state } from './state.js';
-import { formatTime, guidedPanleInfo, } from './utility.js'
+import { formatTime, guidedPanleInfo, rightPanel } from './utility.js'
 import { positionCropCanvas, togglePanning, toggleStaticCrop } from './crop.js'
 import { pause } from './player.js'
 import { showInfo } from './ui.js'
-import { changePlaylistCheckBoxVisible } from './playlist.js'
 
 export const setupSettingsListeners = () => {
-    settingsCtrlBtn.onclick = (e) => {
-        e.stopPropagation();
-
-        // If playlist is open, close it first
-        if (playerArea.classList.contains('playlist-visible')) {
-            playerArea.classList.remove('playlist-visible');
-        }
-        playerArea.classList.toggle('playlist-visible');
-        // Toggle the settings sidebar
-        sidebar.classList.add('hidden');
-		captionMenu.classList.add('hidden');
-        settingsMenu.classList.toggle('hidden');
-		changePlaylistCheckBoxVisible(false);
-
-        // After the transition, reposition the crop canvas if it's active
-		setTimeout(() => {
-			state.cropCanvasDimensions = positionCropCanvas();
-		}, 200);
-    };
+	settingsCtrlBtn.onclick = (e) => {
+		e.stopPropagation();
+		rightPanel('settings', true);
+	};
 	configTrimRange();
 };
 
@@ -95,7 +79,7 @@ const configTrimRange = () => {
 
 		if (target.matches('.trimRangeRemove')) {
 			rowElement.remove();
-			if(document.querySelectorAll("#trimRangeList .trim-range").length == 0) {
+			if (document.querySelectorAll("#trimRangeList .trim-range").length == 0) {
 				createTrimRange();
 			}
 		}

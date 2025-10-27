@@ -3,8 +3,10 @@
 // ============================================================================
 
 
-import { $ } from './constants.js';
+import { $, sidebar, captionMenu, settingsMenu, blurMenu } from './constants.js';
+import { positionCropCanvas } from './crop.js';
 import { loadMedia } from './player.js'
+import { state } from './state.js'
 
 export const parseTime = (timeStr) => {
 	const parts = timeStr.split(':').map(Number);
@@ -85,3 +87,39 @@ export const registerServiceWorker = () => {
 			.catch(err => console.log('ServiceWorker registration failed:', err));
 	}
 }
+
+export const rightPanel = (type = 'playlist', show = true) => {
+	if (playerArea.classList.contains('playlist-visible')) {
+		playerArea.classList.remove('playlist-visible');
+	}
+	sidebar.classList.add('hidden');
+	settingsMenu.classList.add('hidden');
+	captionMenu.classList.add('hidden');
+	blurMenu.classList.add('hidden');
+
+	if (show) {
+		let menu;
+		playerArea.classList.toggle('playlist-visible');
+		switch (type) {
+			case "playlist":
+				menu = sidebar;
+				break
+			case "settings":
+				menu = settingsMenu;
+				break
+			case "caption":
+				menu = captionMenu;
+				break
+			case "blur":
+				menu = blurMenu;
+				break
+			default:
+				menu = sidebar;
+		}
+		menu.classList.toggle('hidden');
+	}
+
+	setTimeout(() => {
+		state.cropCanvasDimensions = positionCropCanvas();
+	}, 200);
+};

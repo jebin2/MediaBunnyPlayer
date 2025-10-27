@@ -52,6 +52,137 @@ import {
 	showStatusMessage
 } from './ui.js'
 
+const createVideoProcessFunction = (videoTrack, state) => {
+	const hasDynamicCrop = state.panKeyframes.length > 1 && state.panRectSize;
+	const hasStaticCrop = state.cropRect && state.cropRect.width > 0;
+	const hasBlur = state.blurSegments.length > 0;
+
+	if (!hasDynamicCrop && !hasStaticCrop && !hasBlur) {
+		return null;
+	}
+
+	let outputWidth, outputHeight;
+	let processCanvas = null;
+	let processCtx = null;
+
+	// 1. Determine Output Dimensions based on crop type
+	if (hasDynamicCrop) {
+		if (state.dynamicCropMode === 'max-size') {
+			const maxWidth = Math.max(...state.panKeyframes.map(kf => kf.rect.width));
+			const maxHeight = Math.max(...state.panKeyframes.map(kf => kf.rect.height));
+			outputWidth = Math.round(maxWidth / 2) * 2;
+			outputHeight = Math.round(maxHeight / 2) * 2;
+		} else if (state.dynamicCropMode === 'spotlight') {
+			outputWidth = videoTrack.codedWidth;
+			outputHeight = videoTrack.codedHeight;
+		} else { // 'none' or Default
+			outputWidth = Math.round(state.panRectSize.width / 2) * 2;
+			outputHeight = Math.round(state.panRectSize.height / 2) * 2;
+		}
+	} else if (hasStaticCrop) {
+		outputWidth = Math.round(state.cropRect.width / 2) * 2;
+		outputHeight = Math.round(state.cropRect.height / 2) * 2;
+	} else { // Only blurring
+		outputWidth = videoTrack.codedWidth;
+		outputHeight = videoTrack.codedHeight;
+	}
+
+
+	// 2. Create the unified process function
+	const process = (sample) => {
+		if (!processCanvas) {
+			processCanvas = new OffscreenCanvas(outputWidth, outputHeight);
+			processCtx = processCanvas.getContext('2d', { alpha: false });
+		}
+
+		const videoFrame = sample._data || sample;
+		const currentTime = sample.timestamp;
+		let sourceRect;
+
+		// Determine the source rectangle to crop from the original video
+		if (hasDynamicCrop) {
+			sourceRect = getInterpolatedCropRect(currentTime);
+		} else if (hasStaticCrop) {
+			sourceRect = state.cropRect;
+		} else { // No crop, use the full frame
+			sourceRect = { x: 0, y: 0, width: videoTrack.codedWidth, height: videoTrack.codedHeight };
+		}
+
+		if (!sourceRect || sourceRect.width <= 0 || sourceRect.height <= 0) return sample;
+		const safeSourceRect = clampRectToVideoBounds(sourceRect);
+
+
+		// --- A. DRAW THE (POTENTIALLY CROPPED) BACKGROUND AND FRAME ---
+		processCtx.fillStyle = 'black';
+		processCtx.fillRect(0, 0, outputWidth, outputHeight);
+
+		if (state.dynamicCropMode === 'spotlight') {
+			// Spotlight mode draws the full frame with a background effect
+			if (state.useBlurBackground) {
+				processCtx.drawImage(videoFrame, 0, 0, outputWidth, outputHeight);
+				processCtx.filter = `blur(${state.blurAmount}px)`;
+				processCtx.drawImage(processCanvas, 0, 0);
+				processCtx.filter = 'none';
+			}
+			processCtx.drawImage(videoFrame, Math.round(safeSourceRect.x), Math.round(safeSourceRect.y), Math.round(safeSourceRect.width), Math.round(safeSourceRect.height), Math.round(safeSourceRect.x), Math.round(safeSourceRect.y), Math.round(safeSourceRect.width), Math.round(safeSourceRect.height));
+		} else {
+			// All other modes draw a cropped portion into the output canvas
+			let destX = 0, destY = 0, destWidth = outputWidth, destHeight = outputHeight;
+			if (hasDynamicCrop && (state.dynamicCropMode === 'none' || (state.dynamicCropMode === 'max-size' && state.scaleWithRatio))) {
+				// Handle letterboxing/scaling for dynamic crops
+				const sourceAspectRatio = safeSourceRect.width / safeSourceRect.height;
+				const outputAspectRatio = outputWidth / outputHeight;
+				if (sourceAspectRatio > outputAspectRatio) {
+					destWidth = outputWidth;
+					destHeight = destWidth / sourceAspectRatio;
+				} else {
+					destHeight = outputHeight;
+					destWidth = destHeight * sourceAspectRatio;
+				}
+				destX = (outputWidth - destWidth) / 2;
+				destY = (outputHeight - destHeight) / 2;
+			}
+			processCtx.drawImage(videoFrame, Math.round(safeSourceRect.x), Math.round(safeSourceRect.y), Math.round(safeSourceRect.width), Math.round(safeSourceRect.height), destX, destY, destWidth, destHeight);
+		}
+
+
+		// --- B. APPLY BLUR SEGMENTS (IF ANY) ---
+		if (hasBlur) {
+			state.blurSegments.forEach(segment => {
+				if (currentTime > segment.startTime && currentTime < segment.endTime && segment.points.length > 2) {
+					processCtx.save();
+					processCtx.beginPath();
+
+					// IMPORTANT: Translate blur coordinates from the original video space
+					// to the new processed canvas space.
+					const translatedX = segment.points[0].x - safeSourceRect.x;
+					const translatedY = segment.points[0].y - safeSourceRect.y;
+					processCtx.moveTo(translatedX, translatedY);
+					for (let i = 1; i < segment.points.length; i++) {
+						processCtx.lineTo(segment.points[i].x - safeSourceRect.x, segment.points[i].y - safeSourceRect.y);
+					}
+					processCtx.closePath();
+					processCtx.clip();
+
+					// Apply blur to the clipped area
+					processCtx.filter = `blur(20px)`; // Or use a state variable for blur amount
+					processCtx.drawImage(processCanvas, 0, 0);
+
+					processCtx.restore(); // Remove clip and filter for next frame/segment
+				}
+			});
+		}
+
+		return processCanvas;
+	};
+
+	return {
+		processedWidth: outputWidth,
+		processedHeight: outputHeight,
+		process
+	};
+};
+
 export const handleCutAction = async () => {
 	if (!state.fileLoaded) return;
 	if (state.playing) pause();
@@ -106,141 +237,26 @@ export const handleCutAction = async () => {
 					end
 				}
 			};
-			let cropFuncToReset = null;
+			const needsProcessing = (state.panKeyframes.length > 1 && state.panRectSize) || (state.cropRect && state.cropRect.width > 0) || state.blurSegments.length > 0;
 
-			if (state.panKeyframes.length > 1 && state.panRectSize) {
-				cropFuncToReset = togglePanning;
-
-				// =================== START OF NEW SMOOTHING LOGIC ===================
-				// If the smooth path option is checked, preprocess the keyframes.
-				if (state.smoothPath || state.dynamicCropMode == 'none') {
+			if (needsProcessing) {
+				if (state.smoothPath && state.panKeyframes.length > 1) {
 					guidedPanleInfo('Smoothing path...');
-					// Replace the jerky keyframes with the new, smoothed version.
 					state.panKeyframes = smoothPathWithMovingAverage(state.panKeyframes, 15);
 				}
-				guidedPanleInfo('Processing... and will be added to playlist');
-				// =================== END OF NEW SMOOTHING LOGIC =====================
 				const videoTrack = await input.getPrimaryVideoTrack();
-				if (!videoTrack) throw new Error("No video track found for dynamic cropping.");
+				if (!videoTrack) throw new Error("A video track is required for processing.");
 
-				// --- THE LOGIC IS NOW DRIVEN BY THE DYNAMIC CROP MODE ---
-
-				if (state.dynamicCropMode === 'spotlight') {
-					const outputWidth = videoTrack.codedWidth;
-					const outputHeight = videoTrack.codedHeight;
+				const processOptions = createVideoProcessFunction(videoTrack, state);
+				if (processOptions) {
 					conversionOptions.video = {
 						track: videoTrack,
 						codec: 'avc',
 						bitrate: QUALITY_HIGH,
-						processedWidth: outputWidth,
-						processedHeight: outputHeight,
 						forceTranscode: true,
-						process: (sample) => {
-							const cropRect = getInterpolatedCropRect(sample.timestamp);
-							if (!cropRect) return sample;
-							const safeCropRect = clampRectToVideoBounds(cropRect);
-							if (safeCropRect.width <= 0 || safeCropRect.height <= 0) return sample;
-							if (!processCanvas) {
-								processCanvas = new OffscreenCanvas(outputWidth, outputHeight);
-								processCtx = processCanvas.getContext('2d', {
-									alpha: false
-								});
-							}
-							const videoFrame = sample._data || sample;
-
-							if (state.useBlurBackground) {
-								processCtx.drawImage(videoFrame, 0, 0, outputWidth, outputHeight);
-								processCtx.filter = `blur(${state.blurAmount}px)`;
-								processCtx.drawImage(processCanvas, 0, 0);
-								processCtx.filter = 'none';
-							} else {
-								processCtx.fillStyle = 'black';
-								processCtx.fillRect(0, 0, outputWidth, outputHeight);
-							}
-							processCtx.drawImage(videoFrame, Math.round(safeCropRect.x), Math.round(safeCropRect.y), Math.round(safeCropRect.width), Math.round(safeCropRect.height), Math.round(safeCropRect.x), Math.round(safeCropRect.y), Math.round(safeCropRect.width), Math.round(safeCropRect.height));
-							return processCanvas;
-						}
-					};
-
-				} else { // This block handles both 'max-size' and 'none' (Default)
-					let outputWidth, outputHeight;
-
-					if (state.dynamicCropMode === 'max-size') {
-						const maxWidth = Math.max(...state.panKeyframes.map(kf => kf.rect.width));
-						const maxHeight = Math.max(...state.panKeyframes.map(kf => kf.rect.height));
-						outputWidth = Math.round(maxWidth / 2) * 2;
-						outputHeight = Math.round(maxHeight / 2) * 2;
-					} else { // This is the 'none' or Default case
-						outputWidth = Math.round(state.panRectSize.width / 2) * 2;
-						outputHeight = Math.round(state.panRectSize.height / 2) * 2;
-					}
-
-					conversionOptions.video = {
-						track: videoTrack,
-						codec: 'avc',
-						bitrate: QUALITY_HIGH,
-						processedWidth: outputWidth,
-						processedHeight: outputHeight,
-						forceTranscode: true,
-						process: (sample) => {
-							const cropRect = getInterpolatedCropRect(sample.timestamp);
-							if (!cropRect) return sample;
-							const safeCropRect = clampRectToVideoBounds(cropRect);
-							if (safeCropRect.width <= 0 || safeCropRect.height <= 0) return sample;
-							if (!processCanvas) {
-								processCanvas = new OffscreenCanvas(outputWidth, outputHeight);
-								processCtx = processCanvas.getContext('2d', {
-									alpha: false
-								});
-							}
-							const videoFrame = sample._data || sample;
-
-							if (state.dynamicCropMode === 'max-size' && state.useBlurBackground) {
-								processCtx.drawImage(videoFrame, 0, 0, outputWidth, outputHeight);
-								processCtx.filter = 'blur(15px)';
-								processCtx.drawImage(processCanvas, 0, 0);
-								processCtx.filter = 'none';
-							} else {
-								processCtx.fillStyle = 'black';
-								processCtx.fillRect(0, 0, outputWidth, outputHeight);
-							}
-
-							let destX, destY, destWidth, destHeight;
-							if (state.dynamicCropMode == 'none' || (state.dynamicCropMode === 'max-size' && state.scaleWithRatio)) {
-								const sourceAspectRatio = safeCropRect.width / safeCropRect.height;
-								const outputAspectRatio = outputWidth / outputHeight;
-								if (sourceAspectRatio > outputAspectRatio) {
-									destWidth = outputWidth;
-									destHeight = destWidth / sourceAspectRatio;
-								} else {
-									destHeight = outputHeight;
-									destWidth = destHeight * sourceAspectRatio;
-								}
-								destX = (outputWidth - destWidth) / 2;
-								destY = (outputHeight - destHeight) / 2;
-							} else {
-								destWidth = safeCropRect.width;
-								destHeight = safeCropRect.height;
-								destX = (outputWidth - destWidth) / 2;
-								destY = (outputHeight - destHeight) / 2;
-							}
-							processCtx.drawImage(videoFrame, Math.round(safeCropRect.x), Math.round(safeCropRect.y), Math.round(safeCropRect.width), Math.round(safeCropRect.height), destX, destY, destWidth, destHeight);
-							return processCanvas;
-						}
+						...processOptions
 					};
 				}
-			} else if (state.cropRect && state.cropRect.width > 0) { // Static crop remains unchanged
-				cropFuncToReset = toggleStaticCrop;
-				const evenWidth = Math.round(state.cropRect.width / 2) * 2;
-				const evenHeight = Math.round(state.cropRect.height / 2) * 2;
-				conversionOptions.video = {
-					crop: {
-						left: Math.round(state.cropRect.x),
-						top: Math.round(state.cropRect.y),
-						width: evenWidth,
-						height: evenHeight
-					}
-				};
 			}
 
 			const conversion = await Conversion.init(conversionOptions);

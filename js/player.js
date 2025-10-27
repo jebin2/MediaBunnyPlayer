@@ -147,6 +147,24 @@ export const setupPlayerListener = () => {
 	};
 }
 
+/**
+ * Allows other modules to register a function to be called on every frame.
+ * @param {Function} callback - The function to call during the render loop.
+ */
+export const registerOnFrameRender = (callback) => {
+    if (typeof callback === 'function' && !state.onFrameRenderCallbacks.includes(callback)) {
+        state.onFrameRenderCallbacks.push(callback);
+    }
+};
+
+/**
+ * Removes a previously registered render loop callback.
+ * @param {Function} callback - The function to remove.
+ */
+export const unregisterOnFrameRender = (callback) => {
+    state.onFrameRenderCallbacks = state.onFrameRenderCallbacks.filter(cb => cb !== callback);
+};
+
 export const getPlaybackTime = () => {
 	if (!state.playing) {
 		return state.playbackTimeAtStart;
@@ -242,6 +260,7 @@ export const renderLoop = () => {
 		}
 		updateSubtitlesOptimized(currentTime);
 		if (!state.isSeeking) scheduleProgressUpdate(currentTime);
+		if (state.onFrameRenderCallbacks.length > 0) state.onFrameRenderCallbacks.forEach(cb => cb(currentTime));
 	}
 	requestAnimationFrame(renderLoop);
 };
@@ -918,7 +937,7 @@ const setAudioOnlyUI = () => {
 		canvas.style.display = 'block';
 		visualizer.classList.add('hidden');
 	}
-	if  (state.playing) {
+	if (state.playing) {
 		visualizer.classList.remove('removeAnimation');
 	} else {
 		visualizer.classList.add('removeAnimation');

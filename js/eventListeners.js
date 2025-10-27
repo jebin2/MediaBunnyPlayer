@@ -17,7 +17,9 @@ import { setupSettingsListeners } from './settings.js';
 import { lenvetlistener } from './recording.js'
 import { toggleCropFixed, setupCropListener } from './crop.js';
 import { setupCaptionListeners } from './caption.js';
-
+import {
+	setupBlurListeners
+} from './blur.js';
 export const setupEventListeners = () => {
 	$('chooseFileBtn').onclick = () => {
 		state.fileLoaded = false;
@@ -110,6 +112,7 @@ export const setupEventListeners = () => {
 	setupCropListener();
 	setupPlayerListener();
 	setupCaptionListeners();
+	setupBlurListeners();
 
 	document.onkeydown = (e) => {
 		if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || !state.fileLoaded) return;
@@ -270,7 +273,7 @@ export const setupEventListeners = () => {
 			state.isShiftPressed = true;
 		}
 		if (e.key === 'Alt') {
-			e.preventDefault(); 
+			e.preventDefault();
 			state.isAltPressed = true;
 		}
 	});
@@ -280,7 +283,7 @@ export const setupEventListeners = () => {
 			state.isShiftPressed = false;
 		}
 		if (e.key === 'Alt') {
-			e.preventDefault(); 
+			e.preventDefault();
 			state.isAltPressed = false;
 		}
 	});

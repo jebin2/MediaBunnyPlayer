@@ -36,7 +36,7 @@ import {
 import {
     updatePlaylistUIOptimized
 } from './playlist.js';
-import { guidedPanleInfo } from './utility.js';
+import { guidedPanleInfo, rightPanel } from './utility.js';
 
 const wordStylesBtn = $('wordStylesBtn');
 const positionCaptionsBtn = $('positionCaptionsBtn');
@@ -423,19 +423,7 @@ const handleCaptionFileChange = (e) => {
 
 const handleCaptionBtnClick = (e) => {
     e.stopPropagation();
-    // If settings sidebar is open, close it first
-    if (playerArea.classList.contains('playlist-visible')) {
-        playerArea.classList.remove('playlist-visible');
-    }
-
-    playerArea.classList.toggle('playlist-visible');
-    // Toggle the settings sidebar
-    sidebar.classList.add('hidden');
-    settingsMenu.classList.add('hidden');
-    captionMenu.classList.toggle('hidden');
-    setTimeout(() => {
-        state.cropCanvasDimensions = positionCropCanvas();
-    }, 200);
+    rightPanel('caption', true);
 }
 
 const toggleCaptionPositioning = () => {

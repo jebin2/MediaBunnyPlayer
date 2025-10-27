@@ -10,7 +10,7 @@ import { loadMedia, stopAndClear, hideTrackMenus } from './player.js'
 import { escapeHTML, } from './utility.js'
 import { showDropZoneUI, showError, showInfo, showLoading, showStatusMessage, hideStatusMessage } from './ui.js'
 import { mergeVideoClips } from './merge.js';
-import { guidedPanleInfo } from './utility.js';
+import { guidedPanleInfo, rightPanel } from './utility.js';
 import { extractMetadata } from './metadata.js';
 
 export const setupPlaylistEventListeners = () => {
@@ -66,20 +66,8 @@ export const setupPlaylistEventListeners = () => {
 		}
 	});
 	$('togglePlaylistBtn').onclick = () => {
-		// If settings sidebar is open, close it first
-		if (playerArea.classList.contains('playlist-visible')) {
-			playerArea.classList.remove('playlist-visible');
-		}
-
-		playerArea.classList.toggle('playlist-visible');
-		// Toggle the settings sidebar
-		settingsMenu.classList.add('hidden');
-		captionMenu.classList.add('hidden');
-		sidebar.classList.toggle('hidden');
+		rightPanel('playlist', true);
 		changePlaylistCheckBoxVisible(false);
-		setTimeout(() => {
-			state.cropCanvasDimensions = positionCropCanvas();
-		}, 200);
 	}
 	document.addEventListener('click', (e) => {
 		// Find the existing listener and add a check for our new container

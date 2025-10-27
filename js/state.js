@@ -115,9 +115,9 @@ export const state = {
 
     //caption
     isPositioningCaptions: false,
-    allWords : [],
-    captionData : null,
-    captionStyles : {
+    allWords: [],
+    captionData: null,
+    captionStyles: {
         fontSize: 15,       // As a percentage of video height
         color: '#FFFFFF',
         positionX: 50,
@@ -125,4 +125,12 @@ export const state = {
         wordGroupSize: 1, // Changed from wordGroup
         highlightColor: '#006affff',
     },
+
+    // --- NEW --- Blur Functionality State
+    isBlurring: false,           // Is the user currently in blur mode?
+    blurSegments: [],            // Array to store all blur segment data {startTime, endTime, points: [{x, y}]}
+    currentBlurSegment: null,    // The segment currently being drawn
+    isDrawingBlur: false,
+
+    onFrameRenderCallbacks: [],
 };
