@@ -1913,6 +1913,8 @@ input:disabled {
     }
 }
 
-.removeAnimation {
+.removeAnimation,
+.removeAnimation::before,
+.removeAnimation::after {
     animation: none !important;
 }
