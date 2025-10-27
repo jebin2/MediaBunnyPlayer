@@ -284,7 +284,7 @@ export const play = async () => {
 
 	state.audioContextStartTime = state.audioContext.currentTime;
 	state.playing = true;
-
+	setAudioOnlyUI();
 	if (state.playbackLogicInterval) clearInterval(state.playbackLogicInterval);
 	state.playbackLogicInterval = setInterval(checkPlaybackState, 100);
 
@@ -307,6 +307,7 @@ export const pause = () => {
 	state.playbackTimeAtStart = getPlaybackTime();
 	state.playing = false;
 	state.asyncId++;
+	setAudioOnlyUI();
 
 	// Add these two lines to stop the interval
 	clearInterval(state.playbackLogicInterval);
@@ -578,15 +579,7 @@ export const loadMedia = async (resource, isConversionAttempt = false, muted = f
 		updateTrackMenus();
 		state.fileLoaded = true;
 		showPlayerUI();
-		state.isAudioOnly = !!state.currentAudioTrack && !state.videoTrack;
-		const visualizer = $('audioVisualizer');
-		if (state.isAudioOnly) {
-			canvas.style.display = 'none';
-			visualizer.classList.remove('hidden');
-		} else {
-			canvas.style.display = 'block';
-			visualizer.classList.add('hidden');
-		}
+		setAudioOnlyUI()
 		updateProgressBarUI(0);
 
 		// === START SILENT AUTOPLAY ===
@@ -914,3 +907,20 @@ export const toggleLoop = () => {
 		}
 	}
 };
+
+const setAudioOnlyUI = () => {
+	state.isAudioOnly = !!state.currentAudioTrack && !state.videoTrack;
+	const visualizer = $('audioVisualizer');
+	if (state.isAudioOnly) {
+		canvas.style.display = 'none';
+		visualizer.classList.remove('hidden');
+	} else {
+		canvas.style.display = 'block';
+		visualizer.classList.add('hidden');
+	}
+	if  (state.playing) {
+		visualizer.classList.remove('removeAnimation');
+	} else {
+		visualizer.classList.add('removeAnimation');
+	}
+}

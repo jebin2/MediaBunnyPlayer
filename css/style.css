@@ -1911,3 +1911,7 @@ input:disabled {
         opacity: 0.7;
     }
 }
+
+.removeAnimation {
+    animation: none !important;
+}
