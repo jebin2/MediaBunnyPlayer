@@ -46,59 +46,59 @@ export const setupCropListener = () => {
 		if (state.isPositioningCaptions) {
 			handleCaptionPointerDown(e);
 		} else if (state.isCropping || state.isPanning) {
-		e.preventDefault();
-		cropCanvas.setPointerCapture(e.pointerId);
+			e.preventDefault();
+			cropCanvas.setPointerCapture(e.pointerId);
 
-		const coords = getScaledCoordinates(e);
+			const coords = getScaledCoordinates(e);
 
-		// Get current rect
-		const currentRect = state.isCropping ? state.cropRect : (state.panKeyframes.length > 0 ? state.panKeyframes[state.panKeyframes.length - 1].rect : null);
+			// Get current rect
+			const currentRect = state.isCropping ? state.cropRect : (state.panKeyframes.length > 0 ? state.panKeyframes[state.panKeyframes.length - 1].rect : null);
 
-		// For fixed aspect ratios, use maxRatioRect as the current rect if no rect exists yet
-		const activeRect = currentRect || (state.aspectRatioLocked ? state.maxRatioRect : null);
+			// For fixed aspect ratios, use maxRatioRect as the current rect if no rect exists yet
+			const activeRect = currentRect || (state.aspectRatioLocked ? state.maxRatioRect : null);
 
-		if (activeRect && !state.isCropFixed) {
-			// Check if clicking on a resize handle
-			state.resizeHandle = getResizeHandle(coords.x, coords.y, activeRect);
+			if (activeRect && !state.isCropFixed) {
+				// Check if clicking on a resize handle
+				state.resizeHandle = getResizeHandle(coords.x, coords.y, activeRect);
 
-			if (state.resizeHandle) {
-				state.isResizingCrop = true;
-				state.originalCropRect = {
-					...activeRect
-				};
-				state.dragStartPos = coords;
-			} else if (isInsideCropRect(coords.x, coords.y, activeRect)) {
-				// Clicking inside crop area - start dragging
+				if (state.resizeHandle) {
+					state.isResizingCrop = true;
+					state.originalCropRect = {
+						...activeRect
+					};
+					state.dragStartPos = coords;
+				} else if (isInsideCropRect(coords.x, coords.y, activeRect)) {
+					// Clicking inside crop area - start dragging
+					state.isDraggingCrop = true;
+					state.originalCropRect = {
+						...activeRect
+					};
+					state.dragStartPos = coords;
+				} else if (!state.aspectRatioLocked) {
+					// Only allow drawing new rect if NOT in fixed ratio mode
+					state.isDrawingCrop = true;
+					state.cropStart = coords;
+					state.cropEnd = coords;
+				}
+				// If aspectRatioLocked and clicking outside, do nothing (ignore the click)
+			} else if (activeRect && state.isCropFixed && state.isPanning) {
+				// In panning mode with fixed size, any click starts recording movement
 				state.isDraggingCrop = true;
-				state.originalCropRect = {
-					...activeRect
-				};
 				state.dragStartPos = coords;
 			} else if (!state.aspectRatioLocked) {
-				// Only allow drawing new rect if NOT in fixed ratio mode
+				// Only allow drawing if NOT in fixed ratio mode
 				state.isDrawingCrop = true;
 				state.cropStart = coords;
 				state.cropEnd = coords;
 			}
-			// If aspectRatioLocked and clicking outside, do nothing (ignore the click)
-		} else if (activeRect && state.isCropFixed && state.isPanning) {
-			// In panning mode with fixed size, any click starts recording movement
-			state.isDraggingCrop = true;
-			state.dragStartPos = coords;
-		} else if (!state.aspectRatioLocked) {
-			// Only allow drawing if NOT in fixed ratio mode
-			state.isDrawingCrop = true;
-			state.cropStart = coords;
-			state.cropEnd = coords;
 		}
-	}
 	};
 
 	cropCanvas.onpointermove = (e) => {
 		if (state.isPositioningCaptions) {
 			handleCaptionPointerMove(e);
 		} else if (state.isDrawingCrop) {
-            // This logic was moved in the last fix and is correct
+			// This logic was moved in the last fix and is correct
 			const coords = getScaledCoordinates(e);
 			state.cropEnd = coords;
 			const rect = { x: Math.min(state.cropStart.x, coords.x), y: Math.min(state.cropStart.y, coords.y), width: Math.abs(state.cropStart.x - coords.x), height: Math.abs(state.cropStart.y - coords.y) };
@@ -107,7 +107,7 @@ export const setupCropListener = () => {
 		} else if (state.isCropping || (!state.isAltPressed && state.isPanning)) {
 			handleVideoCropPointerMove(e);
 		} else {
-		const coords = getScaledCoordinates(e);
+			const coords = getScaledCoordinates(e);
 			const currentRect = state.isCropping ? state.cropRect :
 				(state.panKeyframes.length > 0 ? state.panKeyframes[state.panKeyframes.length - 1].rect : null);
 
@@ -295,7 +295,7 @@ const handleVideoCropPointerMove = (e) => {
 		if (state.isCropping) {
 			state.cropRect = newRect;
 		} else if (state.isPanning) {
-            // IMPORTANT: Only allow dragging when size is NOT fixed
+			// IMPORTANT: Only allow dragging when size is NOT fixed
 			if (state.panKeyframes.length > 0 && !state.isCropFixed) {
 				state.panKeyframes[state.panKeyframes.length - 1].rect = newRect;
 			}
@@ -321,7 +321,7 @@ const handleVideoCropPointerMove = (e) => {
 };
 /** Finalizes a rectangle after the user finishes drawing it. */
 const finalizeDrawnRect = () => {
-    // This is your original logic from onpointerup
+	// This is your original logic from onpointerup
 	const finalRect = { x: Math.min(state.cropStart.x, state.cropEnd.x), y: Math.min(state.cropStart.y, state.cropEnd.y), width: Math.abs(state.cropStart.x - state.cropEnd.x), height: Math.abs(state.cropStart.y - state.cropEnd.y) };
 	if (state.aspectRatioLocked && state.maxRatioRect) {
 		const [ratioW, ratioH] = state.aspectRatioMode === '16:9' ? [16, 9] : [9, 16];
