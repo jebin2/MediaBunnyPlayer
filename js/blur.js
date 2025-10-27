@@ -176,7 +176,7 @@ export const drawBlurSegments = (previewPoint) => {
     // Draw all completed segments that are active at the current time
     const currentTime = getPlaybackTime();
     state.blurSegments.forEach(segment => {
-        if (currentTime > segment.startTime && currentTime < segment.endTime) {
+        if (currentTime >= segment.startTime && currentTime <= segment.endTime) {
             drawPolygon(segment.points, 'rgba(0, 150, 255, 0.5)', 'rgba(0, 150, 255, 0.8)');
         }
     });

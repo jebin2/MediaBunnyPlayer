@@ -149,7 +149,7 @@ const createVideoProcessFunction = (videoTrack, state) => {
 		// --- B. APPLY BLUR SEGMENTS (IF ANY) ---
 		if (hasBlur) {
 			state.blurSegments.forEach(segment => {
-				if (currentTime > segment.startTime && currentTime < segment.endTime && segment.points.length > 2) {
+				if (currentTime >= segment.startTime && currentTime <= segment.endTime && segment.points.length > 2) {
 					processCtx.save();
 					processCtx.beginPath();
 
