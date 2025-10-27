@@ -578,6 +578,15 @@ export const loadMedia = async (resource, isConversionAttempt = false, muted = f
 		updateTrackMenus();
 		state.fileLoaded = true;
 		showPlayerUI();
+		state.isAudioOnly = !!state.currentAudioTrack && !state.videoTrack;
+		const visualizer = $('audioVisualizer');
+		if (state.isAudioOnly) {
+			canvas.style.display = 'none';
+			visualizer.classList.remove('hidden');
+		} else {
+			canvas.style.display = 'block';
+			visualizer.classList.add('hidden');
+		}
 		updateProgressBarUI(0);
 
 		// === START SILENT AUTOPLAY ===
