@@ -66,7 +66,7 @@ export const setupPlaylistEventListeners = () => {
 		}
 	});
 	$('togglePlaylistBtn').onclick = () => {
-		rightPanel('playlist', true);
+		rightPanel('playlist', sidebar.classList.contains('hidden'));
 		changePlaylistCheckBoxVisible(false);
 	}
 	document.addEventListener('click', (e) => {

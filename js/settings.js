@@ -8,7 +8,7 @@ import { showInfo } from './ui.js'
 export const setupSettingsListeners = () => {
 	settingsCtrlBtn.onclick = (e) => {
 		e.stopPropagation();
-		rightPanel('settings', true);
+		rightPanel('settings', settingsMenu.classList.contains('hidden'));
 	};
 	configTrimRange();
 };
