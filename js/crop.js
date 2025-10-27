@@ -506,6 +506,7 @@ export const togglePanning = (e, reset = false) => {
 	state.panRectSize = null;
 
 	if (state.isPanning) {
+		document.getElementById("dynamicCropOptionsContainer").classList.remove("hidden");
 		state.cropCanvasDimensions = positionCropCanvas();
 		state.isCropFixed = false;
 		updateFixSizeButton();
@@ -538,12 +539,14 @@ export const togglePanning = (e, reset = false) => {
 			guidedPanleInfo("Click and drag on the video to draw your crop area.");
 		}
 	} else {
+		document.getElementById("dynamicCropOptionsContainer").classList.add("hidden");
 		cropCtx.clearRect(0, 0, cropCanvas.width, cropCanvas.height);
 		state.cropCanvasDimensions = null;
 		state.isCropFixed = false;
 		state.maxRatioRect = null;
 		state.aspectRatioLocked = false;
 		updateFixSizeButton();
+		guidedPanleInfo("");
 	}
 };
 

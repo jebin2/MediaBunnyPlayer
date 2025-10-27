@@ -19,6 +19,7 @@ import { $, MEDIABUNNY_URL, videoContainer, canvas, playBtn, volumeSlider, muteB
 import { state } from './state.js';
 import { formatTime, parseTime, } from './utility.js'
 import { hideStatusMessage, showControlsTemporarily, showDropZoneUI, showError, showLoading, showPlayerUI, showStatusMessage, updateProgressBarUI, updateTimeInputs } from './ui.js'
+import { getTrimRanges } from './settings.js'
 
 export const setupPlayerListener = () => {
 	playBtn.onclick = (e) => {
@@ -898,13 +899,18 @@ export const toggleLoop = () => {
 		state.isLooping = false;
 		loopBtn.textContent = 'Loop';
 	} else {
-		const start = parseTime(startTimeInput.value);
-		const end = parseTime(endTimeInput.value);
-
 		if (!state.fileLoaded) {
 			showError("Cannot loop: No video loaded.");
 			return;
 		}
+		const trimRanges = getTrimRanges();
+
+		if (!trimRanges || trimRanges.length === 0) {
+			showError("Invalid start or end time for looping.");
+			return;
+		}
+		const start = parseTime(trimRanges[0].start);
+		const end = parseTime(trimRanges[0].end);
 		if (isNaN(start) || isNaN(end) || start >= end || start < 0 || end > state.totalDuration) {
 			showError("Invalid start or end time for looping.");
 			return;
