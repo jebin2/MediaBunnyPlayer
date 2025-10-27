@@ -318,7 +318,7 @@ document.addEventListener('keydown', (e) => {
 		activeElement instanceof HTMLTextAreaElement ||
 		activeElement?.hasAttribute('contenteditable');
 
-	if (isInput || !state.fileLoaded) {
+	if (isInput || (!state.screenrecording && !state.fileLoaded)) {
 		// Allow normal typing; do not intercept
 		return;
 	}
