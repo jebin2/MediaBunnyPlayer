@@ -19,7 +19,9 @@ import {
 } from './player.js';
 import {
     guidedPanleInfo,
-    rightPanel
+    rightPanel,
+    formatTime,
+    parseTime
 } from './utility.js';
 import {
     registerOnFrameRender,
@@ -29,54 +31,6 @@ import {
 import {
     handleCutAction
 } from './editing.js'
-// --- Time Formatting Utilities ---
-
-/**
- * Converts a total number of seconds into an hh:mm:ss or mm:ss string format.
- * @param {number} totalSeconds - The total seconds to format.
- * @returns {string} The formatted time string (e.g., "01:23" or "01:05:10").
- */
-const formatTime = (totalSeconds) => {
-    const secondsNum = parseInt(totalSeconds, 10);
-    if (isNaN(secondsNum)) return "00:00";
-
-    const hours = Math.floor(secondsNum / 3600);
-    const minutes = Math.floor((secondsNum % 3600) / 60);
-    const seconds = secondsNum % 60;
-
-    const paddedMinutes = String(minutes).padStart(2, '0');
-    const paddedSeconds = String(seconds).padStart(2, '0');
-
-    if (hours > 0) {
-        const paddedHours = String(hours).padStart(2, '0');
-        return `${paddedHours}:${paddedMinutes}:${paddedSeconds}`;
-    } else {
-        return `${paddedMinutes}:${paddedSeconds}`;
-    }
-};
-
-
-/**
- * Parses an hh:mm:ss or mm:ss time string into a total number of seconds.
- * @param {string} timeString - The time string to parse (e.g., "01:23" or "01:05:10").
- * @returns {number} The total number of seconds.
- */
-const parseTime = (timeString) => {
-    const parts = timeString.split(':').map(parseFloat);
-    let totalSeconds = 0;
-
-    if (parts.some(isNaN)) return NaN; // Check for invalid number parts
-
-    if (parts.length === 3) { // hh:mm:ss format
-        totalSeconds = (parts[0] * 3600) + (parts[1] * 60) + parts[2];
-    } else if (parts.length === 2) { // mm:ss format
-        totalSeconds = (parts[0] * 60) + parts[1];
-    } else {
-        return NaN; // Invalid format
-    }
-    return totalSeconds;
-};
-
 
 // --- Main Toggle Function ---
 export const toggleBlurMode = () => {

@@ -8,7 +8,7 @@ import { state } from './state.js';
 import { resetAllConfigs } from './settings.js'
 import { handleCutAction } from './editing.js'
 import { formatTime, guidedPanleInfo, updateShortcutKeysVisibility, } from './utility.js'
-import { getPlaybackTime, hideTrackMenus, loadMedia, seekToTime, setPlaybackSpeed, setVolume, startVideoIterator, toggleLoop, togglePlay, setupPlayerListener } from './player.js'
+import { getPlaybackTime, loadMedia, seekToTime, setPlaybackSpeed, setVolume, startVideoIterator, toggleLoop, togglePlay, setupPlayerListener } from './player.js'
 import { handleFiles, handleFolderSelection, setupPlaylistEventListeners } from './playlist.js'
 import { takeScreenshot } from './screenshot.js'
 import { showControlsTemporarily, showError } from './ui.js'

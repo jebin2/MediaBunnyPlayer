@@ -1,6 +1,6 @@
 import { $, settingsMenu, settingsCtrlBtn, playerArea, sidebar, loopBtn, startTimeInput, endTimeInput, scaleOptionContainer, scaleWithRatioToggle, blurOptionContainer, smoothOptionContainer, smoothPathToggle, cropModeNoneRadio, blurBackgroundToggle, blurAmountInput, captionMenu } from './constants.js';
 import { state } from './state.js';
-import { formatTime, guidedPanleInfo, rightPanel } from './utility.js'
+import { formatTime, guidedPanleInfo, rightPanel, parseTime } from './utility.js'
 import { positionCropCanvas, togglePanning, toggleStaticCrop } from './crop.js'
 import { pause } from './player.js'
 import { showInfo } from './ui.js'
@@ -114,31 +114,25 @@ const createTrimRange = (beforeElement = null) => {
 // ]
 export const getTrimRanges = () => {
 	const ranges = [];
-	const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/; // HH:MM validation
 
 	document.querySelectorAll('#trimRangeList .trim-range').forEach(range => {
 		const start = range.querySelector('.startTime')?.value.trim();
 		const end = range.querySelector('.endTime')?.value.trim();
 
-		// Validate format
-		if (!timeRegex.test(start) || !timeRegex.test(end)) return;
-
 		// Convert to minutes
-		const [sh, sm] = start.split(':').map(Number);
-		const [eh, em] = end.split(':').map(Number);
-		const startMins = sh * 60 + sm;
-		const endMins = eh * 60 + em;
+		const startSec = parseTime(start);
+		const endSec = parseTime(end);
 
 		// Skip invalid order
-		if (endMins <= startMins) return;
+		if (endSec <= startSec) return;
 
-		ranges.push({ startMins, endMins });
+		ranges.push({ startSec, endSec });
 	});
 
 	if (!ranges.length) return [];
 
 	// Sort by start time
-	ranges.sort((a, b) => a.startMins - b.startMins);
+	ranges.sort((a, b) => a.startSec - b.endSec);
 
 	// Merge overlapping intervals
 	const merged = [ranges[0]];
@@ -146,9 +140,9 @@ export const getTrimRanges = () => {
 		const prev = merged[merged.length - 1];
 		const curr = ranges[i];
 
-		if (curr.startMins <= prev.endMins) {
+		if (curr.startSec <= prev.endSec) {
 			// Overlapping → merge
-			prev.endMins = Math.max(prev.endMins, curr.endMins);
+			prev.endSec = Math.max(prev.endSec, curr.endSec);
 		} else {
 			merged.push(curr);
 		}
@@ -161,8 +155,8 @@ export const getTrimRanges = () => {
 		return `${h}:${m}`;
 	};
 
-	return merged.map(({ startMins, endMins }) => ({
-		start: normalize(startMins),
-		end: normalize(endMins)
+	return merged.map(({ startSec, endSec }) => ({
+		start: normalize(startSec),
+		end: normalize(endSec)
 	}));
 };

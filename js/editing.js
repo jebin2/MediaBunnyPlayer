@@ -35,7 +35,6 @@ import {
 	toggleStaticCrop
 } from './crop.js'
 import {
-	formatTime,
 	guidedPanleInfo,
 	parseTime,
 } from './utility.js'

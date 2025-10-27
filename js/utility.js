@@ -8,25 +8,50 @@ import { positionCropCanvas } from './crop.js';
 import { loadMedia } from './player.js'
 import { state } from './state.js'
 
-export const parseTime = (timeStr) => {
-	const parts = timeStr.split(':').map(Number);
-	if (parts.some(isNaN)) return NaN;
-	let seconds = 0;
-	if (parts.length === 2) {
-		seconds = parts[0] * 60 + parts[1];
-	} else if (parts.length === 1) {
-		seconds = parts[0];
-	} else {
-		return NaN;
-	}
-	return seconds;
+/**
+ * Parses an hh:mm:ss or mm:ss time string into a total number of seconds.
+ * @param {string} timeString - The time string to parse (e.g., "01:23" or "01:05:10").
+ * @returns {number} The total number of seconds.
+ */
+export const parseTime = (timeString) => {
+    const parts = timeString.split(':').map(parseFloat);
+    let totalSeconds = 0;
+
+    if (parts.some(isNaN)) return NaN; // Check for invalid number parts
+
+    if (parts.length === 3) { // hh:mm:ss format
+        totalSeconds = (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+    } else if (parts.length === 2) { // mm:ss format
+        totalSeconds = (parts[0] * 60) + parts[1];
+    } else {
+        return NaN; // Invalid format
+    }
+    return totalSeconds;
 };
 
-export const formatTime = s => {
-	if (!isFinite(s) || s < 0) return '00:00';
-	const minutes = Math.floor(s / 60);
-	const seconds = Math.floor(s % 60);
-	return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+/**
+ * Converts a total number of seconds into an hh:mm:ss or mm:ss string format.
+ * @param {number} totalSeconds - The total seconds to format.
+ * @returns {string} The formatted time string (e.g., "01:23" or "01:05:10").
+ */
+export const formatTime = (totalSeconds) => {
+    if (!isFinite(totalSeconds) || totalSeconds < 0) return '00:00';
+    const secondsNum = parseInt(totalSeconds, 10);
+    if (isNaN(secondsNum)) return "00:00";
+
+    const hours = Math.floor(secondsNum / 3600);
+    const minutes = Math.floor((secondsNum % 3600) / 60);
+    const seconds = secondsNum % 60;
+
+    const paddedMinutes = String(minutes).padStart(2, '0');
+    const paddedSeconds = String(seconds).padStart(2, '0');
+
+    if (hours > 0) {
+        const paddedHours = String(hours).padStart(2, '0');
+        return `${paddedHours}:${paddedMinutes}:${paddedSeconds}`;
+    } else {
+        return `${paddedMinutes}:${paddedSeconds}`;
+    }
 };
 
 export const escapeHTML = str => str.replace(/[&<>'"]/g,
