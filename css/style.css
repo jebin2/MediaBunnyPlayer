@@ -1885,30 +1885,31 @@ input:disabled {
     transform: translate(-50%, -50%);
     width: 120px;
     height: 120px;
-    border-radius: 50%;
-    border: 4px solid var(--accent-secondary);
-    animation: pulse 1.5s infinite ease-in-out;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 14px;
 }
 
-@keyframes pulse {
-    0% {
-        transform: translate(-50%, -50%) scale(0.9);
-        opacity: 0.7;
-    }
+.audio-visualizer::before,
+.audio-visualizer::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 2px solid var(--accent-secondary);
+    border-radius: 50%;
+    animation: ripple 2s infinite ease-out;
+}
 
-    50% {
-        transform: translate(-50%, -50%) scale(1.1);
-        opacity: 1;
+.audio-visualizer::after {
+    animation-delay: 1s;
+}
+
+@keyframes ripple {
+    0% {
+        transform: scale(0.5);
+        opacity: 0.9;
     }
 
     100% {
-        transform: translate(-50%, -50%) scale(0.9);
-        opacity: 0.7;
+        transform: scale(2);
+        opacity: 0;
     }
 }
 
