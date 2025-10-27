@@ -306,6 +306,9 @@ export const setupEventListeners = () => {
 	if (resetAllBtn) {
 		resetAllBtn.onclick = resetAllConfigs; // Simply call our powerful new function
 	}
+	document.getElementById("guideInfoCloseBtn").click = () => {
+		document.getElementById("guide_panel").classList.add('hidden');
+	}
 };
 
 

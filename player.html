@@ -323,7 +323,7 @@
 		</div>
 		<div class="loading hidden" id="loading">
 			<div class="spinner"></div>
-			<div id="statusMessage"></div>
+			<div id="statusMessage" class="shortcut-keys-panel guide_panel"></div>
 		</div>
 	</div>
 	<div class="screenshot-overlay hidden" id="screenshotOverlay">
@@ -557,7 +557,8 @@
 				</div>
 				<div class="resize-section" id="blurConfigAmountMain">
 					<span>Blur Amount</span>
-					<input id="blurConfigAmountInput" class="speed-input" value="15" min="1" max="100" title="Blur amount in pixels">
+					<input id="blurConfigAmountInput" class="speed-input" value="15" min="1" max="100"
+						title="Blur amount in pixels">
 				</div>
 
 				<div class="resize-section hidden" id="plainColorMain">
@@ -571,12 +572,9 @@
 			</div>
 		</div>
 	</div>
-	<div class="shortcut-keys-panel guide_panel hidden" id="guide_panel">
-		<ul class="shortcut-list">
-			<span id="guide_info">
-				Hello Welcome
-			</span>
-		</ul>
+	<div class="guide_panel hidden" id="guide_panel">
+		<span id="guide_info">Hello, Welcome</span>
+		<button class="close-btn" id="guideInfoCloseBtn">×</button>
 	</div>
 	<div class="showMessage hidden" id="showMessage">
 	</div>

@@ -112,7 +112,7 @@ export const handleFiles = (files) => {
 export const handleFolderSelection = (event) => {
 	const files = event.target.files;
 	if (!files.length) return;
-	showLoading(true);
+	showStatusMessage();
 
 	const fileEntries = Array.from(files)
 		.filter(file =>

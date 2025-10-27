@@ -199,7 +199,6 @@ export const handleCutAction = async () => {
 	}
 
 	hideTrackMenus();
-	guidedPanleInfo('Creating clip...');
 
 	const generatedClips = []; // To store the file of each generated clip
 

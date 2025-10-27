@@ -152,9 +152,9 @@ export const setupPlayerListener = () => {
  * @param {Function} callback - The function to call during the render loop.
  */
 export const registerOnFrameRender = (callback) => {
-    if (typeof callback === 'function' && !state.onFrameRenderCallbacks.includes(callback)) {
-        state.onFrameRenderCallbacks.push(callback);
-    }
+	if (typeof callback === 'function' && !state.onFrameRenderCallbacks.includes(callback)) {
+		state.onFrameRenderCallbacks.push(callback);
+	}
 };
 
 /**
@@ -162,7 +162,7 @@ export const registerOnFrameRender = (callback) => {
  * @param {Function} callback - The function to remove.
  */
 export const unregisterOnFrameRender = (callback) => {
-    state.onFrameRenderCallbacks = state.onFrameRenderCallbacks.filter(cb => cb !== callback);
+	state.onFrameRenderCallbacks = state.onFrameRenderCallbacks.filter(cb => cb !== callback);
 };
 
 export const getPlaybackTime = () => {
@@ -504,7 +504,7 @@ export const handleConversion = async (source, fileName) => {
 };
 
 export const loadMedia = async (resource, isConversionAttempt = false, muted = false) => {
-	showLoading(true);
+	showStatusMessage();
 	let input;
 	try {
 		await stopAndClear();
@@ -748,7 +748,7 @@ export const updateTrackMenus = () => {
 export const switchAudioTrack = async (trackIndex) => {
 	if (!state.availableAudioTracks[trackIndex] || state.availableAudioTracks[trackIndex] === state.currentAudioTrack) return;
 
-	showLoading(true);
+	showStatusMessage();
 	const wasPlaying = state.playing;
 	if (wasPlaying) pause();
 

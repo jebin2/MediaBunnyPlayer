@@ -1383,6 +1383,7 @@ body::before {
 }
 
 #statusMessage {
+    position: sticky;
     font-size: 0.875rem;
     color: var(--text-secondary);
     margin-top: 1rem;
@@ -1570,31 +1571,40 @@ body::before {
 /* --- Guide Panel --- */
 .guide_panel {
     position: fixed;
+    top: 1rem;
     left: 50%;
     transform: translateX(-50%);
-    width: auto;
-    max-width: 90vw;
-    font-size: 0.95rem;
-    text-align: center;
-    animation: glowPulse 3s ease-in-out infinite;
+    background: var(--bg-modal);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius-lg);
+    box-shadow: var(--glass-shadow);
     padding: 1rem 2rem;
-    z-index: 50;
-}
-
-.guide_panel .shortcut-list {
-    display: block;
-    padding: 0;
-    list-style: none;
-}
-
-.guide_panel #guide_info {
-    display: inline-block;
+    text-align: center;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
     color: var(--text-primary);
+    z-index: 50;
+    animation: glowPulse 3s ease-in-out infinite;
+    transition: var(--transition-smooth);
+    max-width: 90vw;
+    /* This is the key property */
+    width: max-content;
+    /* Allow it to size to content */
+    box-sizing: border-box;
+    /* Include padding in width calculation */
+}
+
+#guide_info {
     font-weight: 500;
     line-height: 1.5;
-    white-space: normal;
+    display: inline-block;
+    margin-right: 2rem;
     word-wrap: break-word;
+    /* Wrap long words if needed */
     overflow-wrap: break-word;
+    /* Alternative property */
 }
 
 /* --- Show Message --- */
@@ -1862,6 +1872,10 @@ input[type="checkbox"] {
 .caption-word-row .close-btn,
 .trim-range .close-btn {
     position: inherit;
+}
+
+.guide_panel .close-btn {
+    top: 0.6rem !important;
 }
 
 .tick-btn:hover {

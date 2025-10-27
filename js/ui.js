@@ -52,8 +52,13 @@ export const showInfo = msg => {
 export const showStatusMessage = (msg) => {
 	const statusEl = $('statusMessage');
 	if (statusEl) {
-		statusEl.textContent = msg;
-		statusEl.style.display = 'block';
+		if (msg) {
+			statusEl.textContent = msg;
+			statusEl.style.display = 'block';
+		} else {
+			statusEl.textContent = '';
+			statusEl.style.display = 'none';
+		}
 	}
 	showLoading(true);
 };
