@@ -245,6 +245,8 @@ export const setupBlurListeners = () => {
     $('blurBtn').onclick = toggleBlurMode;
     $('clearBlurBtn').onclick = () => {
         state.blurSegments = [];
+        updateBlurSegmentsUI();
+        drawBlurSegments();
     };
     $('configBlurBtn').onclick = () => {
         $('blurModal').classList.remove('hidden');
