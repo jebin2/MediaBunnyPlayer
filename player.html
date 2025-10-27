@@ -168,9 +168,11 @@
 					<h4>Trim Range</h4>
 					<div id="trimRangeList">
 						<div class="trim-menu-controls trim-range">
-							<input type="text" id="startTime" class="startTime time-input" placeholder="00:00" title="Start Time">
+							<input type="text" id="startTime" class="startTime time-input" placeholder="00:00"
+								title="Start Time">
 							<span>-</span>
-							<input type="text" id="endTime" class="endTime time-input" placeholder="00:00" title="End Time">
+							<input type="text" id="endTime" class="endTime time-input" placeholder="00:00"
+								title="End Time">
 							<button class="trimRangeRemove close-btn" data-index="0" id="trimRangeRemove">-</button>
 							<button class="trimRangeAdd close-btn tick-btn" data-index="0" id="trimRangeAdd">+</button>
 						</div>
@@ -205,7 +207,8 @@
 						<fieldset class="trim-mode-selector">
 							<legend>Aspect Ratio</legend>
 							<div class="trim-menu-actions aspect-ratio-group" id="aspectRatioBtnGroup">
-								<button class="btn aspect-ratio-btn hover_highlight" data-value="custom" title="Custom Ratio">X:Y</button>
+								<button class="btn aspect-ratio-btn hover_highlight" data-value="custom"
+									title="Custom Ratio">X:Y</button>
 								<button class="btn aspect-ratio-btn" data-value="16:9" title="16:9 Ratio">16:9</button>
 								<button class="btn aspect-ratio-btn" data-value="9:16" title="9:16 Ratio">9:16</button>
 							</div>
@@ -363,6 +366,11 @@
 						<span id="audioFileName" class="hidden btn"></span>
 					</div>
 				</div>
+
+				<div class="resize-section">
+					<h4>Comment</h4>
+					<input id="imageAddInfo" class="speed-input" placeholder="Created W MediaBunny">
+				</div>
 			</div>
 
 			<div class="screenshot-actions">
@@ -505,6 +513,16 @@
 			<div class="screenshot-actions">
 				<button class="btn" id="applyWordStylesBtn">Apply</button>
 			</div>
+		</div>
+	</div>
+
+	<div class="screenshot-overlay hidden" id="showMetaDataModal">
+		<div class="screenshot-modal">
+			<button class="close-btn" id="showMetaDataCloseBtn">&times;</button>
+			<h3>MetaData</h3>
+
+			<pre class="resize-controls" id="showMetaDataDiv">
+			</pre>
 		</div>
 	</div>
 	<div class="shortcut-keys-panel guide_panel hidden" id="guide_panel">

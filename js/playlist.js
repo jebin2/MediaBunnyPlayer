@@ -11,6 +11,7 @@ import { escapeHTML, } from './utility.js'
 import { showDropZoneUI, showError, showInfo, showLoading, showStatusMessage, hideStatusMessage } from './ui.js'
 import { mergeVideoClips } from './merge.js';
 import { guidedPanleInfo } from './utility.js';
+import { extractMetadata } from './metadata.js';
 
 export const setupPlaylistEventListeners = () => {
 	$('clearPlaylistBtn').onclick = clearPlaylist;
@@ -87,6 +88,10 @@ export const setupPlaylistEventListeners = () => {
 			if (actionDropdownMenu) actionDropdownMenu.classList.add('hidden'); // Also hide the action menu
 		}
 	});
+	document.getElementById("showMetaDataCloseBtn").onclick = () => {
+		document.getElementById('showMetaDataModal').classList.add('hidden');
+	};
+
 };
 
 export const handleFiles = (files) => {
@@ -374,9 +379,39 @@ const createPlaylistElement = (node, currentPath = '') => {
 		removeBtn.title = 'Remove file';
 		li.appendChild(removeBtn);
 
+		// info
+		const infoSpan = document.createElement('span');
+		infoSpan.className = 'info-icon';
+		infoSpan.dataset.path = safePath;
+		infoSpan.textContent = '🛈';
+		infoSpan.title = 'File info';
+		infoSpan.onclick = () => {
+			showMetaData(safePath);
+		}
+		li.appendChild(infoSpan);
+
 		return li;
 	}
 };
+
+const showMetaData = (safePath) => {
+	const fileObj = findFileByPath(state.playlist, safePath);
+	const val = extractMetadata(fileObj);
+	// Resolve all fields
+	Promise.all(Object.entries(val).map(async ([key, promise]) => {
+		try {
+			const resolved = await promise;
+			return [key, resolved];
+		} catch (err) {
+			console.warn(`Failed to resolve ${key}:`, err);
+			return [key, null];
+		}
+	})).then(resolvedEntries => {
+		const resolvedObject = Object.fromEntries(resolvedEntries);
+		document.getElementById('showMetaDataDiv').innerText = JSON.stringify(resolvedObject, null, 2);
+		document.getElementById('showMetaDataModal').classList.remove('hidden');
+	});
+}
 
 const handleCheckboxChange = (path, isChecked) => {
 	if (!state.selectedFiles) {
@@ -535,7 +570,7 @@ const handleClipAction = async (action, path) => {
 };
 
 export const changePlaylistCheckBoxVisible = (show = false) => {
-    document.querySelectorAll('.playlist-file-checkbox').forEach(row => {
+	document.querySelectorAll('.playlist-file-checkbox').forEach(row => {
 		if (show) {
 			$('playlistMergeActionSection').classList.remove('hidden');
 			row.classList.remove('hidden');

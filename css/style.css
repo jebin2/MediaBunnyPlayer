@@ -1288,6 +1288,7 @@ body::before {
 }
 
 /* --- Remove Item --- */
+.info-icon,
 .remove-item {
     color: var(--text-tertiary);
     display: flex;
@@ -1304,10 +1305,16 @@ body::before {
     height: 24px;
 }
 
+.info-icon:hover,
 .remove-item:hover {
     color: var(--danger);
     background: var(--danger-bg);
     transform: scale(1.1);
+}
+
+.info-icon:hover {
+    color: var(--text-primary);
+    background: var(--accent-secondary);
 }
 
 #playlistContent p {
@@ -1754,7 +1761,8 @@ input[type="checkbox"] {
 }
 
 #selectImageBtn,
-#imageDurationInput {
+#imageDurationInput,
+#imageAddInfo {
     width: 100%;
 }
 

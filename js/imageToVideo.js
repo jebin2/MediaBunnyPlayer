@@ -142,7 +142,7 @@ const resetImageToVideoModal = () => {
 
 // --- THIS IS THE CORRECTED CORE FUNCTION ---
 const createImageVideo = async (options) => {
-    const { imageFile, duration, fps = 30, dimensions, audioFile } = options;
+    const { imageFile, duration, fps = 30, dimensions, audioFile, metadata } = options;
 
     // 1. Load image and prepare canvas
     const img = new Image();
@@ -154,8 +154,13 @@ const createImageVideo = async (options) => {
     });
     URL.revokeObjectURL(imageUrl);
 
-    const targetWidth = dimensions?.width || img.width;
-    const targetHeight = dimensions?.height || img.height;
+    const makeEven = (num) => num - (num % 2);
+
+    let targetWidth = dimensions?.width || img.width;
+    let targetHeight = dimensions?.height || img.height;
+
+    targetWidth = makeEven(targetWidth);
+    targetHeight = makeEven(targetHeight);
 
     const canvas = document.createElement('canvas');
     canvas.width = targetWidth;
@@ -168,6 +173,11 @@ const createImageVideo = async (options) => {
         target: new BufferTarget(),
         format: new Mp4OutputFormat({ fastStart: 'in-memory' })
     });
+    if (metadata) {
+        output.setMetadataTags({
+            'comment': metadata
+        });
+    }
 
     // 3. Add video track to the output
     const canvasSource = new CanvasSource(canvas, {
@@ -351,12 +361,12 @@ const handleCreateImageVideo = async () => {
 
     try {
         showStatusMessage('Encoding video...');
-
         const mp4Blob = await createImageVideo({
             imageFile: state.selectedImageFile,
             duration: duration,
             dimensions: { width, height },
-            audioFile: audioFile
+            audioFile: audioFile,
+            metadata: document.getElementById('imageAddInfo').value.trim()
         });
 
         const fileName = `${state.selectedImageFile.name.split('.')[0]}_video.mp4`;

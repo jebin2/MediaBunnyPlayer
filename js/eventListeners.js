@@ -308,6 +308,17 @@ export const setupEventListeners = () => {
 
 
 document.addEventListener('keydown', (e) => {
+	// Ignore key handling if user is typing in an input, textarea, or content-editable
+	const activeElement = document.activeElement;
+	const isInput =
+		activeElement instanceof HTMLInputElement ||
+		activeElement instanceof HTMLTextAreaElement ||
+		activeElement?.hasAttribute('contenteditable');
+
+	if (isInput) {
+		// Allow normal typing; do not intercept
+		return;
+	}
 	if (e.key.toLowerCase() === 's') {
 		e.preventDefault();
 		takeScreenshot()
