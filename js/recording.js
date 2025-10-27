@@ -15,7 +15,8 @@ import {
     pauseRecBtn,
     stopRecBtn,
     recTimer,
-    recordScreenBtn} from './constants.js';
+    recordScreenBtn
+} from './constants.js';
 import { state } from './state.js';
 import { showInfo, showError } from './ui.js';
 import { updatePlaylistUIOptimized, openPlaylist } from './playlist.js';
@@ -522,6 +523,16 @@ export const setupRecordingListeners = () => {
     pauseRecBtn.addEventListener('click', togglePause);
     stopRecBtn.addEventListener('click', stopRecording);
     document.addEventListener('keydown', (e) => {
+        const activeElement = document.activeElement;
+        const isInput =
+            activeElement instanceof HTMLInputElement ||
+            activeElement instanceof HTMLTextAreaElement ||
+            activeElement?.hasAttribute('contenteditable');
+
+        if (isInput) {
+            // Allow normal typing; do not intercept
+            return;
+        }
         const key = e.key.toLowerCase();
 
         // --- H key: Toggle visibility of the recording controls ---
