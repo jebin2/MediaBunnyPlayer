@@ -327,7 +327,7 @@ document.addEventListener('keydown', (e) => {
 		takeScreenshot()
 	} else if (e.key.toLowerCase() === 'c' && !e.ctrlKey && !e.metaKey && !e.altKey) {
 		e.preventDefault();
-		handleCutAction()
+		handleCutAction();
 	} else if (e.key.toLowerCase() === 'escape') {
 		e.preventDefault();
 		resetAllConfigs();

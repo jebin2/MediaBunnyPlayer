@@ -307,8 +307,16 @@
 				</div>
 			</div>
 			<div class="sidebar hidden" id="blurMenu">
-				<div class="track-menu-content" id="blurSegmentsList">
+				<div class="track-menu-content">
 					<h4>Blur Segments</h4>
+					<div class="trim-menu-actions">
+						<button id="clearBlurBtn" class="btn">Clear</button>
+						<button id="cancelBlurBtn" class="btn">Cancel</button>
+						<button id="configBlurBtn" class="btn">Config Blur</button>
+						<button id="processBlurBtn" class="btn">Process Clip</button>
+					</div>
+				</div>
+				<div class="track-menu-content" id="blurSegmentsList">
 					<p>No blur segments added.</p>
 				</div>
 			</div>
@@ -531,6 +539,36 @@
 
 			<pre class="resize-controls" id="showMetaDataDiv">
 			</pre>
+		</div>
+	</div>
+	<div class="screenshot-overlay hidden" id="blurModal">
+		<div class="screenshot-modal">
+			<button class="close-btn" id="blurModalCloseBtn">&times;</button>
+			<h3>Blur</h3>
+			<div class="resize-controls">
+				<div class="resize-section">
+					<label for="blurConfigBackgroundToggle">
+						<span>Blurred Background</span>
+						<div class="toggle-switch">
+							<input type="checkbox" id="blurConfigBackgroundToggle" checked>
+							<span class="switch-slider hover_highlight" id="blurConfigBackgroundToggleSlider"></span>
+						</div>
+					</label>
+				</div>
+				<div class="resize-section" id="blurConfigAmountMain">
+					<span>Blur Amount</span>
+					<input id="blurConfigAmountInput" class="speed-input" value="15" min="1" max="100" title="Blur amount in pixels">
+				</div>
+
+				<div class="resize-section hidden" id="plainColorMain">
+					<h4>Plain Color</h4>
+					<input id="plainColor" type="color" value="#FFFFFF">
+				</div>
+			</div>
+
+			<div class="screenshot-actions">
+				<button class="btn" id="applyBlurBtn">Apply</button>
+			</div>
 		</div>
 	</div>
 	<div class="shortcut-keys-panel guide_panel hidden" id="guide_panel">

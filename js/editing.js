@@ -164,9 +164,13 @@ const createVideoProcessFunction = (videoTrack, state) => {
 					processCtx.closePath();
 					processCtx.clip();
 
-					// Apply blur to the clipped area
-					processCtx.filter = `blur(20px)`; // Or use a state variable for blur amount
-					processCtx.drawImage(processCanvas, 0, 0);
+					if (state.blurConfig.isBlur) {
+						processCtx.filter = `blur(${state.blurConfig.blurAmount}px)`;
+						processCtx.drawImage(processCanvas, 0, 0);
+					} else {
+						processCtx.fillStyle = state.blurConfig.plainColor; // #000000
+						processCtx.fill(); // This will fill the path defined above
+					}
 
 					processCtx.restore(); // Remove clip and filter for next frame/segment
 				}
@@ -199,8 +203,6 @@ export const handleCutAction = async () => {
 	guidedPanleInfo('Creating clip...');
 
 	const generatedClips = []; // To store the file of each generated clip
-	let processCanvas = null;
-	let processCtx = null;
 
 	try {
 		// Process each trim range individually
@@ -272,7 +274,7 @@ export const handleCutAction = async () => {
 			await conversion.execute();
 
 			const originalName = (state.currentPlayingFile.name || 'video').split('.').slice(0, -1).join('.');
-			const clipName = `${originalName}_clip_${i + 1}.mp4`;
+			const clipName = `${originalName}_clip_${new Date().getTime()}.mp4`;
 			const cutClipFile = new File([output.target.buffer], clipName, {
 				type: 'video/mp4'
 			});

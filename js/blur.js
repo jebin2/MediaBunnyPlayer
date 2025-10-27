@@ -26,6 +26,9 @@ import {
     unregisterOnFrameRender
 } from './player.js';
 
+import {
+    handleCutAction
+} from './editing.js'
 // --- Time Formatting Utilities ---
 
 /**
@@ -77,7 +80,6 @@ const parseTime = (timeString) => {
 
 // --- Main Toggle Function ---
 export const toggleBlurMode = () => {
-    rightPanel('blur', true);
     state.isBlurring = !state.isBlurring;
     const blurBtn = $('blurBtn'); // Assuming you'll add a button with id="blurBtn"
 
@@ -86,6 +88,7 @@ export const toggleBlurMode = () => {
     if (state.isPanning) togglePanning(null, true);
 
     if (state.isBlurring) {
+        rightPanel('blur', true);
         if (state.playing) pause();
         blurBtn.textContent = 'Blurring...';
         blurBtn.classList.add('hover_highlight');
@@ -95,6 +98,7 @@ export const toggleBlurMode = () => {
         guidedPanleInfo('Click and drag to draw a blur area. Double-click to finish a shape.');
         registerOnFrameRender(renderBlurPreview);
     } else {
+        rightPanel('settings', true);
         blurBtn.textContent = 'Blur';
         blurBtn.classList.remove('hover_highlight');
         cropCanvas.classList.add('hidden');
@@ -239,6 +243,49 @@ export const updateBlurSegmentsUI = () => {
 
 export const setupBlurListeners = () => {
     $('blurBtn').onclick = toggleBlurMode;
+    $('clearBlurBtn').onclick = () => {
+        state.blurSegments = [];
+    };
+    $('configBlurBtn').onclick = () => {
+        $('blurModal').classList.remove('hidden');
+    }
+    $('blurModalCloseBtn').onclick = () => {
+        $('blurModal').classList.add('hidden');
+    }
+    $('blurConfigBackgroundToggle').onchange = (e) => {
+        if (e.target.checked) {
+            $('blurConfigBackgroundToggle').checked = true;
+            $('blurConfigBackgroundToggleSlider').classList.add('hover_highlight');
+            $('plainColorMain').classList.add('hidden');
+            $('blurConfigAmountMain').classList.remove('hidden');
+        } else {
+            $('blurConfigBackgroundToggle').checked = false;
+            $('blurConfigBackgroundToggleSlider').classList.remove('hover_highlight');
+            $('plainColorMain').classList.remove('hidden');
+            $('blurConfigAmountMain').classList.add('hidden');
+        }
+    };
+    $('clearBlurBtn').onclick = () => {
+        state.blurConfig = {
+            isBlur: true,
+            blurAmount: 15,
+            plainColor: '#000000'
+        }
+        state.blurSegments = [];
+    };
+    $('cancelBlurBtn').onclick = toggleBlurMode;
+    $('processBlurBtn').onclick = () => {
+        handleCutAction();
+        toggleBlurMode();
+    }
+    $('applyBlurBtn').onclick = () => {
+        state.blurConfig = {
+            isBlur: $('blurConfigBackgroundToggle').checked,
+            blurAmount: $('blurConfigAmountInput').value,
+            plainColor: $('plainColor').value
+        };
+        $('blurModal').classList.add('hidden');
+    }
     cropCanvas.addEventListener('dblclick', handleBlurDoubleClick);
 
     // Add logic to handle time input changes and deletion in the UI list

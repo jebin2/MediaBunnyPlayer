@@ -131,6 +131,11 @@ export const state = {
     blurSegments: [],            // Array to store all blur segment data {startTime, endTime, points: [{x, y}]}
     currentBlurSegment: null,    // The segment currently being drawn
     isDrawingBlur: false,
+    blurConfig: {
+        isBlur: true,
+        blurAmount: 15,
+        plainColor: '#000000'
+    },
 
     onFrameRenderCallbacks: [],
 };
