@@ -87,33 +87,63 @@ const createAudioProcessFunction = async (primaryAudioTrack, state) => {
 			continue;
 		}
 
-		// Decode the entire overlay track into a single AudioSample
+		// =================================================================
+		// START: FINAL AND CORRECTED DECODING LOGIC
+		// =================================================================
+
 		const sink = new AudioSampleSink(editAudioTrack);
-		const fullOverlaySample = await sink.getSample(0, { duration: reportedDuration });
-		const overlayFrameCount = fullOverlaySample.numberOfFrames;
-		const overlayChannels = fullOverlaySample.numberOfChannels;
-		const overlaySampleRate = fullOverlaySample.sampleRate;
+		const sampleChunks = [];
+		let totalFramesRead = 0;
+		let overlayChannels = 0;
+		let overlaySampleRate = 0;
 
-		// =================================================================
-		// START: CRITICAL FIX - CALCULATE THE TRUE DURATION
-		// =================================================================
-		// We trust the frame count of the data we actually received, not the reported duration.
-		const trueOverlayDuration = overlayFrameCount / overlaySampleRate;
-		console.log(`[AudioProcess]   - Reported duration: ${reportedDuration.toFixed(4)}s. True buffered duration: ${trueOverlayDuration.toFixed(4)}s (${overlayFrameCount} frames @ ${overlaySampleRate}Hz).`);
-		// =================================================================
-		// END: CRITICAL FIX
-		// =================================================================
-
-		const overlayAudioData = new Float32Array(overlayFrameCount * overlayChannels);
-		for (let c = 0; c < overlayChannels; c++) {
-			const planeSizeBytes = fullOverlaySample.allocationSize({ planeIndex: c, format: "f32-planar" });
-			const planeData = new Float32Array(planeSizeBytes / 4);
-			fullOverlaySample.copyTo(planeData, { planeIndex: c, format: "f32-planar" });
-			for (let i = 0; i < overlayFrameCount; i++) {
-				overlayAudioData[i * overlayChannels + c] = planeData[i];
+		// 1. Use the 'samples()' async iterator to loop through all decoded audio chunks.
+		//    This is the idiomatic way to read a track from start to finish.
+		for await (const sample of sink.samples()) {
+			if (totalFramesRead === 0) {
+				// Learn the format from the very first sample
+				overlayChannels = sample.numberOfChannels;
+				overlaySampleRate = sample.sampleRate;
 			}
+			sampleChunks.push(sample);
+			totalFramesRead += sample.numberOfFrames;
 		}
-		fullOverlaySample.close();
+
+		if (totalFramesRead === 0) {
+			console.warn(`[AudioProcess] Track "${track.name}" yielded no audio frames. Skipping.`);
+			continue;
+		}
+
+		const trueOverlayDuration = totalFramesRead / overlaySampleRate;
+		console.log(`[AudioProcess]   - Successfully buffered full track. True duration: ${trueOverlayDuration.toFixed(4)}s (${totalFramesRead} frames @ ${overlaySampleRate}Hz).`);
+
+		// 2. Combine all collected sample chunks into a single interleaved Float32Array.
+		const overlayAudioData = new Float32Array(totalFramesRead * overlayChannels);
+		let writeOffsetFrames = 0;
+
+		for (const chunk of sampleChunks) {
+			const chunkFrameCount = chunk.numberOfFrames;
+			for (let c = 0; c < overlayChannels; c++) {
+				const planeSizeBytes = chunk.allocationSize({ planeIndex: c, format: "f32-planar" });
+				const planeData = new Float32Array(planeSizeBytes / 4);
+				chunk.copyTo(planeData, { planeIndex: c, format: "f32-planar" });
+
+				for (let i = 0; i < chunkFrameCount; i++) {
+					const interleavedIndex = (writeOffsetFrames + i) * overlayChannels + c;
+					overlayAudioData[interleavedIndex] = planeData[i];
+				}
+			}
+			writeOffsetFrames += chunkFrameCount;
+			chunk.close(); // IMPORTANT: Free up memory from each chunk after use.
+		}
+
+		// =================================================================
+		// END: FINAL AND CORRECTED DECODING LOGIC
+		// =================================================================
+
+		// =================================================================
+		// END: FINAL REVISED DECODING LOGIC
+		// =================================================================
 
 		audioEditSources.push({
 			trueOverlayDuration, // Use our reliable, calculated duration
