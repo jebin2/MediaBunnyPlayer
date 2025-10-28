@@ -11,7 +11,9 @@ import {
 	Output,
 	Mp4OutputFormat,
 	BufferTarget,
-	QUALITY_HIGH
+	QUALITY_HIGH,
+	AudioSampleSink,
+	AudioSample
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.2/+esm';
 
 // Import the new mergeVideos function
@@ -50,6 +52,232 @@ import {
 	showError,
 	showStatusMessage
 } from './ui.js'
+
+const createAudioProcessFunction = async (primaryAudioTrack, state) => {
+	const audioEditTracks = state.playlist.filter(item =>
+		item.media_type === 'mix_audio' && item.audio_edit_prop?.time_ranges?.length > 0
+	);
+
+	if (audioEditTracks.length === 0) {
+		console.log("[AudioProcess] No audio edit tracks with time ranges found.");
+		return null;
+	}
+
+	const audioEditSources = [];
+	for (const track of audioEditTracks) {
+		console.log(`[AudioProcess] Initializing and pre-buffering audio edit track: "${track.name}"`);
+		const audioInput = new Input({
+			source: new BlobSource(track.file),
+			formats: ALL_FORMATS
+		});
+		const editAudioTrack = await audioInput.getPrimaryAudioTrack();
+		if (!editAudioTrack) {
+			console.warn(`[AudioProcess] No audio track in "${track.name}". Skipping.`);
+			continue;
+		}
+		const canDecode = await editAudioTrack.canDecode();
+		if (!canDecode) {
+			console.warn(`[AudioProcess] Cannot decode "${track.name}". Skipping.`);
+			continue;
+		}
+
+		const reportedDuration = await editAudioTrack.computeDuration();
+		if (reportedDuration <= 0) {
+			console.warn(`[AudioProcess] Overlay track "${track.name}" has no duration. Skipping.`);
+			continue;
+		}
+
+		// Decode the entire overlay track into a single AudioSample
+		const sink = new AudioSampleSink(editAudioTrack);
+		const fullOverlaySample = await sink.getSample(0, { duration: reportedDuration });
+		const overlayFrameCount = fullOverlaySample.numberOfFrames;
+		const overlayChannels = fullOverlaySample.numberOfChannels;
+		const overlaySampleRate = fullOverlaySample.sampleRate;
+
+		// =================================================================
+		// START: CRITICAL FIX - CALCULATE THE TRUE DURATION
+		// =================================================================
+		// We trust the frame count of the data we actually received, not the reported duration.
+		const trueOverlayDuration = overlayFrameCount / overlaySampleRate;
+		console.log(`[AudioProcess]   - Reported duration: ${reportedDuration.toFixed(4)}s. True buffered duration: ${trueOverlayDuration.toFixed(4)}s (${overlayFrameCount} frames @ ${overlaySampleRate}Hz).`);
+		// =================================================================
+		// END: CRITICAL FIX
+		// =================================================================
+
+		const overlayAudioData = new Float32Array(overlayFrameCount * overlayChannels);
+		for (let c = 0; c < overlayChannels; c++) {
+			const planeSizeBytes = fullOverlaySample.allocationSize({ planeIndex: c, format: "f32-planar" });
+			const planeData = new Float32Array(planeSizeBytes / 4);
+			fullOverlaySample.copyTo(planeData, { planeIndex: c, format: "f32-planar" });
+			for (let i = 0; i < overlayFrameCount; i++) {
+				overlayAudioData[i * overlayChannels + c] = planeData[i];
+			}
+		}
+		fullOverlaySample.close();
+
+		audioEditSources.push({
+			trueOverlayDuration, // Use our reliable, calculated duration
+			overlayAudioData,
+			overlayChannels,
+			overlaySampleRate,
+			action: track.audio_edit_prop.action,
+			time_ranges: track.audio_edit_prop.time_ranges.map(r => ({
+				start: parseTime(r.start),
+				end: parseTime(r.end)
+			})),
+			input: audioInput,
+		});
+	}
+
+	if (audioEditSources.length === 0) {
+		console.log("[AudioProcess] No valid overlay sources could be prepared.");
+		return null;
+	}
+
+	const process = async (originalSample) => {
+		const sampleTimestamp = originalSample.timestamp;
+		const sampleDuration = originalSample.numberOfFrames / originalSample.sampleRate;
+		const sampleEndTime = sampleTimestamp + sampleDuration;
+		const channels = originalSample.numberOfChannels;
+		const sampleRate = originalSample.sampleRate;
+		const frameCount = originalSample.numberOfFrames;
+
+		const originalData = new Float32Array(frameCount * channels);
+		for (let c = 0; c < channels; c++) {
+			const planeSizeBytes = originalSample.allocationSize({ planeIndex: c, format: "f32-planar" });
+			const planeData = new Float32Array(planeSizeBytes / 4);
+			originalSample.copyTo(planeData, { planeIndex: c, format: "f32-planar" });
+			for (let i = 0; i < frameCount; i++) {
+				originalData[i * channels + c] = planeData[i];
+			}
+		}
+
+		let modified = false;
+
+		for (const source of audioEditSources) {
+			for (const range of source.time_ranges) {
+				const overlapStart = Math.max(sampleTimestamp, range.start);
+				const overlapEnd = Math.min(sampleEndTime, range.end);
+
+				if (overlapStart >= overlapEnd) continue;
+
+				modified = true;
+				const startFrame = Math.round((overlapStart - sampleTimestamp) * sampleRate);
+				const endFrame = Math.round((overlapEnd - sampleTimestamp) * sampleRate);
+
+				for (let frame = startFrame; frame < endFrame; frame++) {
+					const currentTime = sampleTimestamp + (frame / sampleRate);
+					const inRangeTime = currentTime - range.start;
+
+					// =================================================================
+					// START: CRITICAL FIX - Use the true duration for the loop
+					// =================================================================
+					const overlayTime = inRangeTime % source.trueOverlayDuration;
+					// =================================================================
+					// END: CRITICAL FIX
+					// =================================================================
+
+					const overlayFrame = Math.floor(overlayTime * source.overlaySampleRate);
+
+					for (let c = 0; c < channels; c++) {
+						const originalIndex = frame * channels + c;
+						const editC = Math.min(c, source.overlayChannels - 1);
+						const overlayIndex = (overlayFrame * source.overlayChannels) + editC;
+
+						// Safeguard to prevent reading beyond the buffer, which causes blanking
+						if (overlayIndex >= source.overlayAudioData.length) continue;
+
+						const originalValue = originalData[originalIndex];
+						const editValue = source.overlayAudioData[overlayIndex];
+
+						if (source.action === "replace") {
+							originalData[originalIndex] = editValue;
+						} else { // overlay
+							originalData[originalIndex] = (originalValue + editValue) / 2;
+						}
+					}
+				}
+			}
+		}
+
+		if (modified) {
+			const mixedSample = new AudioSample({
+				data: originalData,
+				format: "f32",
+				numberOfChannels: channels,
+				sampleRate,
+				timestamp: sampleTimestamp
+			});
+			originalSample.close();
+			return mixedSample;
+		} else {
+			return originalSample;
+		}
+	};
+
+	return {
+		process,
+		dispose: () => {
+			console.log("[AudioProcess] Disposing of all audio edit sources.");
+			audioEditSources.forEach(s => s.input.dispose())
+		}
+	};
+};
+
+// Helper with debug logging
+const mixAudioSamplesWithLog = async (originalSample, editSample, timestamp) => {
+	console.log(`[AudioMix] Starting mix for timestamp ${timestamp.toFixed(4)}s`);
+	const channels = originalSample.numberOfChannels;
+	const sampleRate = originalSample.sampleRate;
+	const frameCount = originalSample.numberOfFrames;
+
+	console.log(`[AudioMix]   - Original sample: ${channels} channels, ${sampleRate} Hz, ${frameCount} frames.`);
+	console.log(`[AudioMix]   - Edit sample: ${editSample.numberOfChannels} channels, ${editSample.sampleRate} Hz, ${editSample.numberOfFrames} frames.`);
+
+	const mixedChannels = [];
+	for (let c = 0; c < channels; c++) {
+		const origBytes = originalSample.allocationSize({ planeIndex: c, format: "f32-planar" });
+		const origData = new Float32Array(origBytes / 4);
+		originalSample.copyTo(origData, { planeIndex: c, format: "f32-planar" });
+
+		const editC = Math.min(c, editSample.numberOfChannels - 1);
+		const editBytes = editSample.allocationSize({ planeIndex: editC, format: "f32-planar" });
+		const editData = new Float32Array(editBytes / 4);
+		editSample.copyTo(editData, { planeIndex: editC, format: "f32-planar" });
+
+		const len = Math.min(origData.length, editData.length);
+		const mixedData = new Float32Array(len);
+		for (let i = 0; i < len; i++) {
+			mixedData[i] = (origData[i] + editData[i]) / 2;
+		}
+
+		console.log(`[AudioMix]   - Channel ${c}: Mixed ${len} frames.`);
+		mixedChannels.push(mixedData);
+	}
+
+	const totalFrames = mixedChannels[0].length;
+	const interleavedData = new Float32Array(totalFrames * channels);
+	for (let frame = 0; frame < totalFrames; frame++) {
+		for (let channel = 0; channel < channels; channel++) {
+			interleavedData[frame * channels + channel] = mixedChannels[channel][frame];
+		}
+	}
+
+	const mixedSample = new AudioSample({
+		data: interleavedData,
+		format: "f32", // interleaved
+		numberOfChannels: channels,
+		sampleRate,
+		timestamp
+	});
+
+	console.log(`[AudioMix] Finished mixing. Created new AudioSample with ${totalFrames} frames.`);
+
+	originalSample.close();
+	editSample.close();
+
+	return mixedSample;
+};
 
 const createVideoProcessFunction = (videoTrack, state) => {
 	const hasDynamicCrop = state.panKeyframes.length > 1 && state.panRectSize;
@@ -258,6 +486,24 @@ export const handleCutAction = async () => {
 					};
 				}
 			}
+
+			const primaryAudioTrack = await input.getPrimaryAudioTrack();
+			if (primaryAudioTrack) {
+				const audioProcessOptions = await createAudioProcessFunction(primaryAudioTrack, state);
+				if (audioProcessOptions) {
+					conversionOptions.audio = {
+						track: primaryAudioTrack,
+						codec: 'opus',
+						bitrate: 128e3,
+						forceTranscode: true,
+						...audioProcessOptions
+					};
+
+					// Store dispose function for cleanup
+					state.audioProcessDispose = audioProcessOptions.dispose;
+				}
+			}
+
 
 			const conversion = await Conversion.init(conversionOptions);
 			if (!conversion.isValid) {
