@@ -54,8 +54,7 @@ import {
 } from './ui.js'
 
 const createAudioProcessFunction = async (primaryAudioTrack, state) => {
-	const audioEditTracks = state.playlist.filter(item =>
-		item.media_type === 'mix_audio' && item.audio_edit_prop?.time_ranges?.length > 0
+	const audioEditTracks = state.mixAudio.filter(item => item.audio_edit_prop?.length > 0
 	);
 
 	if (audioEditTracks.length === 0) {
@@ -150,11 +149,7 @@ const createAudioProcessFunction = async (primaryAudioTrack, state) => {
 			overlayAudioData,
 			overlayChannels,
 			overlaySampleRate,
-			action: track.audio_edit_prop.action,
-			time_ranges: track.audio_edit_prop.time_ranges.map(r => ({
-				start: parseTime(r.start),
-				end: parseTime(r.end)
-			})),
+			audio_edit_prop: track.audio_edit_prop,
 			input: audioInput,
 		});
 	}
@@ -185,9 +180,9 @@ const createAudioProcessFunction = async (primaryAudioTrack, state) => {
 		let modified = false;
 
 		for (const source of audioEditSources) {
-			for (const range of source.time_ranges) {
-				const overlapStart = Math.max(sampleTimestamp, range.start);
-				const overlapEnd = Math.min(sampleEndTime, range.end);
+			for (const range of source.audio_edit_prop) {
+				const overlapStart = Math.max(sampleTimestamp, parseTime(range.start));
+				const overlapEnd = Math.min(sampleEndTime, parseTime(range.end));
 
 				if (overlapStart >= overlapEnd) continue;
 
@@ -197,7 +192,7 @@ const createAudioProcessFunction = async (primaryAudioTrack, state) => {
 
 				for (let frame = startFrame; frame < endFrame; frame++) {
 					const currentTime = sampleTimestamp + (frame / sampleRate);
-					const inRangeTime = currentTime - range.start;
+					const inRangeTime = currentTime - parseTime(range.start);
 
 					// =================================================================
 					// START: CRITICAL FIX - Use the true duration for the loop
@@ -220,7 +215,7 @@ const createAudioProcessFunction = async (primaryAudioTrack, state) => {
 						const originalValue = originalData[originalIndex];
 						const editValue = source.overlayAudioData[overlayIndex];
 
-						if (source.action === "replace") {
+						if (range.action === "replace") {
 							originalData[originalIndex] = editValue;
 						} else { // overlay
 							originalData[originalIndex] = (originalValue + editValue) / 2;

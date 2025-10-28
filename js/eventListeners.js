@@ -12,7 +12,7 @@ import { getPlaybackTime, loadMedia, seekToTime, setPlaybackSpeed, setVolume, st
 import { handleFiles, handleFolderSelection, setupPlaylistEventListeners } from './playlist.js'
 import { takeScreenshot } from './screenshot.js'
 import { showControlsTemporarily, showError } from './ui.js'
-import { audioEventlistener } from './audio.js';
+import { setupAudioListener } from './audio.js';
 import { setupSettingsListeners } from './settings.js';
 import { lenvetlistener } from './recording.js'
 import { toggleCropFixed, setupCropListener } from './crop.js';
@@ -107,7 +107,7 @@ export const setupEventListeners = () => {
 	};
 
 	setupPlaylistEventListeners();
-	audioEventlistener();
+	setupAudioListener();
 	setupSettingsListeners();
 	setupCropListener();
 	setupPlayerListener();

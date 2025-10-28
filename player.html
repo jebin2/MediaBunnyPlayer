@@ -205,10 +205,11 @@
 						<button id="screenshotBtn" class="control-btn track-btn btn">Screenshot</button>
 						<button id="resizeBtn" class="control-btn track-btn btn">Resize</button>
 						<button id="imageToVideoBtn" class="control-btn track-btn btn">Image to Video</button>
-						<button id="recordScreenBtn" class="control-btn track-btn btn">⚠️ Record Screen</button>
+						<button id="recordScreenBtn" class="control-btn track-btn btn" title="Audio not working. mute and try">⚠️ Record Screen</button>
 						<button id="addCaptionBtn" class="control-btn track-btn btn">Add Caption</button>
 						<button id="mergeBtn" class="control-btn track-btn btn">Merge</button>
 						<button id="blurBtn" class="control-btn track-btn btn">Blur</button>
+						<button id="mixAudioBtn" class="control-btn track-btn btn">Mix Audio</button>
 					</div>
 
 					<hr class="menu-divider">
@@ -336,6 +337,20 @@
 				</div>
 				<div class="track-menu-content" id="blurSegmentsList">
 					<p>No blur segments added.</p>
+				</div>
+			</div>
+			<div class="sidebar hidden" id="mixAudioMenu">
+				<div class="track-menu-content">
+					<h4>Audio List</h4>
+					<div class="trim-menu-actions">
+						<input type="file" id="mixAudioFileInput" accept="audio/*" style="display:none">
+						<button id="uploadMixAudioBtn" class="btn">Upload</button>
+            			<button id="generateBeepBtn" class="btn">Generate Beep(1sec)</button>
+						<button id="processMixAudioBtn" class="btn">Process Clip</button>
+					</div>
+				</div>
+				<div class="track-menu-content" id="mixAudioSegmentsList">
+					<p>No Audio added.</p>
 				</div>
 			</div>
 		</div>

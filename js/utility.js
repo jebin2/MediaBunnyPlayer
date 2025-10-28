@@ -3,7 +3,7 @@
 // ============================================================================
 
 
-import { $, sidebar, captionMenu, settingsMenu, blurMenu } from './constants.js';
+import { $, sidebar, captionMenu, settingsMenu, blurMenu, mixAudioMenu } from './constants.js';
 import { positionCropCanvas } from './crop.js';
 import { loadMedia } from './player.js'
 import { state } from './state.js'
@@ -121,6 +121,7 @@ export const rightPanel = (type = 'playlist', show = true) => {
 	settingsMenu.classList.add('hidden');
 	captionMenu.classList.add('hidden');
 	blurMenu.classList.add('hidden');
+	mixAudioMenu.classList.add('hidden');
 
 	if (show) {
 		let menu;
@@ -137,6 +138,9 @@ export const rightPanel = (type = 'playlist', show = true) => {
 				break
 			case "blur":
 				menu = blurMenu;
+				break
+			case "mixAudio":
+				menu = mixAudioMenu;
 				break
 			default:
 				menu = sidebar;

@@ -740,7 +740,7 @@ body::before {
     color: var(--text-primary);
     font-size: 0.875rem;
     font-weight: 600;
-    margin-bottom: 0.75rem;
+    margin-top: 0.75rem;
     padding-bottom: 0.5rem;
 }
 
@@ -1935,4 +1935,76 @@ input:disabled {
 
 .delete-segment-btn {
     position: inherit;
+}
+.audioTypeDropdownMenu {
+    top: auto;
+}
+
+.mix-audio-title {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+/*
+  This is the container for both the button and the dropdown menu.
+  Setting its position to "relative" creates a positioning context
+  for the absolutely positioned dropdown menu.
+*/
+.trim-menu-actions > div {
+    position: relative;
+    display: inline-block; /* Or 'block', depending on your layout */
+}
+
+/*
+  This is your existing .dropdown class, modified with absolute positioning.
+*/
+.dropdown {
+    position: absolute;
+    top: 100%; /* Position it right below the parent container */
+    left: 0; /* Align it to the left edge of the parent container */
+    /*width: 100%; /* Make the dropdown the same width as the button */
+    background: var(--bg-secondary);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--border-radius-md);
+    z-index: 1001;
+    padding: 0.5rem;
+    box-shadow: var(--glass-shadow);
+    animation: slideDown 0.3s ease;
+    box-sizing: border-box; /* Ensures padding doesn't affect the final width */
+}
+
+/* Your other dropdown styles remain the same */
+.dropdown button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: none;
+    color: var(--text-primary);
+    padding: 0.65rem 1rem;
+    border-radius: var(--border-radius-sm);
+    margin-bottom: 0.25rem;
+    transition: var(--transition-smooth);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.dropdown button:last-child {
+    margin-bottom: 0;
+}
+
+.dropdown button:hover {
+    background: var(--glass-bg-hover);
+    color: var(--accent-primary);
+    transform: translateX(4px);
+}
+
+.mix-audio-name {
+    margin-left: 10px;
+}
+
+.mtop0-75 {
+    margin-top: 0.75rem;
 }

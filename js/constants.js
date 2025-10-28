@@ -137,3 +137,6 @@ export const captionMenu = $('captionMenu');
 
 // Blur
 export const blurMenu = $('blurMenu');
+
+// Mix Audio
+export const mixAudioMenu = $('mixAudioMenu');
