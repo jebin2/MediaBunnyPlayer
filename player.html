@@ -4,11 +4,29 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Media Player</title>
-	<link rel="manifest" href="manifest.json">
-	<link rel="stylesheet" href="./css/style.css">
+	<meta name="description"
+		content="MediaBunny Player – A lightweight media player for videos, images, and captions with offline support.">
 	<meta name="theme-color" content="#1a1a35">
+	<title>MediaBunny Player</title>
+
+	<link rel="manifest" href="manifest.json">
 	<link rel="icon" type="image/x-icon" href="favicon.ico">
+
+	<!-- Preconnect to fonts and CDN -->
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
+	<!-- Load fonts efficiently -->
+	<link
+		href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@500&display=swap"
+		rel="stylesheet">
+
+	<!-- Preload + link CSS -->
+	<link rel="preload" href="./css/main1.css" as="style">
+	<link rel="stylesheet" href="./css/main1.css">
+	<link rel="preload" href="./css/style.css" as="style">
+	<link rel="stylesheet" href="./css/style.css">
 </head>
 
 <body>
@@ -65,7 +83,7 @@
 		<div class="player-area" id="playerArea">
 			<div class="drop-zone" id="dropZone">
 				<div class="drop-zone-content">
-					<img src="upload.svg" />
+					<img src="upload.svg" alt="Upload" />
 					<h2>Drop media files here</h2>
 					<button class="btn btn-primary" id="chooseFileBtn">Choose Files</button>
 				</div>
@@ -351,7 +369,8 @@
 					<button class="btn" id="selectImageBtn">Choose Image</button>
 					<div id="imagePreviewContainer" style="margin-top: 1rem; display: none;">
 						<img id="imagePreview"
-							style="max-width: 100%; max-height: 230px; border-radius: 8px; border: 1px solid var(--glass-border);" />
+							style="max-width: 100%; max-height: 230px; border-radius: 8px; border: 1px solid var(--glass-border);"
+							alt="Image Preview" />
 					</div>
 				</div>
 

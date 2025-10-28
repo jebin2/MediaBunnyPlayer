@@ -3,9 +3,9 @@
    ========================================== */
 
 /* --- Font Import --- */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap'); */
 /* ENHANCEMENT: Import a monospace font for a more technical feel */
-@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@500&display=swap');
+/* @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@500&display=swap'); */
 
 /* --- CSS Variables (Neo-Brutalism Theme) --- */
 :root {

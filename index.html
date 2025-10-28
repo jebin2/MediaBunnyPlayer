@@ -2,13 +2,31 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Media Player</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#1a1a35">
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
-    <link rel="stylesheet" href="css/index.css">
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="description"
+		content="MediaBunny Player – A lightweight media player for videos, images, and captions with offline support.">
+	<meta name="theme-color" content="#1a1a35">
+	<title>MediaBunny Player</title>
+
+	<link rel="manifest" href="manifest.json">
+	<link rel="icon" type="image/x-icon" href="favicon.ico">
+
+	<!-- Preconnect to fonts and CDN -->
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
+	<!-- Load fonts efficiently -->
+	<link
+		href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@500&display=swap"
+		rel="stylesheet">
+
+	<!-- Preload + link CSS -->
+	<link rel="preload" href="./css/main1.css" as="style">
+	<link rel="stylesheet" href="./css/main1.css">
+	<link rel="preload" href="./css/index.css" as="style">
+	<link rel="stylesheet" href="./css/index.css">
 </head>
 
 <body>
