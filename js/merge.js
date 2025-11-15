@@ -10,7 +10,7 @@ import {
     EncodedAudioPacketSource,
     QUALITY_HIGH,
     Conversion,
-} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.2/+esm';
+} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.25.0/+esm';
 
 import { $ } from './constants.js';
 import { changePlaylistCheckBoxVisible } from './playlist.js';

@@ -35,7 +35,7 @@ const loadAudioEncoderModules = async () => {
     // As per the documentation, check if the browser can encode MP3 natively.
     // If not, register the custom WASM-based encoder.
     if (!canEncodeAudio || !registerMp3Encoder) {
-        const module = await import('https://cdn.jsdelivr.net/npm/mediabunny@1.24.2/+esm');
+        const module = await import('https://cdn.jsdelivr.net/npm/mediabunny@1.25.0/+esm');
         canEncodeAudio = module.canEncodeAudio;
 
         const mp3Module = await import('https://cdn.jsdelivr.net/npm/@mediabunny/mp3-encoder@1.24.0/+esm');

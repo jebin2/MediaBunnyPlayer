@@ -1,4 +1,4 @@
-import { Input, ALL_FORMATS, BlobSource, UrlSource } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.2/+esm';
+import { Input, ALL_FORMATS, BlobSource, UrlSource } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.25.0/+esm';
 
 // https://github.com/Vanilagy/mediabunny/blob/main/examples/metadata-extraction/metadata-extraction.ts
 export const extractMetadata = (resource) => {

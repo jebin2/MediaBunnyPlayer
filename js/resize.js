@@ -11,7 +11,7 @@ import {
 	Output,
 	Mp4OutputFormat,
 	BufferTarget
-} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.2/+esm';
+} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.25.0/+esm';
 
 import { startTimeInput, endTimeInput, resizeBtn, resizeModal, resizeWidthInput, resizeHeightInput, keepRatioToggle, resizeStartTimeInput, resizeEndTimeInput, cancelResizeBtn, processResizeBtn } from './constants.js';
 import { state } from './state.js';

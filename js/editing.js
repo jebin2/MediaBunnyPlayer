@@ -14,7 +14,7 @@ import {
 	QUALITY_HIGH,
 	AudioSampleSink,
 	AudioSample
-} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.2/+esm';
+} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.25.0/+esm';
 
 // Import the new mergeVideos function
 import { mergeVideoClips } from './merge.js';

@@ -32,7 +32,7 @@ import {
     Mp4OutputFormat,
     Conversion,
     QUALITY_HIGH
-} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.24.2/+esm';
+} from 'https://cdn.jsdelivr.net/npm/mediabunny@1.25.0/+esm';
 import {
     updatePlaylistUIOptimized
 } from './playlist.js';
