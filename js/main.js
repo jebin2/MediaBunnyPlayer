@@ -5,9 +5,9 @@ const initialize = async () => {
 		const module = await import('./minimal_player.js');
         module.allow_minimal();
 	} else {
-		document.getElementById("entryloading").classList.add('hidden');
 		const module = await import('./full_player.js');
         module.full_player();
+		document.getElementById("entryloading").classList.add('hidden');
 	}
 }
 
