@@ -9,17 +9,21 @@
 .entryloading {
     /* Sizing & Positioning */
     position: fixed;
-    /* Cover the entire screen, ignoring scroll */
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
     z-index: 9999;
-    /* Make sure it's on top of everything */
-
-    /* Appearance */
-    background: #000;
-    /* Match your site's background */
+    
+    /* --- YOUR NEW THEME --- */
+    background-color: var(--bg-primary);
+    
+    /* Creates the tiny dots */
+    background-image: radial-gradient(var(--text-primary) 1px, transparent 0);
+    
+    /* IMPORTANT: Controls spacing between dots. 
+       Change '20px' to '30px' for wider gaps or '10px' for denser dots. */
+    background-size: 20px 20px;
 
     /* Center the spinner */
     display: flex;
@@ -30,26 +34,23 @@
     transition: opacity 0.5s ease-out;
 }
 
-/* The actual spinner, created using a pseudo-element */
+/* The actual spinner */
 .entryloading::after {
     content: '';
     width: 50px;
     height: 50px;
-    border: 4px solid rgba(255, 255, 255, 0.2);
-    /* The light grey "track" */
-    border-top-color: #fff;
-    /* The white part that spins */
+    border: 4px solid rgba(255, 255, 255, 0.2); /* Light track */
+    border-top-color: var(--accent-primary);    /* Colored spinner (using your theme var) */
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
 
-/* The class we will add with JavaScript to hide the loader */
+/* The class to hide the loader */
 .entryloading.hidden {
     opacity: 0;
-    /* After the animation, remove it from view so it's not clickable */
     visibility: hidden;
+    pointer-events: none;
 }
-
 /* The keyframes for the spinning animation */
 @keyframes spin {
     to {
