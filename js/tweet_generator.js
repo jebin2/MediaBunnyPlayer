@@ -127,7 +127,8 @@ const captureElementScreenshot = async (elementSelector) => {
         canvas.width = cropArea.width * dpr;
         canvas.height = cropArea.height * dpr;
 
-        const ctx = canvas.getContext('2d', { alpha: false });
+        // MODIFICATION: Set alpha to true to allow for transparent corners.
+        const ctx = canvas.getContext('2d', { alpha: true });
         if (!ctx) {
             showError("Could not create canvas context.");
             return;
@@ -138,7 +139,16 @@ const captureElementScreenshot = async (elementSelector) => {
         // the browser might try to "smooth" or anti-alias it, which causes blur. We want sharp, raw pixels.
         ctx.imageSmoothingEnabled = false;
 
+        // --- NEW: APPLY BORDER RADIUS ---
+        // Create a clipping path with a 12px radius (scaled by DPR).
+        const radius = 40 * dpr;
+        ctx.beginPath();
+        ctx.roundRect(0, 0, canvas.width, canvas.height, radius);
+        ctx.clip();
+        // --- END NEW ---
+
         // Step 5: Draw the cropped region from the full-resolution bitmap to our canvas.
+        // This draw operation will now be clipped to the rounded rectangle path.
         ctx.drawImage(
             bitmap,
             cropArea.x * dpr,       // Source X (physical pixels from top-left of screen)
@@ -169,7 +179,7 @@ const captureElementScreenshot = async (elementSelector) => {
             setTimeout(() => URL.revokeObjectURL(dataUrl), 100);
 
             showInfo("Screenshot saved!");
-        }, 'image/png'); // Specify PNG format, which is lossless.
+        }, 'image/png'); // Specify PNG format, which is lossless and supports transparency.
 
     } catch (err) {
         console.error("Screenshot error:", err);
@@ -251,14 +261,24 @@ async function captureScaledScreenshot(elementSelector) {
         const bitmap = await imageCapture.grabFrame();
         track.stop();
 
-        // --- PROCESSING AND DOWNLOAD (Unchanged) ---
+        // --- PROCESSING AND DOWNLOAD ---
         const canvas = document.createElement('canvas');
         const dpr = window.devicePixelRatio || 1;
         canvas.width = cropArea.width * dpr;
         canvas.height = cropArea.height * dpr;
-        const ctx = canvas.getContext('2d', { alpha: false });
+        // MODIFICATION: Set alpha to true to allow for transparent corners.
+        const ctx = canvas.getContext('2d', { alpha: true });
         ctx.imageSmoothingEnabled = false;
 
+        // --- NEW: APPLY BORDER RADIUS ---
+        // Create a clipping path with a 12px radius (scaled by DPR).
+        const radius = 40 * dpr;
+        ctx.beginPath();
+        ctx.roundRect(0, 0, canvas.width, canvas.height, radius);
+        ctx.clip();
+        // --- END NEW ---
+
+        // This draw operation will now be clipped to the rounded rectangle path.
         ctx.drawImage(
             bitmap,
             cropArea.x * dpr, cropArea.y * dpr,
@@ -379,7 +399,16 @@ async function captureAndStitchScreenshot(elementSelector) {
         const finalCanvas = document.createElement('canvas');
         finalCanvas.width = element.getBoundingClientRect().width * dpr;
         finalCanvas.height = totalHeight * dpr;
-        const ctx = finalCanvas.getContext('2d', { alpha: false });
+        // MODIFICATION: Set alpha to true to allow for transparent corners.
+        const ctx = finalCanvas.getContext('2d', { alpha: true });
+        
+        // --- NEW: APPLY BORDER RADIUS ---
+        // Create a clipping path for the final stitched canvas.
+        const radius = 40 * dpr;
+        ctx.beginPath();
+        ctx.roundRect(0, 0, finalCanvas.width, finalCanvas.height, radius);
+        ctx.clip();
+        // --- END NEW ---
 
         for (let i = 0; i < capturedStrips.length; i++) {
             const currentStrip = capturedStrips[i];
