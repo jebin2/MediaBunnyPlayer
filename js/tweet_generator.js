@@ -31,7 +31,7 @@ export const setupTweetGenerator = () => {
         SocialMediaPostModal.classList.remove('hidden');
     };
     document.getElementById('SocialMediaPostScreenShotBtn').addEventListener('click', () => {
-        captureScaledScreenshot('#twitter-widget-0');
+        captureAndStitchScreenshot('#twitter-widget-0');
     });
 };
 
@@ -180,7 +180,7 @@ async function captureScaledScreenshot(elementSelector) {
     const viewportHeight = window.innerHeight;
     const maxScaleX = viewportWidth / originalRect.width;
     const maxScaleY = viewportHeight / originalRect.height;
-    const scaleFactor = Math.min(maxScaleX, maxScaleY) * 0.95;
+    const scaleFactor = Math.min(maxScaleX, maxScaleY) * 0.99;
     const finalScaleFactor = Math.max(1, scaleFactor);
 
     // --- PREPARATION AND UI STAGING ---
@@ -282,9 +282,9 @@ async function captureScaledScreenshot(elementSelector) {
 }
 
 /**
- * The ultimate client-side screenshot function. It scales the element to the maximum
- * viewport width, then programmatically scrolls its container to capture and
-* stitch together a full-length, high-resolution image.
+ * The definitive client-side screenshot function. It scales the element to max-width,
+ * then uses a reactive, delta-based loop to capture and flawlessly stitch together
+ * a full-length, high-resolution image.
  * @param {string} elementSelector The CSS selector for the element (iframe) to capture.
  */
 async function captureAndStitchScreenshot(elementSelector) {
@@ -318,7 +318,6 @@ async function captureAndStitchScreenshot(elementSelector) {
     await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
     const capturedStrips = [];
-    const viewportHeight = overlay.clientHeight;
 
     try {
         showInfo("Please select this tab to begin capturing...");
@@ -327,31 +326,35 @@ async function captureAndStitchScreenshot(elementSelector) {
         });
         const track = stream.getVideoTracks()[0];
 
-        // --- THE NEW, ROBUST CAPTURE LOOP ---
-        let lastScrollTop = -1;
+        // --- THE NEW, REACTIVE CAPTURE LOOP ---
+        let lastTopPosition = -Infinity;
+        const initialTopPosition = element.getBoundingClientRect().top; // Ground truth for starting position.
+
         do {
-            const currentScrollTop = overlay.scrollTop;
-            if (currentScrollTop === lastScrollTop) {
-                // If scrolling didn't change, we've hit the bottom.
+            const currentRect = element.getBoundingClientRect();
+            // If the element's position hasn't changed enough, we're at the bottom.
+            if (Math.abs(lastTopPosition - currentRect.top) < 1) {
                 break;
             }
-            lastScrollTop = currentScrollTop;
+            lastTopPosition = currentRect.top;
 
             showInfo(`Capturing part ${capturedStrips.length + 1}...`);
 
+            await new Promise(resolve => setTimeout(resolve, 100));
+
             const imageCapture = new ImageCapture(track);
             const bitmap = await imageCapture.grabFrame();
-            capturedStrips.push({ bitmap, scrollTop: currentScrollTop });
+            // Store the bitmap AND the element's precise rectangle at the moment of capture.
+            capturedStrips.push({ bitmap, rect: currentRect });
 
-            // Command the next scroll
-            overlay.scrollTop += viewportHeight;
+            overlay.scrollTop += overlay.clientHeight;
             await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
-        } while (true); // The loop is broken internally when scrolling stops.
+        } while (true); // Loop breaks internally when scrolling stops.
 
         track.stop();
 
-        // --- THE NEW, PRECISION STITCHING PROCESS ---
+        // --- THE NEW, DELTA-BASED PRECISION STITCHING ---
         showInfo("Stitching images together...");
         if (capturedStrips.length === 0) throw new Error("No images were captured.");
 
@@ -362,30 +365,37 @@ async function captureAndStitchScreenshot(elementSelector) {
         finalCanvas.height = totalHeight * dpr;
         const ctx = finalCanvas.getContext('2d', { alpha: false });
 
-        for (const stripData of capturedStrips) {
-            const { bitmap, scrollTop } = stripData;
-            const yPos = scrollTop * dpr; // Use the ACTUAL scroll position for perfect placement.
+        for (let i = 0; i < capturedStrips.length; i++) {
+            const currentStrip = capturedStrips[i];
+            const nextStrip = capturedStrips[i + 1];
 
-            // Get the coordinates of our capture area (the overlay)
+            // The Y position on the final canvas is the element's movement from its start position.
+            const yPosOnCanvas = (initialTopPosition - currentStrip.rect.top) * dpr;
+
+            // The height of this slice is the distance the element moved between this capture and the next.
+            let sliceHeight;
+            if (nextStrip) {
+                // The height is the difference in the element's top position between frames.
+                sliceHeight = (currentStrip.rect.top - nextStrip.rect.top) * dpr;
+            } else {
+                // This is the last strip. Its height is whatever is left to fill the canvas.
+                sliceHeight = finalCanvas.height - yPosOnCanvas;
+            }
+            
+            // This prevents tiny negative-height draws from browser quirks.
+            if (sliceHeight <= 0) continue;
+
+            // The source area is always the top of the overlay viewport.
             const cropSource = {
                 x: overlay.getBoundingClientRect().left * dpr,
                 y: overlay.getBoundingClientRect().top * dpr,
                 width: overlay.clientWidth * dpr,
-                height: overlay.clientHeight * dpr
             };
 
-            // Calculate the height of the final strip. It might be less than a full viewport.
-            const remainingHeightOnCanvas = finalCanvas.height - yPos;
-            const heightToDraw = Math.min(cropSource.height, remainingHeightOnCanvas);
-            
-            // This check prevents drawing a tiny sliver on the last frame if not needed.
-            if (heightToDraw <= 0) continue;
-
-            // Use the 9-argument drawImage for precision cropping and placement.
             ctx.drawImage(
-                bitmap, // source image
-                cropSource.x, cropSource.y, cropSource.width, heightToDraw, // source rect (sx, sy, sWidth, sHeight)
-                0, yPos, cropSource.width, heightToDraw  // destination rect (dx, dy, dWidth, dHeight)
+                currentStrip.bitmap,
+                cropSource.x, cropSource.y, cropSource.width, sliceHeight, // Source rect (from screenshot)
+                0, yPosOnCanvas, cropSource.width, sliceHeight             // Destination rect (on canvas)
             );
         }
 
