@@ -113,7 +113,7 @@ export const setupVideoListener = () => {
         }
 
         if (dropdownButton) { 
-            dropdownButton.nextElementSibling.classList.toggle('hidden'); 
+            dropdownButton.nextElementSibling.classList.toggle('hidden');
             return; 
         }
 
@@ -319,7 +319,7 @@ const getMixVideoTimeRangeHtml = (segment, segmentIndex) => {
                         <button class="btn" data-action="base" data-index="${segmentIndex}" data-range-index="${rangeIndex}">Base</button>
                         <button class="btn" data-action="overlay" data-index="${segmentIndex}" data-range-index="${rangeIndex}">Overlay</button>
                     </div>
-                    <button class="chromaKeyColorConfig btn" id="chromaKeyColorConfig">Config</button>
+                    <button class="chromaKeyColorConfig btn ${prop.action == 'overlay' ? '' : 'hidden'}" id="chromaKeyColorConfig">Config</button>
                 </div>
             </div>
         </div>
