@@ -6,7 +6,7 @@ const initialize = async () => {
         module.allow_minimal();
 	} else {
 		const module = await import('./full_player.js');
-        module.full_player();
+        await module.full_player();
 		document.getElementById("entryloading").classList.add('hidden');
 	}
 }
