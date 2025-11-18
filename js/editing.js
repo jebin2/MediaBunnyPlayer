@@ -314,38 +314,87 @@ export const initializeMixVideoTracks = async () => {
 
 		const mixTrack = {
 			segment: segment,
-			// Video specific properties
 			input: null,
 			frameSink: null,
 			sampleIterator: null,
 			currentOverlaySample: null,
 			lastMixVideoTime: -1,
 			duration: 0,
-			// Image specific properties
-			source: null, // Will hold ImageBitmap
-			_cachedKeyColor: null // For Chroma Key optimization
+			// Image/GIF specific
+			source: null,
+			gifDecoder: null,
+			gifTimeline: [], // [ { start: 0, end: 0.1, index: 0 }, ... ]
+			_cachedKeyColor: null
 		};
 
 		try {
-			// --- LOGIC BRANCH BASED ON MEDIA TYPE ---
+			// --- A. HANDLE GIF (Animated) ---
+			if (segment.media_type === 'mix_gif') {
+				if (!window.ImageDecoder) {
+					console.warn("[MixVideo] ImageDecoder API not supported. GIF will be static.");
+					// Fallback to static image loading below
+				} else {
+					try {
+						const buffer = await segment.file.arrayBuffer();
+						const decoder = new ImageDecoder({ data: buffer, type: "image/gif" });
+
+						// Wait for metadata (track info)
+						await decoder.tracks.ready;
+						const track = decoder.tracks.selectedTrack;
+
+						// Pre-calculate timeline (duration of each frame)
+						let currentTime = 0;
+						mixTrack.gifTimeline = [];
+
+						// We loop through all frames to build the timing map
+						for (let i = 0; i < track.frameCount; i++) {
+							// Decode frame metadata only (fast) if possible, but ImageDecoder 
+							// usually requires decoding to get duration.
+							// Since we need accurate sync, we scan durations.
+							const result = await decoder.decode({ frameIndex: i });
+							const frameDuration = (result.image.duration || 100000) / 1e6; // microseconds to seconds
+
+							mixTrack.gifTimeline.push({
+								index: i,
+								start: currentTime,
+								end: currentTime + frameDuration
+							});
+
+							currentTime += frameDuration;
+							result.image.close(); // Close immediately, we just needed the time
+						}
+
+						mixTrack.gifDecoder = decoder; // Keep decoder open for realtime playback
+						mixTrack.duration = currentTime; // Total duration of GIF loop
+						console.log(`[MixVideo] GIF loaded: ${track.frameCount} frames, ${mixTrack.duration.toFixed(2)}s duration`);
+
+						mixVideoTracks.push(mixTrack);
+						continue; // Done for GIF, skip to next segment
+
+					} catch (gifErr) {
+						console.error("[MixVideo] Failed to decode GIF frames. Falling back to static.", gifErr);
+						// Fall through to static handler...
+					}
+				}
+			}
+
+			// --- B. HANDLE STATIC IMAGE (PNG, JPG, or Static GIF fallback) ---
 			if (segment.media_type === 'mix_image' || segment.media_type === 'mix_gif') {
-				// A. HANDLE STATIC MEDIA (Images/GIFs)
 				try {
 					mixTrack.source = await createImageBitmap(segment.file);
-					mixTrack.duration = Infinity;
-					console.log(`[MixVideo] Image loaded: ${mixTrack.source.width}x${mixTrack.source.height}`);
+					mixTrack.duration = 10; // Arbitrary duration for static images (loops effectively forever)
+					console.log(`[MixVideo] Static Image loaded: ${mixTrack.source.width}x${mixTrack.source.height}`);
 				} catch (imgErr) {
 					console.error(`[MixVideo] Failed to load image bitmap for ${segment.name}`, imgErr);
 					continue;
 				}
-
-			} else {
-				// B. HANDLE VIDEO
+			}
+			// --- C. HANDLE VIDEO ---
+			else {
 				const input = new Input({
 					source: new BlobSource(segment.file),
 					formats: ALL_FORMATS
 				});
-
 				mixTrack.input = input;
 
 				const videoTrack = await input.getPrimaryVideoTrack();
@@ -359,13 +408,8 @@ export const initializeMixVideoTracks = async () => {
 				if (!duration || isNaN(duration)) duration = 1000;
 
 				mixTrack.duration = duration;
-				console.log(`[MixVideo] Track "${segment.name}" duration: ${duration}s`);
-
 				const frameSink = new VideoSampleSink(videoTrack);
 				mixTrack.frameSink = frameSink;
-
-				// Note: We DON'T initialize iterator here in this function anymore,
-				// we do it in createVideoProcessFunction so it's fresh for the cut.
 			}
 
 			mixVideoTracks.push(mixTrack);
@@ -374,7 +418,7 @@ export const initializeMixVideoTracks = async () => {
 			console.error(`[MixVideo] Error initializing ${segment.name}:`, error);
 		}
 	}
-	return mixVideoTracks
+	return mixVideoTracks;
 };
 
 // Helper to detect background color from frame edges
@@ -558,8 +602,8 @@ const createVideoProcessFunction = async (videoTrack, state) => {
 		if (hasMixVideo && mixVideoTracks.length > 0) {
 			for (const mixTrack of mixVideoTracks) {
 				const mixSegment = mixTrack.segment;
-				// Determine type (Video vs Image/Gif)
-				const isStatic = (mixSegment.media_type === 'mix_image' || mixSegment.media_type === 'mix_gif');
+				const isStatic = (mixSegment.media_type === 'mix_image');
+				const isGif = (mixSegment.media_type === 'mix_gif');
 
 				for (const prop of mixSegment.video_edit_prop) {
 					const rangeStart = parseTime(prop.start);
@@ -568,51 +612,73 @@ const createVideoProcessFunction = async (videoTrack, state) => {
 					if (currentTime >= rangeStart && currentTime <= rangeEnd) {
 						let drawSource = null;
 
-						// 1. HANDLE STATIC IMAGES / GIFS
-						if (isStatic) {
+						// --- 1. HANDLE GIF (Animated) ---
+						if (isGif && mixTrack.gifDecoder) {
+							const timeInRange = currentTime - rangeStart;
+							// Modulo for looping
+							const gifTime = timeInRange % mixTrack.duration;
+
+							// Find the correct frame index for this time
+							const frameData = mixTrack.gifTimeline.find(f => gifTime >= f.start && gifTime < f.end);
+
+							if (frameData) {
+								// Decode the specific frame for this moment
+								// Note: This is asynchronous. In a tight render loop, this might be slow.
+								// Ideally, you cache the last decoded frame.
+								try {
+									// Check if we have a cached frame that is still valid
+									if (mixTrack.currentOverlaySample &&
+										mixTrack.lastMixVideoTime === frameData.index) {
+										drawSource = mixTrack.currentOverlaySample;
+									} else {
+										// Decode new frame
+										const result = await mixTrack.gifDecoder.decode({ frameIndex: frameData.index });
+
+										// Close old cached frame to free GPU memory
+										if (mixTrack.currentOverlaySample) mixTrack.currentOverlaySample.close();
+
+										mixTrack.currentOverlaySample = result.image;
+										mixTrack.lastMixVideoTime = frameData.index; // Store index instead of time for GIF
+										drawSource = result.image;
+									}
+								} catch (e) {
+									console.warn("GIF decode error", e);
+								}
+							}
+						}
+						// --- 2. HANDLE STATIC IMAGE ---
+						else if (isStatic || (isGif && !mixTrack.gifDecoder)) {
 							if (mixTrack.image || mixTrack.source) {
 								drawSource = mixTrack.image || mixTrack.source;
 							}
 						}
-						// 2. HANDLE VIDEO (With Looping Logic)
+						// --- 3. HANDLE VIDEO ---
 						else {
-							// Only process if iterator exists (safety check)
 							if (!mixTrack.sampleIterator) continue;
 
 							const timeInRange = currentTime - rangeStart;
 							const duration = mixTrack.duration || 1000;
 							const mixVideoTime = timeInRange % duration;
 
+							// Video Iterator Logic (Same as before)
 							if (mixVideoTime < mixTrack.lastMixVideoTime) {
 								if (mixTrack.currentOverlaySample) {
 									mixTrack.currentOverlaySample.close();
 									mixTrack.currentOverlaySample = null;
 								}
-								// Reset iterator
-								if (mixTrack.sampleIterator && mixTrack.sampleIterator.return) {
-									await mixTrack.sampleIterator.return();
-								}
-								if (mixTrack.frameSink) {
-									mixTrack.sampleIterator = mixTrack.frameSink.samples();
-								}
+								if (mixTrack.sampleIterator && mixTrack.sampleIterator.return) await mixTrack.sampleIterator.return();
+								if (mixTrack.frameSink) mixTrack.sampleIterator = mixTrack.frameSink.samples();
 							}
 							mixTrack.lastMixVideoTime = mixVideoTime;
 
 							try {
 								while (!mixTrack.currentOverlaySample || mixTrack.currentOverlaySample.timestamp < mixVideoTime) {
-									if (mixTrack.currentOverlaySample) {
-										mixTrack.currentOverlaySample.close();
-									}
+									if (mixTrack.currentOverlaySample) mixTrack.currentOverlaySample.close();
 									const { value, done } = await mixTrack.sampleIterator.next();
-									if (done) {
-										mixTrack.currentOverlaySample = null;
-										break;
-									}
+									if (done) { mixTrack.currentOverlaySample = null; break; }
 									mixTrack.currentOverlaySample = value;
 								}
-								if (mixTrack.currentOverlaySample) {
-									drawSource = mixTrack.currentOverlaySample;
-								}
+								if (mixTrack.currentOverlaySample) drawSource = mixTrack.currentOverlaySample;
 							} catch (error) {
 								console.error(`[MixVideo] Error fetching frame:`, error);
 							}
