@@ -305,35 +305,76 @@ const mixAudioSamplesWithLog = async (originalSample, editSample, timestamp) => 
 	return mixedSample;
 };
 
-const initializeMixVideoTracks = async (state) => {
-	const mixVideoData = [];
-	if (!state.mixVideo || state.mixVideo.length === 0) return mixVideoData;
+export const initializeMixVideoTracks = async () => {
+	let mixVideoTracks = [];
+	console.log("[MixVideo] Starting initialization of mix tracks...");
 
 	for (const segment of state.mixVideo) {
-		console.log(`[MixVideo] Initializing mix video track: "${segment.name}"`);
-		const input = new Input({
-			source: new BlobSource(segment.file),
-			formats: ALL_FORMATS
-		});
+		console.log(`[MixVideo] Initializing track: "${segment.name}" (Type: ${segment.media_type})`);
+
+		const mixTrack = {
+			segment: segment,
+			// Video specific properties
+			input: null,
+			frameSink: null,
+			sampleIterator: null,
+			currentOverlaySample: null,
+			lastMixVideoTime: -1,
+			duration: 0,
+			// Image specific properties
+			source: null, // Will hold ImageBitmap
+			_cachedKeyColor: null // For Chroma Key optimization
+		};
 
 		try {
-			const videoTrack = await input.getPrimaryVideoTrack();
-			if (!videoTrack) { /* ... error handling ... */ await input.dispose(); continue; }
-			if (!(await videoTrack.canDecode())) { /* ... error handling ... */ await input.dispose(); continue; }
+			// --- LOGIC BRANCH BASED ON MEDIA TYPE ---
+			if (segment.media_type === 'mix_image' || segment.media_type === 'mix_gif') {
+				// A. HANDLE STATIC MEDIA (Images/GIFs)
+				try {
+					mixTrack.source = await createImageBitmap(segment.file);
+					mixTrack.duration = Infinity;
+					console.log(`[MixVideo] Image loaded: ${mixTrack.source.width}x${mixTrack.source.height}`);
+				} catch (imgErr) {
+					console.error(`[MixVideo] Failed to load image bitmap for ${segment.name}`, imgErr);
+					continue;
+				}
 
-			const duration = await videoTrack.computeDuration();
-			console.log(`[MixVideo] Track "${segment.name}" duration: ${duration.toFixed(2)}s`);
-			const frameSink = new VideoSampleSink(videoTrack);
+			} else {
+				// B. HANDLE VIDEO
+				const input = new Input({
+					source: new BlobSource(segment.file),
+					formats: ALL_FORMATS
+				});
 
-			mixVideoData.push({
-				segment, input, videoTrack, frameSink, duration,
-			});
+				mixTrack.input = input;
+
+				const videoTrack = await input.getPrimaryVideoTrack();
+				if (!videoTrack) {
+					console.error(`[MixVideo] No video track found in ${segment.name}`);
+					continue;
+				}
+
+				let duration = videoTrack.duration;
+				if (!duration && input.info) duration = input.info.duration;
+				if (!duration || isNaN(duration)) duration = 1000;
+
+				mixTrack.duration = duration;
+				console.log(`[MixVideo] Track "${segment.name}" duration: ${duration}s`);
+
+				const frameSink = new VideoSampleSink(videoTrack);
+				mixTrack.frameSink = frameSink;
+
+				// Note: We DON'T initialize iterator here in this function anymore,
+				// we do it in createVideoProcessFunction so it's fresh for the cut.
+			}
+
+			mixVideoTracks.push(mixTrack);
+
 		} catch (error) {
-			console.error(`[MixVideo] Error during initialization for "${segment.name}":`, error);
-			await input.dispose();
+			console.error(`[MixVideo] Error initializing ${segment.name}:`, error);
 		}
 	}
-	return mixVideoData;
+	return mixVideoTracks
 };
 
 // Helper to detect background color from frame edges
@@ -384,11 +425,17 @@ const createVideoProcessFunction = async (videoTrack, state) => {
 	let mixVideoTracks = [];
 	if (hasMixVideo) {
 		mixVideoTracks = await initializeMixVideoTracks(state);
+
 		// NEW: Create and store an iterator and state for each track
 		for (const track of mixVideoTracks) {
-			track.sampleIterator = track.frameSink.samples();
-			track.currentOverlaySample = null; // To cache the current frame
-			track.lastMixVideoTime = -1;    // To detect when the overlay loops
+			// --- CRITICAL FIX: Check if frameSink exists before calling samples() ---
+			// Images/GIFs do not have a frameSink, so we skip iterator creation for them.
+			if (track.frameSink) {
+				track.sampleIterator = track.frameSink.samples();
+			}
+			// -----------------------------------------------------------------------
+			track.currentOverlaySample = null;
+			track.lastMixVideoTime = -1;
 		}
 	}
 
@@ -507,167 +554,151 @@ const createVideoProcessFunction = async (videoTrack, state) => {
 			});
 		}
 
-		// --- C. APPLY MIX VIDEO OVERLAYS (IF ANY) ---
+		// --- C. APPLY MIX VIDEO/IMAGE OVERLAYS ---
 		if (hasMixVideo && mixVideoTracks.length > 0) {
 			for (const mixTrack of mixVideoTracks) {
 				const mixSegment = mixTrack.segment;
+				// Determine type (Video vs Image/Gif)
+				const isStatic = (mixSegment.media_type === 'mix_image' || mixSegment.media_type === 'mix_gif');
+
 				for (const prop of mixSegment.video_edit_prop) {
 					const rangeStart = parseTime(prop.start);
 					const rangeEnd = parseTime(prop.end);
 
 					if (currentTime >= rangeStart && currentTime <= rangeEnd) {
-						const timeInRange = currentTime - rangeStart;
-						const mixVideoTime = timeInRange % mixTrack.duration;
+						let drawSource = null;
 
-						// Detect if the overlay video needs to loop and reset its iterator
-						if (mixVideoTime < mixTrack.lastMixVideoTime) {
-							console.log(`[MixVideo] Overlay loop detected for "${mixTrack.segment.name}". Resetting iterator.`);
-							if (mixTrack.currentOverlaySample) {
-								mixTrack.currentOverlaySample.close();
-								mixTrack.currentOverlaySample = null;
+						// 1. HANDLE STATIC IMAGES / GIFS
+						if (isStatic) {
+							if (mixTrack.image || mixTrack.source) {
+								drawSource = mixTrack.image || mixTrack.source;
 							}
-							await mixTrack.sampleIterator.return(); // Clean up old iterator
-							mixTrack.sampleIterator = mixTrack.frameSink.samples();
 						}
-						mixTrack.lastMixVideoTime = mixVideoTime;
+						// 2. HANDLE VIDEO (With Looping Logic)
+						else {
+							// Only process if iterator exists (safety check)
+							if (!mixTrack.sampleIterator) continue;
 
-						let mixFrame = null;
-						try {
-							while (!mixTrack.currentOverlaySample || mixTrack.currentOverlaySample.timestamp < mixVideoTime) {
+							const timeInRange = currentTime - rangeStart;
+							const duration = mixTrack.duration || 1000;
+							const mixVideoTime = timeInRange % duration;
+
+							if (mixVideoTime < mixTrack.lastMixVideoTime) {
 								if (mixTrack.currentOverlaySample) {
 									mixTrack.currentOverlaySample.close();
-								}
-								const { value, done } = await mixTrack.sampleIterator.next();
-								if (done) {
 									mixTrack.currentOverlaySample = null;
-									break;
 								}
-								mixTrack.currentOverlaySample = value;
+								// Reset iterator
+								if (mixTrack.sampleIterator && mixTrack.sampleIterator.return) {
+									await mixTrack.sampleIterator.return();
+								}
+								if (mixTrack.frameSink) {
+									mixTrack.sampleIterator = mixTrack.frameSink.samples();
+								}
 							}
+							mixTrack.lastMixVideoTime = mixVideoTime;
 
-							if (mixTrack.currentOverlaySample) {
-								mixFrame = mixTrack.currentOverlaySample;
-							}
-
-							if (!mixFrame) continue;
-
-							const transform = prop.transform;
-							const destX = Math.round(transform.x * outputWidth);
-							const destY = Math.round(transform.y * outputHeight);
-							const destWidth = Math.round(transform.width * outputWidth);
-							const destHeight = Math.round(transform.height * outputHeight);
-
-							if (destWidth <= 0 || destHeight <= 0) continue;
-
-							if (prop.action === 'base') {
-								// Correct: Call the draw method ON the mixFrame object
-								mixFrame.draw(processCtx, destX, destY, destWidth, destHeight);
-
-								// ... inside the loop ...
-							} else if (prop.action === 'overlay') {
-								processCtx.save();
-
-								const tempCanvas = new OffscreenCanvas(mixFrame.displayWidth, mixFrame.displayHeight);
-								const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
-
-								mixFrame.draw(tempCtx, 0, 0);
-
-								const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
-								const data = imageData.data;
-
-								// --- AUTO-DETECT LOGIC START ---
-
-								// We store the detected color on the 'mixTrack' object so we don't 
-								// have to recalculate it every single frame (which prevents flickering).
-								if (!mixTrack._cachedKeyColor) {
-									// This runs only on the first frame of this overlay
-									console.log(`[MixVideo] Auto-detecting chroma key for ${mixTrack.segment.name || 'overlay'}`);
-									mixTrack._cachedKeyColor = detectBackgroundColor(data, tempCanvas.width, tempCanvas.height);
-								}
-								// Use the cached color (RGB object)
-								let keyColor = mixTrack._cachedKeyColor;
-
-								// Default settings
-								let similarity = 0.4;
-								let smoothness = 0.1;
-								let spill = 0.2;
-								// --- AUTO-DETECT LOGIC END ---
-
-								if (mixTrack.segment.chromaKey) {
-									const hexToRgb = (hex) => {
-										const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-										return result ? {
-											r: parseInt(result[1], 16),
-											g: parseInt(result[2], 16),
-											b: parseInt(result[3], 16)
-										} : { r: 0, g: 255, b: 0 };
-									};
-
-									keyColor = hexToRgb(mixTrack.segment.chromaKey.color);
-									similarity = mixTrack.segment.chromaKey.similarity;
-									smoothness = mixTrack.segment.chromaKey.smoothness;
-									spill = mixTrack.segment.chromaKey.spill;
-								}
-
-								// Performance optimization: Max distance constant
-								const maxDist = 441.67; // sqrt(255^2 * 3)
-								const l = data.length;
-
-								const keyR = keyColor.r;
-								const keyG = keyColor.g;
-								const keyB = keyColor.b;
-
-								for (let i = 0; i < l; i += 4) {
-									const r = data[i];
-									const g = data[i + 1];
-									const b = data[i + 2];
-
-									// Calculate Euclidean distance based on the AUTO-DETECTED color
-									const dist = Math.sqrt(
-										(r - keyR) ** 2 +
-										(g - keyG) ** 2 +
-										(b - keyB) ** 2
-									);
-
-									const normalizedDist = dist / maxDist;
-									let alpha = 1.0;
-
-									if (normalizedDist < similarity) {
-										alpha = 0.0;
-									} else if (normalizedDist < similarity + smoothness) {
-										alpha = (normalizedDist - similarity) / smoothness;
+							try {
+								while (!mixTrack.currentOverlaySample || mixTrack.currentOverlaySample.timestamp < mixVideoTime) {
+									if (mixTrack.currentOverlaySample) {
+										mixTrack.currentOverlaySample.close();
 									}
+									const { value, done } = await mixTrack.sampleIterator.next();
+									if (done) {
+										mixTrack.currentOverlaySample = null;
+										break;
+									}
+									mixTrack.currentOverlaySample = value;
+								}
+								if (mixTrack.currentOverlaySample) {
+									drawSource = mixTrack.currentOverlaySample;
+								}
+							} catch (error) {
+								console.error(`[MixVideo] Error fetching frame:`, error);
+							}
+						}
 
-									data[i + 3] = alpha * 255;
+						if (!drawSource) continue;
 
-									// Spill Reduction
-									if (alpha < 1.0 || normalizedDist < similarity + smoothness + 0.1) {
-										if (spill > 0) {
-											const gray = (r * 0.299 + g * 0.587 + b * 0.114);
-											const spillFactor = spill * (1.0 - normalizedDist);
+						const transform = prop.transform;
+						const destX = Math.round(transform.x * outputWidth);
+						const destY = Math.round(transform.y * outputHeight);
+						const destWidth = Math.round(transform.width * outputWidth);
+						const destHeight = Math.round(transform.height * outputHeight);
 
-											if (spillFactor > 0) {
-												data[i] = r * (1 - spillFactor) + gray * spillFactor;
-												data[i + 1] = g * (1 - spillFactor) + gray * spillFactor;
-												data[i + 2] = b * (1 - spillFactor) + gray * spillFactor;
-											}
+						if (destWidth <= 0 || destHeight <= 0) continue;
+
+						if (prop.action === 'base') {
+							if (typeof drawSource.draw === 'function') {
+								drawSource.draw(processCtx, destX, destY, destWidth, destHeight);
+							} else {
+								processCtx.drawImage(drawSource, destX, destY, destWidth, destHeight);
+							}
+						} else if (prop.action === 'overlay') {
+							processCtx.save();
+
+							const srcW = drawSource.displayWidth || drawSource.width;
+							const srcH = drawSource.displayHeight || drawSource.height;
+
+							const tempCanvas = new OffscreenCanvas(srcW, srcH);
+							const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+
+							if (typeof drawSource.draw === 'function') {
+								drawSource.draw(tempCtx, 0, 0);
+							} else {
+								tempCtx.drawImage(drawSource, 0, 0, srcW, srcH);
+							}
+
+							const imageData = tempCtx.getImageData(0, 0, srcW, srcH);
+							const data = imageData.data;
+
+							if (!mixTrack._cachedKeyColor) {
+								mixTrack._cachedKeyColor = detectBackgroundColor(data, srcW, srcH);
+							}
+							let keyColor = mixTrack._cachedKeyColor;
+							let similarity = 0.4, smoothness = 0.1, spill = 0.2;
+
+							if (mixSegment.chromaKey) {
+								const hexToRgb = (hex) => {
+									const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+									return result ? { r: parseInt(result[1], 16), g: parseInt(result[2], 16), b: parseInt(result[3], 16) } : { r: 0, g: 255, b: 0 };
+								};
+								keyColor = hexToRgb(mixSegment.chromaKey.color);
+								similarity = mixSegment.chromaKey.similarity;
+								smoothness = mixSegment.chromaKey.smoothness;
+								spill = mixSegment.chromaKey.spill;
+							}
+
+							const maxDist = 441.67;
+							const keyR = keyColor.r, keyG = keyColor.g, keyB = keyColor.b;
+
+							for (let i = 0; i < data.length; i += 4) {
+								const r = data[i], g = data[i + 1], b = data[i + 2];
+								const dist = Math.sqrt((r - keyR) ** 2 + (g - keyG) ** 2 + (b - keyB) ** 2);
+								const normalizedDist = dist / maxDist;
+
+								let alpha = 1.0;
+								if (normalizedDist < similarity) alpha = 0.0;
+								else if (normalizedDist < similarity + smoothness) alpha = (normalizedDist - similarity) / smoothness;
+
+								data[i + 3] = alpha * 255;
+
+								if (alpha < 1.0 || normalizedDist < similarity + smoothness + 0.1) {
+									if (spill > 0) {
+										const gray = (r * 0.299 + g * 0.587 + b * 0.114);
+										const spillFactor = spill * (1.0 - normalizedDist);
+										if (spillFactor > 0) {
+											data[i] = r * (1 - spillFactor) + gray * spillFactor;
+											data[i + 1] = g * (1 - spillFactor) + gray * spillFactor;
+											data[i + 2] = b * (1 - spillFactor) + gray * spillFactor;
 										}
 									}
 								}
-
-								tempCtx.putImageData(imageData, 0, 0);
-
-								processCtx.drawImage(
-									tempCanvas,
-									destX, destY,
-									destWidth, destHeight
-								);
-
-								processCtx.restore();
 							}
 
-						} catch (error) {
-							console.error(`[MixVideo] Error processing iterator frame at ${currentTime}s:`, error);
+							tempCtx.putImageData(imageData, 0, 0);
+							processCtx.drawImage(tempCanvas, destX, destY, destWidth, destHeight);
+							processCtx.restore();
 						}
 					}
 				}

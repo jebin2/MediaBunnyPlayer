@@ -3,18 +3,18 @@
 // ============================================================================
 
 import {
-	Input,
-	ALL_FORMATS,
-	BlobSource,
-	UrlSource,
-	Conversion,
-	Output,
-	Mp4OutputFormat,
-	BufferTarget,
-	QUALITY_HIGH,
-	AudioSampleSink,
-	AudioSample,
-	VideoSampleSink
+    Input,
+    ALL_FORMATS,
+    BlobSource,
+    UrlSource,
+    Conversion,
+    Output,
+    Mp4OutputFormat,
+    BufferTarget,
+    QUALITY_HIGH,
+    AudioSampleSink,
+    AudioSample,
+    VideoSampleSink
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.25.0/+esm';
 
 import { state } from './state.js';
@@ -61,7 +61,7 @@ const drawOverlayControls = () => {
             } else {
                 box.style.display = 'none';
             }
-            
+
             // Highlight active box
             if (segmentIndex === activeSegmentIndex && rangeIndex === activeRangeIndex) {
                 box.classList.add('is-active');
@@ -86,14 +86,20 @@ export const setupVideoListener = () => {
         // Register the frame renderer to continuously update overlay visibility
         registerOnFrameRender(renderOverlayPreviews);
     };
-    
+
     document.getElementById('uploadMixVideoBtn').onclick = () => {
-        document.getElementById('mixVideoFileInput').click();
-        document.getElementById('mixVideoFileInput').onchange = async (e) => {
-            await addVideoTrackToPlaylist(e.target.files[0]);
+        const input = document.getElementById('mixVideoFileInput');
+        // Allow images and videos
+        input.accept = "video/*, image/*";
+        input.click();
+
+        input.onchange = async (e) => {
+            if (e.target.files && e.target.files[0]) {
+                await addVideoTrackToPlaylist(e.target.files[0]);
+            }
         };
     };
-    
+
     document.getElementById('processMixVideoBtn').onclick = handleCutAction;
 
     const menu = document.getElementById('mixVideoMenu');
@@ -112,9 +118,9 @@ export const setupVideoListener = () => {
             setActiveRange(segmentIndex, rangeIndex);
         }
 
-        if (dropdownButton) { 
+        if (dropdownButton) {
             dropdownButton.nextElementSibling.classList.toggle('hidden');
-            return; 
+            return;
         }
 
         if (actionButton) {
@@ -163,14 +169,14 @@ export const setupVideoListener = () => {
             const segmentIndex = parseInt(addTimeRangeBtn.dataset.segmentIndex, 10);
             const currentTime = getPlaybackTime();
             const newRangeIndex = state.mixVideo[segmentIndex].video_edit_prop.length;
-            
+
             state.mixVideo[segmentIndex].video_edit_prop.push({
                 action: "overlay",
                 start: formatTime(currentTime), // Start at current time
                 end: state.totalDuration ? formatTime(state.totalDuration) : "99:00:00",
                 transform: { x: 0.1, y: 0.1, width: 0.3, height: 0.3 },
             });
-            
+
             createOverlayBox(segmentIndex, newRangeIndex);
             setActiveRange(segmentIndex, newRangeIndex);
             updateMixVideoUI();
@@ -179,9 +185,9 @@ export const setupVideoListener = () => {
 
         const chromaKeyColorConfig = target.closest('.chromaKeyColorConfig');
         if (chromaKeyColorConfig) {
-            ChromaKeyApp.init(activeSegmentIndex);
+            ChromaKeyApp.init(chromaKeyColorConfig.dataset.segmentIndex);
         }
-        
+
     });
 
     menu.addEventListener('change', (e) => {
@@ -225,19 +231,39 @@ export const addVideoTrackToPlaylist = async (file, options = {}) => {
     const isFirstVideo = state.mixVideo.length === 0;
     const currentTime = getPlaybackTime();
 
-    // Show some UI feedback that the video is "preparing"
-    showStatusMessage(`Preparing overlay video: ${file.name}...`);
+    // Determine Media Type
+    let mediaType = 'mix_video'; // Default
+    let typeLabel = 'video';
 
-    // const normalizedFile = await normalizeVideo(file, (progress) => {
-    //     showStatusMessage(`Preparing overlay: ${Math.round(progress * 100)}%`);
-    // });
-    const normalizedFile = file;
+    if (file.type.startsWith('image/')) {
+        if (file.type === 'image/gif') {
+            mediaType = 'mix_gif';
+            typeLabel = 'GIF';
+        } else {
+            mediaType = 'mix_image';
+            typeLabel = 'image';
+        }
+    }
+
+    // Show some UI feedback
+    showStatusMessage(`Preparing overlay ${typeLabel}: ${file.name}...`);
+
+    let normalizedFile = file;
+
+    // Only attempt to normalize if it is a video. 
+    // Images and GIFs do not need MP4 normalization.
+    if (mediaType === 'mix_video') {
+        // const normalizedFile = await normalizeVideo(file, (progress) => {
+        //     showStatusMessage(`Preparing overlay: ${Math.round(progress * 100)}%`);
+        // });
+        normalizedFile = file; // Using original for now as normalization is commented out
+    }
 
     hideStatusMessage();
 
     const videoTrack = {
         type: 'file',
-        media_type: 'mix_video',
+        media_type: mediaType, // Assigned based on file detection
         name: normalizedFile.name,
         file: normalizedFile,
         video_edit_prop: [{
@@ -265,20 +291,26 @@ export const updateMixVideoUI = () => {
     const container = document.getElementById('mixVideoSegmentsList');
     if (!container) return;
 
-    container.innerHTML = '<h4>Mix Video</h4>';
+    container.innerHTML = '<h4>Mix Media (Video/Img/Gif)</h4>';
 
     if (state.mixVideo.length === 0) {
-        container.innerHTML += '<p>No Video added.</p>';
+        container.innerHTML += '<p>No media added.</p>';
         return;
     }
 
     state.mixVideo.forEach((segment, segmentIndex) => {
         const segmentEl = document.createElement('div');
         segmentEl.className = 'caption-word-row drop-zone';
+
+        // Small icon indicator based on type
+        let typeIcon = '🎥';
+        if (segment.media_type === 'mix_image') typeIcon = '🖼️';
+        if (segment.media_type === 'mix_gif') typeIcon = '👾';
+
         segmentEl.innerHTML = `
             <div class="mix-audio-title">
-                <button class="mix-audio-close close-btn" data-segment-index="${segmentIndex}" title="Remove this video track">×</button>
-                <span class="mix-video-name">${segment.name}</span>
+                <button class="mix-audio-close close-btn" data-segment-index="${segmentIndex}" title="Remove this track">×</button>
+                <span class="mix-video-name" title="${segment.media_type}">${typeIcon} ${segment.name}</span>
             </div>
             <div class="mix-audio-time-ranges">
                 ${getMixVideoTimeRangeHtml(segment, segmentIndex)}
@@ -319,7 +351,7 @@ const getMixVideoTimeRangeHtml = (segment, segmentIndex) => {
                         <button class="btn" data-action="base" data-index="${segmentIndex}" data-range-index="${rangeIndex}">Base</button>
                         <button class="btn" data-action="overlay" data-index="${segmentIndex}" data-range-index="${rangeIndex}">Overlay</button>
                     </div>
-                    <button class="chromaKeyColorConfig btn ${prop.action == 'overlay' ? '' : 'hidden'}" id="chromaKeyColorConfig">Config</button>
+                    <button class="chromaKeyColorConfig btn ${prop.action == 'overlay' ? '' : 'hidden'}" id="chromaKeyColorConfig" data-segment-index="${segmentIndex}" data-range-index="${rangeIndex}">Config</button>
                 </div>
             </div>
         </div>
@@ -342,7 +374,7 @@ function createOverlayBox(segmentIndex, rangeIndex) {
     box.className = 'overlay-box';
     box.dataset.segmentIndex = segmentIndex;
     box.dataset.rangeIndex = rangeIndex;
-    
+
     // Set absolute positioning
     box.style.position = 'absolute';
     box.style.border = '2px solid #00f';
@@ -350,7 +382,7 @@ function createOverlayBox(segmentIndex, rangeIndex) {
     box.style.cursor = 'move';
     box.style.zIndex = '1000';
     box.style.boxSizing = 'border-box';
-    
+
     ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'].forEach(handle => {
         const handleEl = document.createElement('div');
         handleEl.className = `resize-handle ${handle}`;
@@ -360,7 +392,7 @@ function createOverlayBox(segmentIndex, rangeIndex) {
         handleEl.style.height = '10px';
         handleEl.style.backgroundColor = '#00f';
         handleEl.style.border = '1px solid white';
-        
+
         // Position handles
         if (handle.includes('n')) handleEl.style.top = '-5px';
         if (handle.includes('s')) handleEl.style.bottom = '-5px';
@@ -368,7 +400,7 @@ function createOverlayBox(segmentIndex, rangeIndex) {
         if (handle.includes('w')) handleEl.style.left = '-5px';
         if (handle === 'n' || handle === 's') handleEl.style.left = 'calc(50% - 5px)';
         if (handle === 'e' || handle === 'w') handleEl.style.top = 'calc(50% - 5px)';
-        
+
         // Cursor styles
         const cursorMap = {
             'n': 'ns-resize', 's': 'ns-resize',
@@ -377,7 +409,7 @@ function createOverlayBox(segmentIndex, rangeIndex) {
             'nw': 'nwse-resize', 'se': 'nwse-resize'
         };
         handleEl.style.cursor = cursorMap[handle];
-        
+
         box.appendChild(handleEl);
     });
 
@@ -385,7 +417,7 @@ function createOverlayBox(segmentIndex, rangeIndex) {
     box.addEventListener('mousedown', (e) => onInteractionStart(e, segmentIndex, rangeIndex));
     overlayBoxes[segmentIndex][rangeIndex] = box;
     updateOverlayBoxPosition(segmentIndex, rangeIndex);
-    
+
     // Initially hide, will be shown by drawOverlayControls when in range
     box.style.display = 'none';
 }
@@ -402,16 +434,16 @@ function updateOverlayBoxPosition(segmentIndex, rangeIndex) {
     const box = overlayBoxes[segmentIndex]?.[rangeIndex];
     const transform = state.mixVideo[segmentIndex]?.video_edit_prop[rangeIndex]?.transform;
     const playerContainer = document.getElementById('videoContainer');
-    
+
     if (box && transform && playerContainer) {
         const containerRect = playerContainer.getBoundingClientRect();
-        
+
         // Calculate pixel positions based on container size
         const leftPx = transform.x * containerRect.width;
         const topPx = transform.y * containerRect.height;
         const widthPx = transform.width * containerRect.width;
         const heightPx = transform.height * containerRect.height;
-        
+
         box.style.left = `${leftPx}px`;
         box.style.top = `${topPx}px`;
         box.style.width = `${widthPx}px`;
@@ -424,7 +456,7 @@ function onInteractionStart(e, segmentIndex, rangeIndex) {
     e.stopPropagation();
 
     setActiveRange(segmentIndex, rangeIndex);
-    
+
     const activeBox = overlayBoxes[segmentIndex]?.[rangeIndex];
     interaction.startX = e.clientX;
     interaction.startY = e.clientY;
@@ -448,7 +480,7 @@ function onInteractionMove(e) {
     if ((!interaction.isDragging && !interaction.isResizing) || activeSegmentIndex < 0) return;
     e.preventDefault();
     e.stopPropagation();
-    
+
     const playerContainer = document.getElementById('videoContainer').getBoundingClientRect();
     const transform = state.mixVideo[activeSegmentIndex].video_edit_prop[activeRangeIndex].transform;
 
@@ -459,7 +491,7 @@ function onInteractionMove(e) {
     let newWidth = interaction.startWidth, newHeight = interaction.startHeight;
 
     if (interaction.isDragging) {
-        newLeft += dx; 
+        newLeft += dx;
         newTop += dy;
     } else {
         const handle = interaction.resizeHandle;
@@ -474,14 +506,14 @@ function onInteractionMove(e) {
     transform.y = Math.max(0, Math.min(1, newTop / playerContainer.height));
     transform.width = Math.max(0.05, Math.min(1, newWidth / playerContainer.width));
     transform.height = Math.max(0.05, Math.min(1, newHeight / playerContainer.height));
-    
+
     // Prevent overflow
     if (transform.x + transform.width > 1) transform.width = 1 - transform.x;
     if (transform.y + transform.height > 1) transform.height = 1 - transform.y;
-    
+
     // Update visual box in real-time
     updateOverlayBoxPosition(activeSegmentIndex, activeRangeIndex);
-    
+
     // Update side-panel UI
     updateMixVideoUI();
 }
@@ -501,62 +533,62 @@ function onInteractionEnd(e) {
  * @returns {Promise<File>} A new File object with the compatible video data.
  */
 const normalizeVideo = async (originalFile, onProgress) => {
-	console.log(`[Normalize] Starting normalization for "${originalFile.name}"...`);
-	try {
-		const input = new Input({
-			source: new BlobSource(originalFile),
-			formats: ALL_FORMATS
-		});
+    console.log(`[Normalize] Starting normalization for "${originalFile.name}"...`);
+    try {
+        const input = new Input({
+            source: new BlobSource(originalFile),
+            formats: ALL_FORMATS
+        });
 
-		const output = new Output({
-			format: new Mp4OutputFormat({
-				video: { codec: 'avc', bitrate: QUALITY_HIGH },
-				audio: { codec: 'opus', bitrate: 128e3 },
-				fastStart: 'in-memory'
-			}),
-			target: new BufferTarget()
-		});
+        const output = new Output({
+            format: new Mp4OutputFormat({
+                video: { codec: 'avc', bitrate: QUALITY_HIGH },
+                audio: { codec: 'opus', bitrate: 128e3 },
+                fastStart: 'in-memory'
+            }),
+            target: new BufferTarget()
+        });
 
-		// We need to ensure the input has tracks to create a valid conversion
-		const videoTrack = await input.getPrimaryVideoTrack();
-		const audioTrack = await input.getPrimaryAudioTrack();
-		if (!videoTrack) {
-			throw new Error("Video track is required for normalization.");
-		}
+        // We need to ensure the input has tracks to create a valid conversion
+        const videoTrack = await input.getPrimaryVideoTrack();
+        const audioTrack = await input.getPrimaryAudioTrack();
+        if (!videoTrack) {
+            throw new Error("Video track is required for normalization.");
+        }
 
-		const conversionOptions = {
-			input,
-			output,
-			video: { track: videoTrack },
-		};
-		// Only include audio in the output if it exists in the input
-		if (audioTrack) {
-			conversionOptions.audio = { track: audioTrack };
-		}
+        const conversionOptions = {
+            input,
+            output,
+            video: { track: videoTrack },
+        };
+        // Only include audio in the output if it exists in the input
+        if (audioTrack) {
+            conversionOptions.audio = { track: audioTrack };
+        }
 
 
-		const conversion = await Conversion.init(conversionOptions);
-		if (!conversion.isValid) {
-			throw new Error("Could not create a valid conversion for normalization.");
-		}
+        const conversion = await Conversion.init(conversionOptions);
+        if (!conversion.isValid) {
+            throw new Error("Could not create a valid conversion for normalization.");
+        }
 
-		if (onProgress) {
-			conversion.onProgress = onProgress;
-		}
+        if (onProgress) {
+            conversion.onProgress = onProgress;
+        }
 
-		await conversion.execute();
-		await input.dispose();
+        await conversion.execute();
+        await input.dispose();
 
-		const normalizedBuffer = output.target.buffer;
-		const newName = `${originalFile.name.split('.').slice(0, -1).join('.')}_normalized.mp4`;
-		const normalizedFile = new File([normalizedBuffer], newName, { type: 'video/mp4' });
+        const normalizedBuffer = output.target.buffer;
+        const newName = `${originalFile.name.split('.').slice(0, -1).join('.')}_normalized.mp4`;
+        const normalizedFile = new File([normalizedBuffer], newName, { type: 'video/mp4' });
 
-		console.log(`[Normalize] Normalization successful for "${originalFile.name}". New size: ${(normalizedFile.size / 1024 / 1024).toFixed(2)} MB`);
-		return normalizedFile;
+        console.log(`[Normalize] Normalization successful for "${originalFile.name}". New size: ${(normalizedFile.size / 1024 / 1024).toFixed(2)} MB`);
+        return normalizedFile;
 
-	} catch (error) {
-		console.error(`[Normalize] Failed to normalize video "${originalFile.name}":`, error);
-		// Return the original file as a fallback, though it may still cause issues.
-		return originalFile;
-	}
+    } catch (error) {
+        console.error(`[Normalize] Failed to normalize video "${originalFile.name}":`, error);
+        // Return the original file as a fallback, though it may still cause issues.
+        return originalFile;
+    }
 };

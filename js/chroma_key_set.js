@@ -1,11 +1,11 @@
 import {
-	state
+    state
 } from './state.js';
 
 export const ChromaKeyApp = {
     // Configuration State
     state: {
-        color: '#00ff00', 
+        color: '#00ff00',
         similarity: 0.4,
         smoothness: 0.1,
         spill: 0.2,
@@ -14,7 +14,7 @@ export const ChromaKeyApp = {
 
     // DOM Elements References
     elements: {
-        video: null,
+        mediaElement: null, // Renamed from 'video' to handle both Video and Image
         canvas: null,
         ctx: null,
         playBtn: null,
@@ -24,15 +24,24 @@ export const ChromaKeyApp = {
 
     blobUrl: null,
     activeSegmentIndex: -1,
+    isStaticMedia: false, // New flag to track if it's an Image/GIF vs Video
 
     // --- 1. Initialization ---
-    init: function(activeSegmentIndex) {
+    init: function (activeSegmentIndex) {
         this.activeSegmentIndex = activeSegmentIndex;
-        const inputSource = state.mixVideo[this.activeSegmentIndex].file;
+        const segment = state.mixVideo[this.activeSegmentIndex];
+        const inputSource = segment.file;
+        const mediaType = segment.media_type || 'mix_video';
+
+        // Determine if this is a static asset (Image/GIF) or Video
+        // Note: Standard Canvas drawImage usually only draws the first frame of a GIF 
+        // unless parsed manually, so we treat GIFs as static for Keying configuration.
+        this.isStaticMedia = (mediaType === 'mix_image' || mediaType === 'mix_gif');
+
         const contentDiv = document.getElementById('chromaKeyColorContent');
         const modal = document.getElementById('chromaKeyColorModal');
-        
-        // Hide the original footer found in your HTML (since we moved the button inside)
+
+        // Hide the original footer
         this.elements.originalFooter = modal.querySelector('.screenshot-actions');
         if (this.elements.originalFooter) this.elements.originalFooter.style.display = 'none';
 
@@ -43,57 +52,70 @@ export const ChromaKeyApp = {
         // 2. Show Modal
         modal.classList.remove('hidden');
 
-        // 3. Handle File Object vs String URL
-        let videoSrc = inputSource;
+        // 3. Create Blob URL
+        let mediaSrc = inputSource;
         if (inputSource instanceof File || inputSource instanceof Blob) {
             this.blobUrl = URL.createObjectURL(inputSource);
-            videoSrc = this.blobUrl;
+            mediaSrc = this.blobUrl;
         }
 
-        // 4. Setup Video Element
-        this.elements.video = document.createElement('video');
-        this.elements.video.src = videoSrc;
-        this.elements.video.loop = true;
-        this.elements.video.muted = true;
-        this.elements.video.crossOrigin = "anonymous";
-        this.elements.video.playsInline = true;
+        // 4. Setup Media Element based on Type
+        if (this.isStaticMedia) {
+            // --- IMAGE / GIF HANDLING ---
+            this.elements.mediaElement = new Image();
+            this.elements.mediaElement.crossOrigin = "anonymous";
+            this.elements.mediaElement.src = mediaSrc;
 
-        // 5. Wait for metadata
-        this.elements.video.onloadedmetadata = () => {
-            this.elements.canvas.width = this.elements.video.videoWidth;
-            this.elements.canvas.height = this.elements.video.videoHeight;
-            
-            // Render first frame immediately so canvas isn't empty
-            this.renderFrame(); 
-            // Start Loop
-            this.togglePlay();
-        };
+            this.elements.mediaElement.onload = () => {
+                this.elements.canvas.width = this.elements.mediaElement.width;
+                this.elements.canvas.height = this.elements.mediaElement.height;
+                this.renderFrame(); // Render once
+            };
+        } else {
+            // --- VIDEO HANDLING ---
+            this.elements.mediaElement = document.createElement('video');
+            this.elements.mediaElement.src = mediaSrc;
+            this.elements.mediaElement.loop = true;
+            this.elements.mediaElement.muted = true;
+            this.elements.mediaElement.crossOrigin = "anonymous";
+            this.elements.mediaElement.playsInline = true;
 
-        // 6. Setup Close Handler
+            this.elements.mediaElement.onloadedmetadata = () => {
+                this.elements.canvas.width = this.elements.mediaElement.videoWidth;
+                this.elements.canvas.height = this.elements.mediaElement.videoHeight;
+                this.renderFrame();
+                this.togglePlay(); // Auto-play for video
+            };
+        }
+
+        // 5. Setup Close Handler
         document.getElementById('chromaKeyColortModalCloseBtn').onclick = () => this.close();
     },
 
     // --- 2. Build Split Layout ---
-    buildUI: function(parent) {
+    buildUI: function (parent) {
         const workspace = document.createElement('div');
         workspace.className = 'chroma-workspace';
 
         // LEFT: Canvas Area
         const canvasArea = document.createElement('div');
         canvasArea.className = 'chroma-canvas-area';
-        
+
         this.elements.canvas = document.createElement('canvas');
         this.elements.canvas.id = 'chromaPreviewCanvas';
         this.elements.canvas.addEventListener('mousedown', (e) => this.handleCanvasClick(e));
         this.elements.ctx = this.elements.canvas.getContext('2d', { willReadFrequently: true });
 
-        this.elements.playBtn = document.createElement('button');
-        this.elements.playBtn.className = 'play-btn chroma-play-btn';
-        this.elements.playBtn.innerHTML = '❚❚';
-        this.elements.playBtn.onclick = () => this.togglePlay();
-
         canvasArea.appendChild(this.elements.canvas);
-        canvasArea.appendChild(this.elements.playBtn);
+
+        // Only add Play button if it is a Video
+        if (!this.isStaticMedia) {
+            this.elements.playBtn = document.createElement('button');
+            this.elements.playBtn.className = 'play-btn chroma-play-btn';
+            this.elements.playBtn.innerHTML = '❚❚';
+            this.elements.playBtn.onclick = () => this.togglePlay();
+            canvasArea.appendChild(this.elements.playBtn);
+        }
 
         // RIGHT: Controls Area
         const controlsArea = document.createElement('div');
@@ -105,7 +127,7 @@ export const ChromaKeyApp = {
                 </div>
                 <div class="color-text">
                     <h4>Key Color</h4>
-                    <p>Click video to pick</p>
+                    <p>Click media to pick</p>
                 </div>
             </div>
 
@@ -134,14 +156,14 @@ export const ChromaKeyApp = {
         this.attachListeners();
     },
 
-    attachListeners: function() {
+    attachListeners: function () {
         const update = (key, val) => {
             this.state[key] = parseFloat(val);
             const display = document.getElementById(key === 'similarity' ? 'val-sim' : key === 'smoothness' ? 'val-smooth' : 'val-spill');
-            if(display) display.innerText = val;
-            
-            // IMPORTANT: Force re-render immediately if paused
-            if (!this.state.isPlaying) {
+            if (display) display.innerText = val;
+
+            // Force re-render immediately (Video paused OR Static image)
+            if (!this.state.isPlaying || this.isStaticMedia) {
                 this.renderFrame();
             }
         };
@@ -150,36 +172,36 @@ export const ChromaKeyApp = {
         document.getElementById('chromaSmooth').oninput = (e) => update('smoothness', e.target.value);
         document.getElementById('chromaSpill').oninput = (e) => update('spill', e.target.value);
         document.getElementById('customApplyBtn').onclick = () => this.applySettings();
-        
+
         const colorInput = document.getElementById('chromaColor');
         colorInput.oninput = (e) => {
             this.state.color = e.target.value;
             colorInput.parentElement.style.backgroundColor = e.target.value;
-            if (!this.state.isPlaying) this.renderFrame();
+            if (!this.state.isPlaying || this.isStaticMedia) this.renderFrame();
         };
     },
 
     // --- 3. The Logic ---
-    
-    // The Loop: Only handles scheduling
-    loop: function() {
-        if (this.state.isPlaying) {
-            this.renderFrame(); // Draw frame
+
+    loop: function () {
+        // Loop only runs for playing videos
+        if (this.state.isPlaying && !this.isStaticMedia) {
+            this.renderFrame();
             this.elements.animationFrame = requestAnimationFrame(() => this.loop());
         }
     },
 
-    // The Render: Does the math (Called by loop OR by slider input)
-    renderFrame: function() {
+    renderFrame: function () {
         const width = this.elements.canvas.width;
         const height = this.elements.canvas.height;
         const ctx = this.elements.ctx;
+        const media = this.elements.mediaElement;
 
-        // Safety check
-        if (!width || !height || !this.elements.video) return;
+        if (!width || !height || !media) return;
 
-        // 1. Draw Video
-        ctx.drawImage(this.elements.video, 0, 0, width, height);
+        // 1. Draw Source (Video or Image)
+        // drawImage works for both HTMLVideoElement and HTMLImageElement
+        ctx.drawImage(media, 0, 0, width, height);
 
         // 2. Get Data
         const imageData = ctx.getImageData(0, 0, width, height);
@@ -206,7 +228,7 @@ export const ChromaKeyApp = {
 
             const dist = Math.sqrt((r - keyR) ** 2 + (g - keyG) ** 2 + (b - keyB) ** 2);
             const normalizedDist = dist / maxDist;
-            
+
             let alpha = 1.0;
 
             if (normalizedDist < this.state.similarity) {
@@ -236,21 +258,24 @@ export const ChromaKeyApp = {
 
     // --- 4. Interactions ---
 
-    togglePlay: function() {
-        if (this.elements.video.paused) {
-            this.elements.video.play().catch(e => console.log("Autoplay prevented:", e));
+    togglePlay: function () {
+        // Static media cannot play
+        if (this.isStaticMedia) return;
+
+        if (this.elements.mediaElement.paused) {
+            this.elements.mediaElement.play().catch(e => console.log("Autoplay prevented:", e));
             this.state.isPlaying = true;
-            this.elements.playBtn.innerHTML = '❚❚';
+            if (this.elements.playBtn) this.elements.playBtn.innerHTML = '❚❚';
             this.loop();
         } else {
-            this.elements.video.pause();
+            this.elements.mediaElement.pause();
             this.state.isPlaying = false;
-            this.elements.playBtn.innerHTML = '▶';
+            if (this.elements.playBtn) this.elements.playBtn.innerHTML = '▶';
             cancelAnimationFrame(this.elements.animationFrame);
         }
     },
 
-    handleCanvasClick: function(e) {
+    handleCanvasClick: function (e) {
         const rect = this.elements.canvas.getBoundingClientRect();
         const scaleX = this.elements.canvas.width / rect.width;
         const scaleY = this.elements.canvas.height / rect.height;
@@ -261,44 +286,51 @@ export const ChromaKeyApp = {
         tempCanvas.width = 1;
         tempCanvas.height = 1;
         const tCtx = tempCanvas.getContext('2d');
-        
-        tCtx.drawImage(this.elements.video, x, y, 1, 1, 0, 0, 1, 1);
+
+        // drawImage works for both Video and Image elements
+        tCtx.drawImage(this.elements.mediaElement, x, y, 1, 1, 0, 0, 1, 1);
         const p = tCtx.getImageData(0, 0, 1, 1).data;
         const hex = "#" + ("000000" + ((p[0] << 16) | (p[1] << 8) | p[2]).toString(16)).slice(-6);
 
         this.state.color = hex;
         const colorInput = document.getElementById('chromaColor');
-        if(colorInput) {
+        if (colorInput) {
             colorInput.value = hex;
             colorInput.parentElement.style.backgroundColor = hex;
         }
-        // Force update if paused
-        if (!this.state.isPlaying) this.renderFrame();
+        // Force update if paused or static
+        if (!this.state.isPlaying || this.isStaticMedia) this.renderFrame();
     },
 
-    close: function() {
+    close: function () {
         this.state.isPlaying = false;
         cancelAnimationFrame(this.elements.animationFrame);
-        
-        if (this.elements.video) {
-            this.elements.video.pause();
-            this.elements.video.src = "";
-            this.elements.video.load();
-            this.elements.video = null;
+
+        // Cleanup Media Element
+        if (this.elements.mediaElement) {
+            if (!this.isStaticMedia) {
+                // Pause video
+                this.elements.mediaElement.pause();
+                this.elements.mediaElement.src = "";
+                this.elements.mediaElement.load();
+            } else {
+                // Clear image
+                this.elements.mediaElement.src = "";
+            }
+            this.elements.mediaElement = null;
         }
 
         if (this.blobUrl) {
             URL.revokeObjectURL(this.blobUrl);
             this.blobUrl = null;
         }
-        
-        // Restore original footer just in case
+
         if (this.elements.originalFooter) this.elements.originalFooter.style.display = 'block';
 
         document.getElementById('chromaKeyColorModal').classList.add('hidden');
     },
 
-    applySettings: function() {
+    applySettings: function () {
         state.mixVideo[this.activeSegmentIndex].chromaKey = { ...this.state };
         this.close();
     }
