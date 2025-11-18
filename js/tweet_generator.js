@@ -35,7 +35,7 @@ export const setupTweetGenerator = () => {
     });
 };
 
-export const captureElementScreenshot = async (elementSelector) => {
+const captureElementScreenshot = async (elementSelector) => {
     const element = document.querySelector(elementSelector);
     if (!element) {
         showError(`Screenshot failed: Element "${elementSelector}" not found.`);
@@ -276,6 +276,135 @@ async function captureScaledScreenshot(elementSelector) {
         element.style.transform = originalStyles.transform;
         element.style.transformOrigin = originalStyles.transformOrigin;
 
+        originalParent.appendChild(element);
+        document.body.removeChild(overlay);
+    }
+}
+
+/**
+ * The ultimate client-side screenshot function. It scales the element to the maximum
+ * viewport width, then programmatically scrolls its container to capture and
+* stitch together a full-length, high-resolution image.
+ * @param {string} elementSelector The CSS selector for the element (iframe) to capture.
+ */
+async function captureAndStitchScreenshot(elementSelector) {
+    const element = document.querySelector(elementSelector);
+    if (!element) {
+        showError(`Screenshot failed: Element "${elementSelector}" not found.`);
+        return;
+    }
+
+    const originalRect = element.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const finalScaleFactor = (viewportWidth / originalRect.width) * 0.99;
+
+    const originalParent = element.parentElement;
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background-color: rgba(255, 255, 255, 0.9); z-index: 9999;
+        overflow: auto;
+    `;
+    const originalStyles = {
+        transform: element.style.transform,
+        transformOrigin: element.style.transformOrigin,
+    };
+
+    element.style.transform = `scale(${finalScaleFactor})`;
+    element.style.transformOrigin = 'top left';
+    overlay.appendChild(element);
+    document.body.appendChild(overlay);
+
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+    const capturedStrips = [];
+    const viewportHeight = overlay.clientHeight;
+
+    try {
+        showInfo("Please select this tab to begin capturing...");
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+            video: { cursor: "omit", resizeMode: "none" }, preferCurrentTab: true,
+        });
+        const track = stream.getVideoTracks()[0];
+
+        // --- THE NEW, ROBUST CAPTURE LOOP ---
+        let lastScrollTop = -1;
+        do {
+            const currentScrollTop = overlay.scrollTop;
+            if (currentScrollTop === lastScrollTop) {
+                // If scrolling didn't change, we've hit the bottom.
+                break;
+            }
+            lastScrollTop = currentScrollTop;
+
+            showInfo(`Capturing part ${capturedStrips.length + 1}...`);
+
+            const imageCapture = new ImageCapture(track);
+            const bitmap = await imageCapture.grabFrame();
+            capturedStrips.push({ bitmap, scrollTop: currentScrollTop });
+
+            // Command the next scroll
+            overlay.scrollTop += viewportHeight;
+            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+        } while (true); // The loop is broken internally when scrolling stops.
+
+        track.stop();
+
+        // --- THE NEW, PRECISION STITCHING PROCESS ---
+        showInfo("Stitching images together...");
+        if (capturedStrips.length === 0) throw new Error("No images were captured.");
+
+        const dpr = window.devicePixelRatio || 1;
+        const totalHeight = element.getBoundingClientRect().height;
+        const finalCanvas = document.createElement('canvas');
+        finalCanvas.width = element.getBoundingClientRect().width * dpr;
+        finalCanvas.height = totalHeight * dpr;
+        const ctx = finalCanvas.getContext('2d', { alpha: false });
+
+        for (const stripData of capturedStrips) {
+            const { bitmap, scrollTop } = stripData;
+            const yPos = scrollTop * dpr; // Use the ACTUAL scroll position for perfect placement.
+
+            // Get the coordinates of our capture area (the overlay)
+            const cropSource = {
+                x: overlay.getBoundingClientRect().left * dpr,
+                y: overlay.getBoundingClientRect().top * dpr,
+                width: overlay.clientWidth * dpr,
+                height: overlay.clientHeight * dpr
+            };
+
+            // Calculate the height of the final strip. It might be less than a full viewport.
+            const remainingHeightOnCanvas = finalCanvas.height - yPos;
+            const heightToDraw = Math.min(cropSource.height, remainingHeightOnCanvas);
+            
+            // This check prevents drawing a tiny sliver on the last frame if not needed.
+            if (heightToDraw <= 0) continue;
+
+            // Use the 9-argument drawImage for precision cropping and placement.
+            ctx.drawImage(
+                bitmap, // source image
+                cropSource.x, cropSource.y, cropSource.width, heightToDraw, // source rect (sx, sy, sWidth, sHeight)
+                0, yPos, cropSource.width, heightToDraw  // destination rect (dx, dy, dWidth, dHeight)
+            );
+        }
+
+        finalCanvas.toBlob((blob) => {
+            if (blob) {
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `tweet-full-screenshot-${Date.now()}.png`;
+                link.click();
+                showInfo("Full screenshot saved!");
+            }
+        }, 'image/png');
+
+    } catch (err) {
+        console.error("Screenshot process failed:", err);
+        showError("Screenshot was cancelled or an error occurred.");
+    } finally {
+        element.style.transform = originalStyles.transform;
+        element.style.transformOrigin = originalStyles.transformOrigin;
         originalParent.appendChild(element);
         document.body.removeChild(overlay);
     }
