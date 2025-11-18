@@ -4,26 +4,34 @@ let setupImageToVideo, setupRecordingListeners;
 
 const loadLocalModules = async () => {
     if (!setupEventListeners) {
-        const eventListenersModule = await import('./eventListeners.js');
+        // LOAD ALL MODULES IN PARALLEL
+        // This prevents the UI from freezing waiting for one file after another
+        const [
+            eventListenersModule,
+            playerModule,
+            playlistModule,
+            utilityModule,
+            resizeModule,
+            imageToVideoModule,
+            recordingModule
+        ] = await Promise.all([
+            import('./eventListeners.js'),
+            import('./player.js'),
+            import('./playlist.js'),
+            import('./utility.js'),
+            import('./resize.js'),
+            import('./imageToVideo.js'),
+            import('./recording.js')
+        ]);
+
+        // Assign exports
         setupEventListeners = eventListenersModule.setupEventListeners;
-
-        const playerModule = await import('./player.js');
         renderLoop = playerModule.renderLoop;
-
-        const playlistModule = await import('./playlist.js');
         updatePlaylistUIOptimized = playlistModule.updatePlaylistUIOptimized;
-
-        const utilityModule = await import('./utility.js');
         dynamicVideoUrl = utilityModule.dynamicVideoUrl;
         registerServiceWorker = utilityModule.registerServiceWorker;
-
-        const resizeModule = await import('./resize.js');
         resize_define = resizeModule.resize_define;
-
-        const imageToVideoModule = await import('./imageToVideo.js');
         setupImageToVideo = imageToVideoModule.setupImageToVideo;
-
-        const recordingModule = await import('./recording.js');
         setupRecordingListeners = recordingModule.setupRecordingListeners;
     }
 };
@@ -51,7 +59,13 @@ export const full_player = async () => {
     renderLoop();
     dynamicVideoUrl();
     updatePlaylistUIOptimized();
-    registerServiceWorker();
+
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+             registerServiceWorker(); 
+        });
+    }
+
     resize_define();
     setupImageToVideo();
     setupRecordingListeners();
