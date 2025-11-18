@@ -13,7 +13,8 @@ import {
 	BufferTarget,
 	QUALITY_HIGH,
 	AudioSampleSink,
-	AudioSample
+	AudioSample,
+	VideoSampleSink
 } from 'https://cdn.jsdelivr.net/npm/mediabunny@1.25.0/+esm';
 
 // Import the new mergeVideos function
@@ -304,18 +305,62 @@ const mixAudioSamplesWithLog = async (originalSample, editSample, timestamp) => 
 	return mixedSample;
 };
 
-const createVideoProcessFunction = (videoTrack, state) => {
+const initializeMixVideoTracks = async (state) => {
+	const mixVideoData = [];
+	if (!state.mixVideo || state.mixVideo.length === 0) return mixVideoData;
+
+	for (const segment of state.mixVideo) {
+		console.log(`[MixVideo] Initializing mix video track: "${segment.name}"`);
+		const input = new Input({
+			source: new BlobSource(segment.file),
+			formats: ALL_FORMATS
+		});
+
+		try {
+			const videoTrack = await input.getPrimaryVideoTrack();
+			if (!videoTrack) { /* ... error handling ... */ await input.dispose(); continue; }
+			if (!(await videoTrack.canDecode())) { /* ... error handling ... */ await input.dispose(); continue; }
+
+			const duration = await videoTrack.computeDuration();
+			console.log(`[MixVideo] Track "${segment.name}" duration: ${duration.toFixed(2)}s`);
+			const frameSink = new VideoSampleSink(videoTrack);
+
+			mixVideoData.push({
+				segment, input, videoTrack, frameSink, duration,
+			});
+		} catch (error) {
+			console.error(`[MixVideo] Error during initialization for "${segment.name}":`, error);
+			await input.dispose();
+		}
+	}
+	return mixVideoData;
+};
+
+const createVideoProcessFunction = async (videoTrack, state) => {
 	const hasDynamicCrop = state.panKeyframes.length > 1 && state.panRectSize;
 	const hasStaticCrop = state.cropRect && state.cropRect.width > 0;
 	const hasBlur = state.blurSegments.length > 0;
+	const hasMixVideo = state.mixVideo && state.mixVideo.length > 0;
 
-	if (!hasDynamicCrop && !hasStaticCrop && !hasBlur) {
+	if (!hasDynamicCrop && !hasStaticCrop && !hasBlur && !hasMixVideo) {
 		return null;
 	}
 
 	let outputWidth, outputHeight;
 	let processCanvas = null;
 	let processCtx = null;
+
+	// Initialize mix video tracks
+	let mixVideoTracks = [];
+	if (hasMixVideo) {
+		mixVideoTracks = await initializeMixVideoTracks(state);
+		// NEW: Create and store an iterator and state for each track
+		for (const track of mixVideoTracks) {
+			track.sampleIterator = track.frameSink.samples();
+			track.currentOverlaySample = null; // To cache the current frame
+			track.lastMixVideoTime = -1;    // To detect when the overlay loops
+		}
+	}
 
 	// 1. Determine Output Dimensions based on crop type
 	if (hasDynamicCrop) {
@@ -334,14 +379,14 @@ const createVideoProcessFunction = (videoTrack, state) => {
 	} else if (hasStaticCrop) {
 		outputWidth = Math.round(state.cropRect.width / 2) * 2;
 		outputHeight = Math.round(state.cropRect.height / 2) * 2;
-	} else { // Only blurring
+	} else { // Only blurring or mix video
 		outputWidth = videoTrack.codedWidth;
 		outputHeight = videoTrack.codedHeight;
 	}
 
 
 	// 2. Create the unified process function
-	const process = (sample) => {
+	const process = async (sample) => {
 		if (!processCanvas) {
 			processCanvas = new OffscreenCanvas(outputWidth, outputHeight);
 			processCtx = processCanvas.getContext('2d', { alpha: false });
@@ -360,7 +405,10 @@ const createVideoProcessFunction = (videoTrack, state) => {
 			sourceRect = { x: 0, y: 0, width: videoTrack.codedWidth, height: videoTrack.codedHeight };
 		}
 
-		if (!sourceRect || sourceRect.width <= 0 || sourceRect.height <= 0) return sample;
+		if (!sourceRect || sourceRect.width <= 0 || sourceRect.height <= 0) {
+			sample.close(); // IMPORTANT: still need to close the original frame
+			return; // Return nothing to signal a skipped frame
+		}
 		const safeSourceRect = clampRectToVideoBounds(sourceRect);
 
 
@@ -429,13 +477,133 @@ const createVideoProcessFunction = (videoTrack, state) => {
 			});
 		}
 
+		// --- C. APPLY MIX VIDEO OVERLAYS (IF ANY) ---
+		if (hasMixVideo && mixVideoTracks.length > 0) {
+			for (const mixTrack of mixVideoTracks) {
+				const mixSegment = mixTrack.segment;
+				for (const prop of mixSegment.video_edit_prop) {
+					const rangeStart = parseTime(prop.start);
+					const rangeEnd = parseTime(prop.end);
+
+					if (currentTime >= rangeStart && currentTime <= rangeEnd) {
+						const timeInRange = currentTime - rangeStart;
+						const mixVideoTime = timeInRange % mixTrack.duration;
+
+						// Detect if the overlay video needs to loop and reset its iterator
+						if (mixVideoTime < mixTrack.lastMixVideoTime) {
+							console.log(`[MixVideo] Overlay loop detected for "${mixTrack.segment.name}". Resetting iterator.`);
+							if (mixTrack.currentOverlaySample) {
+								mixTrack.currentOverlaySample.close();
+								mixTrack.currentOverlaySample = null;
+							}
+							await mixTrack.sampleIterator.return(); // Clean up old iterator
+							mixTrack.sampleIterator = mixTrack.frameSink.samples();
+						}
+						mixTrack.lastMixVideoTime = mixVideoTime;
+
+						let mixFrame = null;
+						try {
+							while (!mixTrack.currentOverlaySample || mixTrack.currentOverlaySample.timestamp < mixVideoTime) {
+								if (mixTrack.currentOverlaySample) {
+									mixTrack.currentOverlaySample.close();
+								}
+								const { value, done } = await mixTrack.sampleIterator.next();
+								if (done) {
+									mixTrack.currentOverlaySample = null;
+									break;
+								}
+								mixTrack.currentOverlaySample = value;
+							}
+
+							if (mixTrack.currentOverlaySample) {
+								mixFrame = mixTrack.currentOverlaySample;
+							}
+
+							if (!mixFrame) continue;
+
+							const transform = prop.transform;
+							const destX = Math.round(transform.x * outputWidth);
+							const destY = Math.round(transform.y * outputHeight);
+							const destWidth = Math.round(transform.width * outputWidth);
+							const destHeight = Math.round(transform.height * outputHeight);
+
+							if (destWidth <= 0 || destHeight <= 0) continue;
+
+							if (prop.action === 'base') {
+								// Correct: Call the draw method ON the mixFrame object
+								mixFrame.draw(processCtx, destX, destY, destWidth, destHeight);
+
+							} else if (prop.action === 'overlay') {
+								// Your chroma key (green screen) logic here...
+								processCtx.save();
+
+								// Create a temporary canvas for chroma keying
+								const tempCanvas = new OffscreenCanvas(mixFrame.displayWidth, mixFrame.displayHeight);
+								const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+
+								// Correct: Use the draw method here as well
+								mixFrame.draw(tempCtx, 0, 0);
+
+								// Get image data to process
+								const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+								const data = imageData.data;
+
+								// Green screen removal logic (remains the same)
+								const threshold = 0.4;
+								const smoothing = 0.1;
+								for (let i = 0; i < data.length; i += 4) {
+									const r = data[i], g = data[i + 1], b = data[i + 2];
+									const greenDominance = (g - Math.max(r, b)) / 255;
+									if (greenDominance > threshold) {
+										const alpha = Math.max(0, 1 - (greenDominance - threshold) / smoothing);
+										data[i + 3] = Math.round(data[i + 3] * alpha);
+									}
+								}
+
+								tempCtx.putImageData(imageData, 0, 0);
+
+								// Draw the processed (transparent) video onto the main canvas
+								processCtx.drawImage(tempCanvas, destX, destY, destWidth, destHeight);
+
+								processCtx.restore();
+							}
+
+						} catch (error) {
+							console.error(`[MixVideo] Error processing iterator frame at ${currentTime}s:`, error);
+						}
+					}
+				}
+			}
+		}
+		videoFrame.close();
 		return processCanvas;
+	};
+
+	// Cleanup function for mix video tracks
+	const dispose = () => {
+		if (mixVideoTracks.length > 0) {
+			console.log("[MixVideo] Disposing of mix video tracks and iterators");
+			mixVideoTracks.forEach(track => {
+				// Close the last cached sample, if it exists
+				if (track.currentOverlaySample) {
+					track.currentOverlaySample.close();
+				}
+				// Tell the iterator we are done with it to free resources
+				if (track.sampleIterator) {
+					track.sampleIterator.return();
+				}
+				if (track.input) {
+					track.input.dispose();
+				}
+			});
+		}
 	};
 
 	return {
 		processedWidth: outputWidth,
 		processedHeight: outputHeight,
-		process
+		process,
+		dispose
 	};
 };
 
@@ -490,7 +658,7 @@ export const handleCutAction = async () => {
 					end
 				}
 			};
-			const needsProcessing = (state.panKeyframes.length > 1 && state.panRectSize) || (state.cropRect && state.cropRect.width > 0) || state.blurSegments.length > 0;
+			const needsProcessing = (state.panKeyframes.length > 1 && state.panRectSize) || (state.cropRect && state.cropRect.width > 0) || state.blurSegments.length > 0 || state.mixVideo.length > 0;
 
 			if (needsProcessing) {
 				if (state.smoothPath && state.panKeyframes.length > 1) {
@@ -500,7 +668,7 @@ export const handleCutAction = async () => {
 				const videoTrack = await input.getPrimaryVideoTrack();
 				if (!videoTrack) throw new Error("A video track is required for processing.");
 
-				const processOptions = createVideoProcessFunction(videoTrack, state);
+				const processOptions = await createVideoProcessFunction(videoTrack, state);
 				if (processOptions) {
 					conversionOptions.video = {
 						track: videoTrack,
@@ -509,6 +677,9 @@ export const handleCutAction = async () => {
 						forceTranscode: true,
 						...processOptions
 					};
+
+					// Store dispose function
+					state.videoProcessDispose = processOptions.dispose;
 				}
 			}
 
@@ -604,5 +775,9 @@ export const handleCutAction = async () => {
 	} finally {
 		guidedPanleInfo("");
 		resetAllConfigs();
+		if (state.videoProcessDispose) {
+			state.videoProcessDispose();
+			state.videoProcessDispose = null;
+		}
 	}
 };
