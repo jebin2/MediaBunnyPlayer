@@ -534,46 +534,78 @@ const createVideoProcessFunction = async (videoTrack, state) => {
 								mixFrame.draw(processCtx, destX, destY, destWidth, destHeight);
 
 							} else if (prop.action === 'overlay') {
-								// Overlay video: apply a more robust chroma key for green screen
+								// --- UPDATED CHROMA KEY LOGIC ---
 								processCtx.save();
 
 								const tempCanvas = new OffscreenCanvas(mixFrame.displayWidth, mixFrame.displayHeight);
 								const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
 
-								// Use the library's built-in draw method
 								mixFrame.draw(tempCtx, 0, 0);
 
 								const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
 								const data = imageData.data;
 
-								// Tolerance: How close a color's hue must be to the key color.
-								// Lower is stricter. Good values are between 40-80.
-								const tolerance = 60;
+								// 1. Configuration
+								// ideally you should pass these via `prop` or `state`, 
+								// but here are the defaults from the working code:
+								const chromaSettings = {
+									color: '#00ff00', // Green
+									similarity: 0.4,
+									smoothness: 0.1,
+									spill: 0.2
+								};
 
-								// Edge Feathering: How soft the edges are.
-								// Lower is sharper. 0.0 means a hard edge. Good values are 0.0 to 0.1.
-								const smoothing = 0.05;
+								// 2. Helper to convert Hex to RGB
+								const hexToRgb = (hex) => {
+									const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+									return result ? {
+										r: parseInt(result[1], 16),
+										g: parseInt(result[2], 16),
+										b: parseInt(result[3], 16)
+									} : { r: 0, g: 255, b: 0 };
+								};
 
-								for (let i = 0; i < data.length; i += 4) {
+								const { r: keyR, g: keyG, b: keyB } = hexToRgb(chromaSettings.color);
+
+								// Max Euclidean distance in RGB space: sqrt(255^2 * 3)
+								const maxDist = 441.67;
+								const l = data.length;
+
+								// 3. The Processing Loop
+								for (let i = 0; i < l; i += 4) {
 									const r = data[i];
 									const g = data[i + 1];
 									const b = data[i + 2];
 
-									// Calculate the color difference in a brightness-independent way
-									const greeness = g - Math.max(r, b);
+									// Calculate Euclidean distance
+									const dist = Math.sqrt(
+										(r - keyR) ** 2 +
+										(g - keyG) ** 2 +
+										(b - keyB) ** 2
+									);
 
-									// If the pixel's hue is close to pure green...
-									if (greeness > tolerance) {
-										// Calculate alpha based on the feathering/smoothing
-										const alpha = (greeness - tolerance) / smoothing;
+									const normalizedDist = dist / maxDist;
+									let alpha = 1.0;
 
-										// If alpha is 1 or more, the pixel is fully transparent.
-										// If it's between 0 and 1, it's a semi-transparent edge pixel.
-										if (alpha >= 1) {
-											data[i + 3] = 0; // Fully transparent
-										} else {
-											// This creates the soft edge
-											data[i + 3] = 255 - alpha * 255;
+									if (normalizedDist < chromaSettings.similarity) {
+										alpha = 0.0;
+									} else if (normalizedDist < chromaSettings.similarity + chromaSettings.smoothness) {
+										alpha = (normalizedDist - chromaSettings.similarity) / chromaSettings.smoothness;
+									}
+
+									data[i + 3] = alpha * 255;
+
+									// Spill Reduction (Desaturation)
+									if (alpha < 1.0 || normalizedDist < chromaSettings.similarity + chromaSettings.smoothness + 0.1) {
+										if (chromaSettings.spill > 0) {
+											const gray = (r * 0.299 + g * 0.587 + b * 0.114);
+											const spillFactor = chromaSettings.spill * (1.0 - normalizedDist);
+
+											if (spillFactor > 0) {
+												data[i] = r * (1 - spillFactor) + gray * spillFactor;
+												data[i + 1] = g * (1 - spillFactor) + gray * spillFactor;
+												data[i + 2] = b * (1 - spillFactor) + gray * spillFactor;
+											}
 										}
 									}
 								}
