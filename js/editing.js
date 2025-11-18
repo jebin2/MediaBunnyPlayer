@@ -336,6 +336,36 @@ const initializeMixVideoTracks = async (state) => {
 	return mixVideoData;
 };
 
+// Helper to detect background color from frame edges
+const detectBackgroundColor = (data, width, height) => {
+	// We will sample 4 points: Top-Left, Top-Right, Bottom-Left, Bottom-Right
+	const positions = [
+		0,                              // Top-Left
+		(width - 1) * 4,                // Top-Right
+		(width * (height - 1)) * 4,     // Bottom-Left
+		(width * height - 1) * 4        // Bottom-Right
+	];
+
+	let r = 0, g = 0, b = 0;
+	let count = 0;
+
+	positions.forEach(pos => {
+		if (pos < data.length) {
+			r += data[pos];
+			g += data[pos + 1];
+			b += data[pos + 2];
+			count++;
+		}
+	});
+
+	// Return the average RGB values
+	return {
+		r: Math.round(r / count),
+		g: Math.round(g / count),
+		b: Math.round(b / count)
+	};
+};
+
 const createVideoProcessFunction = async (videoTrack, state) => {
 	const hasDynamicCrop = state.panKeyframes.length > 1 && state.panRectSize;
 	const hasStaticCrop = state.cropRect && state.cropRect.width > 0;
@@ -533,8 +563,8 @@ const createVideoProcessFunction = async (videoTrack, state) => {
 								// Correct: Call the draw method ON the mixFrame object
 								mixFrame.draw(processCtx, destX, destY, destWidth, destHeight);
 
+								// ... inside the loop ...
 							} else if (prop.action === 'overlay') {
-								// --- UPDATED CHROMA KEY LOGIC ---
 								processCtx.save();
 
 								const tempCanvas = new OffscreenCanvas(mixFrame.displayWidth, mixFrame.displayHeight);
@@ -545,39 +575,54 @@ const createVideoProcessFunction = async (videoTrack, state) => {
 								const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
 								const data = imageData.data;
 
-								// 1. Configuration
-								// ideally you should pass these via `prop` or `state`, 
-								// but here are the defaults from the working code:
-								const chromaSettings = {
-									color: '#00ff00', // Green
-									similarity: 0.4,
-									smoothness: 0.1,
-									spill: 0.2
-								};
+								// --- AUTO-DETECT LOGIC START ---
 
-								// 2. Helper to convert Hex to RGB
-								const hexToRgb = (hex) => {
-									const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-									return result ? {
-										r: parseInt(result[1], 16),
-										g: parseInt(result[2], 16),
-										b: parseInt(result[3], 16)
-									} : { r: 0, g: 255, b: 0 };
-								};
+								// We store the detected color on the 'mixTrack' object so we don't 
+								// have to recalculate it every single frame (which prevents flickering).
+								if (!mixTrack._cachedKeyColor) {
+									// This runs only on the first frame of this overlay
+									console.log(`[MixVideo] Auto-detecting chroma key for ${mixTrack.segment.name || 'overlay'}`);
+									mixTrack._cachedKeyColor = detectBackgroundColor(data, tempCanvas.width, tempCanvas.height);
+								}
+								// Use the cached color (RGB object)
+								let keyColor = mixTrack._cachedKeyColor;
 
-								const { r: keyR, g: keyG, b: keyB } = hexToRgb(chromaSettings.color);
+								// Default settings
+								let similarity = 0.4;
+								let smoothness = 0.1;
+								let spill = 0.2;
+								// --- AUTO-DETECT LOGIC END ---
 
-								// Max Euclidean distance in RGB space: sqrt(255^2 * 3)
-								const maxDist = 441.67;
+								if (mixTrack.segment.chromaKey) {
+									const hexToRgb = (hex) => {
+										const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+										return result ? {
+											r: parseInt(result[1], 16),
+											g: parseInt(result[2], 16),
+											b: parseInt(result[3], 16)
+										} : { r: 0, g: 255, b: 0 };
+									};
+
+									keyColor = hexToRgb(mixTrack.segment.chromaKey.color);
+									similarity = mixTrack.segment.chromaKey.similarity;
+									smoothness = mixTrack.segment.chromaKey.smoothness;
+									spill = mixTrack.segment.chromaKey.spill;
+								}
+
+								// Performance optimization: Max distance constant
+								const maxDist = 441.67; // sqrt(255^2 * 3)
 								const l = data.length;
 
-								// 3. The Processing Loop
+								const keyR = keyColor.r;
+								const keyG = keyColor.g;
+								const keyB = keyColor.b;
+
 								for (let i = 0; i < l; i += 4) {
 									const r = data[i];
 									const g = data[i + 1];
 									const b = data[i + 2];
 
-									// Calculate Euclidean distance
+									// Calculate Euclidean distance based on the AUTO-DETECTED color
 									const dist = Math.sqrt(
 										(r - keyR) ** 2 +
 										(g - keyG) ** 2 +
@@ -587,19 +632,19 @@ const createVideoProcessFunction = async (videoTrack, state) => {
 									const normalizedDist = dist / maxDist;
 									let alpha = 1.0;
 
-									if (normalizedDist < chromaSettings.similarity) {
+									if (normalizedDist < similarity) {
 										alpha = 0.0;
-									} else if (normalizedDist < chromaSettings.similarity + chromaSettings.smoothness) {
-										alpha = (normalizedDist - chromaSettings.similarity) / chromaSettings.smoothness;
+									} else if (normalizedDist < similarity + smoothness) {
+										alpha = (normalizedDist - similarity) / smoothness;
 									}
 
 									data[i + 3] = alpha * 255;
 
-									// Spill Reduction (Desaturation)
-									if (alpha < 1.0 || normalizedDist < chromaSettings.similarity + chromaSettings.smoothness + 0.1) {
-										if (chromaSettings.spill > 0) {
+									// Spill Reduction
+									if (alpha < 1.0 || normalizedDist < similarity + smoothness + 0.1) {
+										if (spill > 0) {
 											const gray = (r * 0.299 + g * 0.587 + b * 0.114);
-											const spillFactor = chromaSettings.spill * (1.0 - normalizedDist);
+											const spillFactor = spill * (1.0 - normalizedDist);
 
 											if (spillFactor > 0) {
 												data[i] = r * (1 - spillFactor) + gray * spillFactor;
@@ -612,7 +657,6 @@ const createVideoProcessFunction = async (videoTrack, state) => {
 
 								tempCtx.putImageData(imageData, 0, 0);
 
-								// Draw the processed (transparent) video onto the main canvas
 								processCtx.drawImage(
 									tempCanvas,
 									destX, destY,

@@ -2052,3 +2052,135 @@ input:disabled {
 .resize-handle.nw { top: 0; left: 0; cursor: nw-resize; }
 .resize-handle.se { top: 100%; left: 100%; cursor: se-resize; }
 .resize-handle.sw { top: 100%; left: 0; cursor: sw-resize; }
+
+/* --- Layout Container --- */
+#chromaKeyColorContent {
+    height: 65vh; /* Fixed height relative to viewport */
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.chroma-workspace {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    gap: 0;
+    overflow: hidden;
+    border: 1px solid #333;
+    border-radius: 8px;
+    background: #1a1a1a;
+}
+
+/* --- Left Side: Video/Canvas --- */
+.chroma-canvas-area {
+    flex: 1; /* Takes remaining space (approx 70-75%) */
+    background-color: #000;
+    /* Checkerboard pattern for transparency */
+    background-image: 
+        linear-gradient(45deg, #333 25%, transparent 25%), 
+        linear-gradient(-45deg, #333 25%, transparent 25%), 
+        linear-gradient(45deg, transparent 75%, #333 75%), 
+        linear-gradient(-45deg, transparent 75%, #333 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+#chromaPreviewCanvas {
+    /* Ensure video fits nicely without scrolling */
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    cursor: crosshair;
+}
+
+/* --- Right Side: Controls --- */
+.chroma-controls-area {
+    width: 320px; /* Fixed width for controls */
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    /* justify-content: center; */
+    gap: 20px;
+    border-left: 1px solid #444;
+    box-shadow: -5px 0 15px rgba(0,0,0,0.3);
+}
+
+.chroma-control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.chroma-control-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    justify-content: space-between;
+}
+
+.chroma-control-group input[type="range"] {
+    width: 100%;
+    cursor: pointer;
+    accent-color: var(--accent-primary);
+}
+
+/* Color Picker Row */
+.chroma-color-picker-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 10px;
+    color: var(--text-primary);
+    padding: 10px;
+    border: 2px dashed var(--glass-border);
+    border-radius: var(--border-radius-lg);
+}
+
+.chroma-color-preview {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    overflow: hidden;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.color-text h4 {
+    margin: 0;
+    font-size: 14px;
+    /* color: white; */
+}
+.color-text p {
+    margin: 0;
+    font-size: 11px;
+    color: #888;
+}
+
+input[type="color"] {
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+/* --- Buttons --- */
+.chroma-play-btn {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    z-index: 10;
+}
+.chroma-play-btn:hover { transform: translateX(-50%) scale(1.1); }

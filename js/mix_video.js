@@ -22,6 +22,7 @@ import { rightPanel, formatTime, parseTime } from './utility.js'
 import { handleCutAction } from './editing.js';
 import { getPlaybackTime, registerOnFrameRender, unregisterOnFrameRender } from './player.js';
 import { showError, showStatusMessage, hideStatusMessage, showInfo } from './ui.js';
+import { ChromaKeyApp } from './chroma_key_set.js';
 
 let activeSegmentIndex = -1;
 let activeRangeIndex = -1;
@@ -175,6 +176,12 @@ export const setupVideoListener = () => {
             updateMixVideoUI();
             return;
         }
+
+        const chromaKeyColorConfig = target.closest('.chromaKeyColorConfig');
+        if (chromaKeyColorConfig) {
+            ChromaKeyApp.init(activeSegmentIndex);
+        }
+        
     });
 
     menu.addEventListener('change', (e) => {
@@ -221,9 +228,10 @@ export const addVideoTrackToPlaylist = async (file, options = {}) => {
     // Show some UI feedback that the video is "preparing"
     showStatusMessage(`Preparing overlay video: ${file.name}...`);
 
-    const normalizedFile = await normalizeVideo(file, (progress) => {
-        showStatusMessage(`Preparing overlay: ${Math.round(progress * 100)}%`);
-    });
+    // const normalizedFile = await normalizeVideo(file, (progress) => {
+    //     showStatusMessage(`Preparing overlay: ${Math.round(progress * 100)}%`);
+    // });
+    const normalizedFile = file;
 
     hideStatusMessage();
 
@@ -311,6 +319,7 @@ const getMixVideoTimeRangeHtml = (segment, segmentIndex) => {
                         <button class="btn" data-action="base" data-index="${segmentIndex}" data-range-index="${rangeIndex}">Base</button>
                         <button class="btn" data-action="overlay" data-index="${segmentIndex}" data-range-index="${rangeIndex}">Overlay</button>
                     </div>
+                    <button class="chromaKeyColorConfig btn" id="chromaKeyColorConfig">Config</button>
                 </div>
             </div>
         </div>
