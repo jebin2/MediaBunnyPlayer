@@ -22,7 +22,7 @@ import {
 import { showInfo, showError } from './ui.js';
 
 export const setupTweetGenerator = () => {
-    
+
     $('SocialMediaPostModalCloseBtn').onclick = () => {
         $('SocialMediaPostModal').classList.add('hidden');
     }
@@ -32,6 +32,22 @@ export const setupTweetGenerator = () => {
     };
     document.getElementById('SocialMediaPostScreenShotBtn').addEventListener('click', () => {
         captureAndStitchScreenshot('#twitter-widget-0');
+    });
+    document.getElementById('SocialMediaPostUrl').addEventListener('change', (e) => {
+        if (e.target.value) {
+            const url = e.target.value.replace("x.com", "twitter.com");
+
+            document.getElementById("blockquote").innerHTML = `
+            <blockquote class="twitter-tweet">
+                <a href="${url}"></a>
+            </blockquote>
+        `;
+
+            // Force Twitter to re-render embed
+            if (window.twttr) {
+                twttr.widgets.load();
+            }
+        }
     });
 };
 
@@ -68,7 +84,7 @@ const captureElementScreenshot = async (elementSelector) => {
                 // @ts-ignore
                 // This is a newer, powerful constraint. It tells the browser NOT to scale the video source.
                 // We want the raw pixels from the screen.
-                
+
                 displaySurface: "browser",   // ensures crisp text
                 logicalSurface: false,       // force physical pixels
                 resizeMode: "none",
@@ -88,7 +104,7 @@ const captureElementScreenshot = async (elementSelector) => {
         const settings = track.getSettings();
         console.log(`[Screenshot] Initial stream resolution: ${settings.width}x${settings.height}`);
         console.log(`[Screenshot] System Device Pixel Ratio: ${window.devicePixelRatio}`);
-        
+
         // This ensures our final capture matches the screen's native resolution.
         await track.applyConstraints({
             width: settings.width,
@@ -104,17 +120,17 @@ const captureElementScreenshot = async (elementSelector) => {
 
         // Step 4: Prepare the canvas for a high-quality crop.
         const canvas = document.createElement('canvas');
-        
+
         // The Device Pixel Ratio is CRUCIAL. getBoundingClientRect gives us CSS pixels,
         // but the screen capture (bitmap) is in physical pixels. We must account for this.
         const dpr = window.devicePixelRatio || 1;
         canvas.width = cropArea.width * dpr;
         canvas.height = cropArea.height * dpr;
-        
+
         const ctx = canvas.getContext('2d', { alpha: false });
         if (!ctx) {
-             showError("Could not create canvas context.");
-             return;
+            showError("Could not create canvas context.");
+            return;
         }
 
         // --- ANOTHER KEY QUALITY IMPROVEMENT ---
@@ -207,7 +223,7 @@ async function captureScaledScreenshot(elementSelector) {
     element.style.left = '50%';
     // First, translate it back by half its size, THEN scale it.
     element.style.transform = `translate(-50%, -50%) scale(${finalScaleFactor})`;
-    
+
     document.body.appendChild(overlay);
     overlay.appendChild(element); // Append element to overlay AFTER setting styles
 
@@ -381,7 +397,7 @@ async function captureAndStitchScreenshot(elementSelector) {
                 // This is the last strip. Its height is whatever is left to fill the canvas.
                 sliceHeight = finalCanvas.height - yPosOnCanvas;
             }
-            
+
             // This prevents tiny negative-height draws from browser quirks.
             if (sliceHeight <= 0) continue;
 
