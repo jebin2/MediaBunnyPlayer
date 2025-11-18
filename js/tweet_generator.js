@@ -31,7 +31,7 @@ export const setupTweetGenerator = () => {
         SocialMediaPostModal.classList.remove('hidden');
     };
     document.getElementById('SocialMediaPostScreenShotBtn').addEventListener('click', () => {
-        captureAndStitchScreenshot('#twitter-widget-0');
+        captureAndStitchScreenshot("iframe[title='X Post']");
     });
     document.getElementById('SocialMediaPostUrl').addEventListener('change', (e) => {
         if (e.target.value) {
