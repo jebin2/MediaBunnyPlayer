@@ -534,36 +534,58 @@ const createVideoProcessFunction = async (videoTrack, state) => {
 								mixFrame.draw(processCtx, destX, destY, destWidth, destHeight);
 
 							} else if (prop.action === 'overlay') {
-								// Your chroma key (green screen) logic here...
+								// Overlay video: apply a more robust chroma key for green screen
 								processCtx.save();
 
-								// Create a temporary canvas for chroma keying
 								const tempCanvas = new OffscreenCanvas(mixFrame.displayWidth, mixFrame.displayHeight);
 								const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
 
-								// Correct: Use the draw method here as well
+								// Use the library's built-in draw method
 								mixFrame.draw(tempCtx, 0, 0);
 
-								// Get image data to process
 								const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
 								const data = imageData.data;
 
-								// Green screen removal logic (remains the same)
-								const threshold = 0.4;
-								const smoothing = 0.1;
+								// Tolerance: How close a color's hue must be to the key color.
+								// Lower is stricter. Good values are between 40-80.
+								const tolerance = 60;
+
+								// Edge Feathering: How soft the edges are.
+								// Lower is sharper. 0.0 means a hard edge. Good values are 0.0 to 0.1.
+								const smoothing = 0.05;
+
 								for (let i = 0; i < data.length; i += 4) {
-									const r = data[i], g = data[i + 1], b = data[i + 2];
-									const greenDominance = (g - Math.max(r, b)) / 255;
-									if (greenDominance > threshold) {
-										const alpha = Math.max(0, 1 - (greenDominance - threshold) / smoothing);
-										data[i + 3] = Math.round(data[i + 3] * alpha);
+									const r = data[i];
+									const g = data[i + 1];
+									const b = data[i + 2];
+
+									// Calculate the color difference in a brightness-independent way
+									const greeness = g - Math.max(r, b);
+
+									// If the pixel's hue is close to pure green...
+									if (greeness > tolerance) {
+										// Calculate alpha based on the feathering/smoothing
+										const alpha = (greeness - tolerance) / smoothing;
+
+										// If alpha is 1 or more, the pixel is fully transparent.
+										// If it's between 0 and 1, it's a semi-transparent edge pixel.
+										if (alpha >= 1) {
+											data[i + 3] = 0; // Fully transparent
+										} else {
+											// This creates the soft edge
+											data[i + 3] = 255 - alpha * 255;
+										}
 									}
 								}
 
 								tempCtx.putImageData(imageData, 0, 0);
 
 								// Draw the processed (transparent) video onto the main canvas
-								processCtx.drawImage(tempCanvas, destX, destY, destWidth, destHeight);
+								processCtx.drawImage(
+									tempCanvas,
+									destX, destY,
+									destWidth, destHeight
+								);
 
 								processCtx.restore();
 							}
