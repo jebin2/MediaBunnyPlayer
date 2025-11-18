@@ -140,3 +140,10 @@ export const blurMenu = $('blurMenu');
 
 // Mix Audio
 export const mixAudioMenu = $('mixAudioMenu');
+
+// SocialMediaPost
+export const SocialMediaPostOpenbtn = $('SocialMediaPostOpenbtn');
+export const SocialMediaPostModal = $('SocialMediaPostModal');
+
+// Mix Video
+export const mixVideoMenu = $('mixVideoMenu');

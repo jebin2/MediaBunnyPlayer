@@ -20,6 +20,8 @@ import { setupCaptionListeners } from './caption.js';
 import {
 	setupBlurListeners
 } from './blur.js';
+import { setupTweetGenerator } from './tweet_generator.js';
+import { setupVideoListener } from './mix_video.js';
 export const setupEventListeners = () => {
 	$('chooseFileBtn').onclick = () => {
 		state.fileLoaded = false;
@@ -113,6 +115,8 @@ export const setupEventListeners = () => {
 	setupPlayerListener();
 	setupCaptionListeners();
 	setupBlurListeners();
+	setupTweetGenerator();
+	setupVideoListener()
 
 	document.onkeydown = (e) => {
 		if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || !state.fileLoaded) return;

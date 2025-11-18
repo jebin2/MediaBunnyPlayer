@@ -30,6 +30,7 @@ const urlsToCache = [
     '/js/player.js',
     '/js/playlist.js',
     '/MediaBunnyPlayer/js/recording.js',
+    '/MediaBunnyPlayer/js/tweet_generator.js',
     '/MediaBunnyPlayer/js/resize.js',
     '/MediaBunnyPlayer/js/screenshot.js',
     '/MediaBunnyPlayer/js/settings.js',

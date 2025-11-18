@@ -1772,7 +1772,8 @@ input[type="checkbox"] {
 
 #selectImageBtn,
 #imageDurationInput,
-#imageAddInfo {
+#imageAddInfo,
+#SocialMediaPostUrl {
     width: 100%;
 }
 
@@ -2001,10 +2002,52 @@ input:disabled {
     transform: translateX(4px);
 }
 
+.mix-video-name,
 .mix-audio-name {
     margin-left: 10px;
 }
-
 .mtop0-75 {
     margin-top: 0.75rem;
 }
+
+.tweet_generator {
+    width: 600px;
+}
+
+.mix-video-name{
+    width: 100px;
+    overflow: hidden;
+}
+
+/* Add this CSS to your stylesheet */
+
+/* Styles for the interactive overlay controls on the player */
+.overlay-control-box {
+    position: absolute;
+    top: 0;
+    left: 0;
+    border: 2px dashed #00a8ff;
+    box-sizing: border-box;
+    cursor: move;
+    display: none; /* Hidden by default, shown when its range is active */
+    z-index: 10;
+}
+
+.resize-handle {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background-color: #00a8ff;
+    border: 1px solid #fff;
+    border-radius: 50%;
+    transform: translate(-50%, -50%); /* Center the handle on the corner/edge */
+}
+
+.resize-handle.n { top: 0; left: 50%; cursor: n-resize; }
+.resize-handle.s { top: 100%; left: 50%; cursor: s-resize; }
+.resize-handle.e { top: 50%; left: 100%; cursor: e-resize; }
+.resize-handle.w { top: 50%; left: 0; cursor: w-resize; }
+.resize-handle.ne { top: 0; left: 100%; cursor: ne-resize; }
+.resize-handle.nw { top: 0; left: 0; cursor: nw-resize; }
+.resize-handle.se { top: 100%; left: 100%; cursor: se-resize; }
+.resize-handle.sw { top: 100%; left: 0; cursor: sw-resize; }

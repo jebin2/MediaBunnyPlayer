@@ -115,7 +115,7 @@ export const initiateScreenRecording = async () => {
     try {
         const stream = await navigator.mediaDevices.getDisplayMedia({
             video: { cursor: "always" },
-            // preferCurrentTab: true,
+            preferCurrentTab: true,
             selfBrowserSurface: "include",
             surfaceSwitching: "include",
             audio: { echoCancellation: true, noiseSuppression: true }

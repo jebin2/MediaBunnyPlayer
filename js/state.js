@@ -140,5 +140,8 @@ export const state = {
     onFrameRenderCallbacks: [],
 
     // Mix Audio
-    mixAudio : []
+    mixAudio : [],
+
+    // Mix Video
+    mixVideo: []
 };

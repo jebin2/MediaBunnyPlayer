@@ -27,6 +27,8 @@
 	<link rel="stylesheet" href="./css/main1.css">
 	<link rel="preload" href="./css/style.css" as="style">
 	<link rel="stylesheet" href="./css/style.css">
+	<script async src="https://platform.twitter.com/widgets.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 
 <body>
@@ -210,6 +212,8 @@
 						<button id="mergeBtn" class="control-btn track-btn btn">Merge</button>
 						<button id="blurBtn" class="control-btn track-btn btn">Blur</button>
 						<button id="mixAudioBtn" class="control-btn track-btn btn">Mix Audio</button>
+						<button id="mixVideoBtn" class="control-btn track-btn btn">Mix Video</button>
+						<button id="SocialMediaPostOpenbtn" class="control-btn track-btn btn hidden">Tweet-Image</button>
 					</div>
 
 					<hr class="menu-divider">
@@ -351,6 +355,19 @@
 				</div>
 				<div class="track-menu-content" id="mixAudioSegmentsList">
 					<p>No Audio added.</p>
+				</div>
+			</div>
+			<div class="sidebar hidden" id="mixVideoMenu">
+				<div class="track-menu-content">
+					<h4>Video List</h4>
+					<div class="trim-menu-actions">
+						<input type="file" id="mixVideoFileInput" accept="video/*" style="display:none">
+						<button id="uploadMixVideoBtn" class="btn">Upload</button>
+						<button id="processMixVideoBtn" class="btn">Process Clip</button>
+					</div>
+				</div>
+				<div class="track-menu-content" id="mixVideoSegmentsList">
+					<p>No Video added.</p>
 				</div>
 			</div>
 		</div>
@@ -603,6 +620,26 @@
 
 			<div class="screenshot-actions">
 				<button class="btn" id="applyBlurBtn">Apply</button>
+			</div>
+		</div>
+	</div>
+	<div class="screenshot-overlay hidden" id="SocialMediaPostModal">
+		<div class="screenshot-modal tweet_generator">
+			<button class="close-btn" id="SocialMediaPostModalCloseBtn">&times;</button>
+			<h3>Social Media Post</h3>
+			<div class="resize-section">
+				<input id="SocialMediaPostUrl" class="speed-input" placeholder="X URL">
+			</div>
+			<div id="blockquote">
+
+			</div>
+			<!-- <blockquote class="twitter-tweet">
+				<a href="https://twitter.com/testingcatalog/status/1990177061852328329"></a>
+				<a href="https://twitter.com/FFmpeg/status/1990472486618869830"></a>
+				<a href="https://twitter.com/Microsoft/status/1990517803250540942?s=20"></a>
+			</blockquote> -->
+			<div class="screenshot-actions">
+				<button class="btn" id="SocialMediaPostScreenShotBtn">ScreenShot</button>
 			</div>
 		</div>
 	</div>
